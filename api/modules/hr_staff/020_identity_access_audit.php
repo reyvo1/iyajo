@@ -2148,11 +2148,13 @@ function findActiveStaffByTelegramUserId($pdo, $telegramUserId): ?array {
     $legacy = $pdo->prepare("SELECT * FROM staff WHERE telegram_chat_id=? AND status='active' ORDER BY id LIMIT 2");
     $legacy->execute([$telegramUserId]);
     $legacyRows = $legacy->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    if (count($legacyRows) !== 1) {
-        if (count($legacyRows) > 1) error_log('[Telegram Auth] Duplicate legacy Telegram User ID rejected: ' . hash('sha256',$telegramUserId));
-        return null;
+    if (count($legacyRows) === 1) {
+        return $legacyRows[0];
     }
-    return $legacyRows[0];
+    if (count($legacyRows) > 1) {
+        error_log('[Telegram Auth] Duplicate legacy Telegram User ID rejected: ' . hash('sha256',$telegramUserId));
+    }
+    return null;
 }
 
 
