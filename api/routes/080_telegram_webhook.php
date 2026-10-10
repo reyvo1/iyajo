@@ -558,6 +558,94 @@ switch ($action) {
                 ];
             };
 
+            $buildTelegramRoomPaymentStatusMenu = static function(
+                PDO $pdo,
+                int $page=1,
+                string $filter='all',
+                int $pageSize=20
+            ) use ($buildTelegramPagerRow, $telegramPlainText, $telegramPaymentStatusLabel): array {
+                $pageSize=max(6,min(30,$pageSize));
+                $where=['1=1'];
+                $params=[];
+                if($filter==='unpaid'){
+                    $where[]="(b.status='active' AND (b.paymentStatus='unpaid' OR b.paymentStatus='partial')) OR (b.status='reserved' AND (b.paymentStatus='unpaid' OR b.paymentStatus='partial'))";
+                } elseif ($filter==='active'){
+                    $where[]="b.status='active'";
+                } elseif ($filter==='reserved'){
+                    $where[]="b.status='reserved'";
+                }
+                $whereSql=implode(' AND ',$where);
+                $countSql="SELECT COUNT(DISTINCT r.number) FROM rooms r LEFT JOIN bookings b ON b.roomNumber=r.number AND (b.status='active' OR b.status='reserved') WHERE {$whereSql}";
+                $countStmt=$pdo->prepare($countSql);
+                $countStmt->execute($params);
+                $count=(int)$countStmt->fetchColumn();
+                if($count<=0){
+                    $msg="💰 *STATUS PEMBAYARAN PER KAMAR*\n\nTidak ada kamar yang cocok dengan filter.";
+                    return ['text'=>$msg,'markup'=>['inline_keyboard'=>[[['text'=>'⬅️ Kamar & Tamu','callback_data'=>'guest_ops_menu']]]]];
+                }
+                $totalPages=max(1,(int)ceil($count/$pageSize));
+                $page=min(max(1,$page),$totalPages);
+                $offset=($page-1)*$pageSize;
+                $sql="SELECT r.number,r.status,r.type,r.price,
+                    b.id,b.guestName,b.status AS bookingStatus,b.paymentStatus,b.balanceDue,b.totalAmount,
+                    COALESCE(b.paymentStatus,'unpaid') AS payStatus
+                    FROM rooms r
+                    LEFT JOIN bookings b ON b.roomNumber=r.number AND (b.status='active' OR b.status='reserved')
+                    WHERE {$whereSql}
+                    ORDER BY CASE r.status WHEN 'booked' THEN 1 WHEN 'maintenance' THEN 2 WHEN 'dirty' THEN 3 WHEN 'cleaning' THEN 4 ELSE 5 END,
+                    CAST(r.number AS UNSIGNED),r.number
+                    LIMIT ? OFFSET ?";
+                $stmt=$pdo->prepare($sql);
+                $stmt->bindValue(1,$pageSize,PDO::PARAM_INT);
+                $stmt->bindValue(2,$offset,PDO::PARAM_INT);
+                foreach($params as $i=>$v)$stmt->bindValue(3+$i,$v);
+                $stmt->execute();
+                $rows=$stmt->fetchAll(PDO::FETCH_ASSOC)?:[];
+                $buttons=[];$row=[];$lines=[];
+                $lines[]="💰 *STATUS PEMBAYARAN PER KAMAR*";
+                $lines[]="";
+                foreach($rows as $room){
+                    $roomNum=(string)($room['number']??'-');
+                    $roomStatus=strtolower(trim((string)($room['status']??'available')));
+                    $statusIcon=$roomStatus==='booked'?'🔴':($roomStatus==='available'?'🟢':($roomStatus==='maintenance'?'🛠️':($roomStatus==='dirty'?'🧹':($roomStatus==='cleaning'?'🧽':'⚪'))));
+                    $bookingStatus=strtolower(trim((string)($room['bookingStatus']??'')));
+                    $payStatus=trim((string)($room['payStatus']??'unpaid'));
+                    $payIcon=$payStatus==='paid'?'✅':($payStatus==='partial'?'⚠️':'❌');
+                    $guest=trim((string)($room['guestName']??''));
+                    $balance=(float)($room['balanceDue']??0);
+                    $total=(float)($room['totalAmount']??0);
+                    $statusLabel='';
+                    if($bookingStatus==='active')$statusLabel='Aktif';
+                    elseif($bookingStatus==='reserved')$statusLabel='Reserved';
+                    elseif($room['status']==='maintenance')$statusLabel='Maintenance';
+                    elseif($room['status']==='dirty')$statusLabel='Dirty';
+                    elseif($room['status']==='cleaning')$statusLabel='Cleaning';
+                    else $statusLabel='Kosong';
+                    $outstanding=$balance>0.5?number_format($balance,0,',','.'):'—';
+                    $line="{$statusIcon} {$roomNum} {$payIcon} {$statusLabel} | {$guest} | {$outstanding}";
+                    if(function_exists('mb_strlen') && mb_strlen($line)>60)$line=mb_substr($line,0,57).'...';
+                    elseif(strlen($line)>60)$line=substr($line,0,57).'...';
+                    $lines[]=$line;
+                }
+                $filterLabels=['all'=>'Semua','unpaid'=>'Belum Lunas','active'=>'Aktif','reserved'=>'Reserved'];
+                $filterLabel=$filterLabels[$filter]??'Semua';
+                $filterButtons=[
+                    ['text'=>'📋 Semua','callback_data'=>'room_payment_status_filter:all'],
+                    ['text'=>'❌ Belum Lunas','callback_data'=>'room_payment_status_filter:unpaid'],
+                    ['text'=>'🔴 Aktif','callback_data'=>'room_payment_status_filter:active'],
+                    ['text'=>'📅 Reserved','callback_data'=>'room_payment_status_filter:reserved'],
+                ];
+                $pagerButtons=$buildTelegramPagerRow($page,$totalPages,'room_payment_status_menu:p:');
+                $buttons=array_chunk($filterButtons,2);
+                if($pagerButtons)$buttons[]=$pagerButtons;
+                $buttons[]=[['text'=>'⬅️ Kamar & Tamu','callback_data'=>'guest_ops_menu']];
+                $rangeStart=$count>0?$offset+1:0;
+                $rangeEnd=min($offset+$pageSize,$count);
+                return [
+                    'text'=>implode("\n",$lines)."\n\n📄 Halaman *{$page}/{$totalPages}* · kamar *{$rangeStart}-{$rangeEnd}* dari *{$count}* · Filter: *{$filterLabel}*.",
+                    'markup'=>['inline_keyboard'=>$buttons]
+                ];
+            };
             $buildTelegramGuestServiceDetail = static function(PDO $pdo, array $staff, string $identifier) use ($telegramPlainText): array {
                 $request=tamasyaGuestServiceRequestByIdentifier($pdo,$identifier,false);
                 if(!$request)return ['text'=>'⚠️ Permintaan tamu tidak ditemukan.','markup'=>['inline_keyboard'=>[[['text'=>'⬅️ Antrean','callback_data'=>'gsm:p:1']]]]];
@@ -775,7 +863,7 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     $supportPrefixes = ['support_reply:'];
                     $financeCallbacks = ['pemasukan_menu','pengeluaran_menu','laporan_kas_refresh','consistency_guard'];
                     $financePrefixes = ['pemasukan_menu:p:','p_room:','p_room_confirm_direct:','p_room_cat:','p_room_custom:','p_room_sub:','p_room_custom_sub:','p_exp_cat:','p_exp_sub:','p_exp_custom:','p_exp_confirm_direct:','p_exp_custom_sub:'];
-                    $reservationCallbacks = ['room_list','sell_room_list','reservation_list','booking_extend_menu','booking_service_menu','booking_transfer_menu','booking_checkout_menu','cancel_booking_process','simulate_ktp_upload'];
+                    $reservationCallbacks = ['room_list','sell_room_list','reservation_list','booking_extend_menu','booking_service_menu','booking_transfer_menu','booking_checkout_menu','room_payment_status_menu','cancel_booking_process','simulate_ktp_upload'];
                     $reservationPrefixes = ['room_list:p:','sell_room_list:p:','reservation_list:p:','reservation_detail:','booking_extend_menu:p:','booking_service_menu:p:','booking_transfer_menu:p:','booking_checkout_menu:p:','room_select:','room_set:','key_status:','key_issue_review:','key_issue_confirm:','r_sell:','r_sell_confirm:','r_sell_nego_prompt:','r_sell_source_prompt:','r_sell_walkin_ktp:','r_sell_custom:','r_sell_source_set:','r_sell_source_back:','r_sell_split_select:','r_sell_open_ended_select:','r_sell_split_bank:','r_sell_dp_confirm:','r_checkout:','r_checkout_nego:','r_checkout_nego_save:','r_checkout_key:','r_checkout_confirm:','r_checkout_defer:','r_checkout_pay:','r_checkout_split:','r_checkout_split_bank:','r_charge_method:','r_charge_account:','r_charge_save:','r_extend:','r_extend_nego:','r_extend_choice:','r_extend_confirm:','r_layanan:','r_layanan_type:','r_layanan_confirm:','r_transfer:','r_transfer_target:','r_transfer_confirm:','r_transfer_key:'];
                     $housekeepingCallbacks = ['housekeeping_menu'];
                     $housekeepingPrefixes = ['housekeeping_menu:p:','hk_room:','hk_set:'];
@@ -959,6 +1047,7 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                         $buttons[]=[['text'=>'🔎 Diagnosa Kamar','callback_data'=>'room_list']];
                         $buttons[]=[['text'=>'⏳ Perpanjang','callback_data'=>'booking_extend_menu'],['text'=>'🛠️ Tambah Layanan','callback_data'=>'booking_service_menu']];
                         $buttons[]=[['text'=>'🔄 Pindah Kamar','callback_data'=>'booking_transfer_menu'],['text'=>'🚪 Check-out','callback_data'=>'booking_checkout_menu']];
+                    $buttons[]=[['text'=>'💰 Status Bayar Kamar','callback_data'=>'room_payment_status_menu']];
                     }
                     if(in_array($callbackRole,['admin','manager','receptionist','finance'],true))$buttons[]=[['text'=>'🧾 Cetak Nota','callback_data'=>'receipt_menu']];
                     if(hasCapability($loggedInStaff,'view_guest_identity',['admin','manager','receptionist','keamanan']))$buttons[]=[['text'=>'🪪 Lihat KTP','callback_data'=>'guest_identity_menu']];
@@ -982,6 +1071,18 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                     $page=str_starts_with($callbackData,'booking_checkout_menu:p:')?max(1,(int)substr($callbackData,strlen('booking_checkout_menu:p:'))):1;
                     $menu=$buildTelegramActiveBookingPicker($pdo,'r_checkout:','booking_checkout_menu:p:',"🚪 *CHECK-OUT KAMAR*",'Pilih kamar aktif yang akan diproses check-out.','⚠️ Tidak ada sewa aktif yang dapat diproses check-out.',$page);
                     $replyText=$menu['text'];$replyMarkup=$menu['markup'];$alertText='Check-out';
+                } elseif ($callbackData === 'room_payment_status_menu' || str_starts_with($callbackData,'room_payment_status_menu:p:') || str_starts_with($callbackData,'room_payment_status_filter:')) {
+                    $page=1;
+                    $filter='all';
+                    if(str_starts_with($callbackData,'room_payment_status_menu:p:')){
+                        $page=max(1,(int)substr($callbackData,strlen('room_payment_status_menu:p:')));
+                    } elseif (str_starts_with($callbackData,'room_payment_status_filter:')) {
+                        $filter=substr($callbackData,strlen('room_payment_status_filter:'));
+                    }
+                    $menu=buildTelegramRoomPaymentStatusMenu($pdo,$page,$filter);
+                    $replyText=$menu['text'];
+                    $replyMarkup=$menu['markup'];
+                    $alertText='Status Bayar Kamar';
                 } elseif ($callbackData === 'receipt_menu') {
                     $rows=$pdo->query("SELECT id,roomNumber,guestName,status FROM bookings ORDER BY createdAt DESC LIMIT 12")->fetchAll(PDO::FETCH_ASSOC)?:[];
                     if(!$rows){$replyText='⚠️ Belum ada data sewa yang dapat dicetak.';$buttons=[];}
