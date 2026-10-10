@@ -1085,8 +1085,8 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                         $replyMarkup=$menu['markup'];
                         $alertText='Status Bayar Kamar';
                     } catch (Throwable $e) {
-                        error_log('[room_payment_status_menu] Error: '.$e->getMessage());
-                        $replyText="[!] *GAGAL MEMUAT STATUS BAYAR*\n\nTerjadi kesalahan saat memuat data. Silakan coba lagi atau hubungi admin.";
+                        error_log('[room_payment_status_menu] Error: '.$e->getMessage().' in '.$e->getFile().':'.$e->getLine().' Stack: '.$e->getTraceAsString());
+                        $replyText="[!] *GAGAL MEMUAT STATUS BAYAR*\n\nDetail: ".$e->getMessage()."\nFile: ".$e->getFile().':'.$e->getLine()."\nSilakan coba lagi atau hubungi admin.";
                         $replyMarkup=['inline_keyboard'=>[
                             [
                                 ['text'=>'[+] Coba Lagi','callback_data'=>'room_payment_status_menu'],
