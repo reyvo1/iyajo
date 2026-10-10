@@ -564,87 +564,95 @@ switch ($action) {
                 string $filter='all',
                 int $pageSize=30
             ) use ($buildTelegramPagerRow, $telegramPlainText, $telegramPaymentStatusLabel): array {
-                $pageSize=max(6,min(30,$pageSize));
-                $where=['1=1'];
-                $params=[];
-                if($filter==='unpaid'){
-                    $where[]="(b.status='active' AND (b.paymentStatus='unpaid' OR b.paymentStatus='partial')) OR (b.status='reserved' AND (b.paymentStatus='unpaid' OR b.paymentStatus='partial'))";
-                } elseif ($filter==='active'){
-                    $where[]="b.status='active'";
-                } elseif ($filter==='reserved'){
-                    $where[]="b.status='reserved'";
+                try {
+                    $pageSize=max(6,min(30,$pageSize));
+                    $where=['1=1'];
+                    $params=[];
+                    if($filter==='unpaid'){
+                        $where[]="(b.status='active' AND (b.paymentStatus='unpaid' OR b.paymentStatus='partial')) OR (b.status='reserved' AND (b.paymentStatus='unpaid' OR b.paymentStatus='partial'))";
+                    } elseif ($filter==='active'){
+                        $where[]="b.status='active'";
+                    } elseif ($filter==='reserved'){
+                        $where[]="b.status='reserved'";
+                    }
+                    $whereSql=implode(' AND ',$where);
+                    $countSql="SELECT COUNT(DISTINCT r.number) FROM rooms r LEFT JOIN bookings b ON b.roomNumber=r.number AND (b.status='active' OR b.status='reserved') WHERE {$whereSql}";
+                    $countStmt=$pdo->prepare($countSql);
+                    $countStmt->execute($params);
+                    $count=(int)$countStmt->fetchColumn();
+                    if($count<=0){
+                        $msg="💰 *STATUS PEMBAYARAN PER KAMAR*\n\nTidak ada kamar yang cocok dengan filter.";
+                        return ['text'=>$msg,'markup'=>['inline_keyboard'=>[[['text'=>'⬅️ Kamar & Tamu','callback_data'=>'guest_ops_menu']]]]];
+                    }
+                    $totalPages=max(1,(int)ceil($count/$pageSize));
+                    $page=min(max(1,$page),$totalPages);
+                    $offset=($page-1)*$pageSize;
+                    $sql="SELECT r.number,r.status,r.type,r.price,
+                        b.id,b.guestName,b.status AS bookingStatus,b.paymentStatus,b.balanceDue,b.totalAmount,
+                        COALESCE(b.paymentStatus,'unpaid') AS payStatus
+                        FROM rooms r
+                        LEFT JOIN bookings b ON b.roomNumber=r.number AND (b.status='active' OR b.status='reserved')
+                        WHERE {$whereSql}
+                        ORDER BY CASE r.status WHEN 'booked' THEN 1 WHEN 'maintenance' THEN 2 WHEN 'dirty' THEN 3 WHEN 'cleaning' THEN 4 ELSE 5 END,
+                        CAST(r.number AS UNSIGNED),r.number
+                        LIMIT ? OFFSET ?";
+                    $stmt=$pdo->prepare($sql);
+                    $stmt->bindValue(1,$pageSize,PDO::PARAM_INT);
+                    $stmt->bindValue(2,$offset,PDO::PARAM_INT);
+                    foreach($params as $i=>$v)$stmt->bindValue(3+$i,$v);
+                    $stmt->execute();
+                    $rows=$stmt->fetchAll(PDO::FETCH_ASSOC)?:[];
+                    $buttons=[];$row=[];$lines=[];
+                    $lines[]="💰 *STATUS PEMBAYARAN PER KAMAR*";
+                    $lines[]="";
+                    foreach($rows as $room){
+                        $roomNum=(string)($room['number']??'-');
+                        $roomStatus=strtolower(trim((string)($room['status']??'available')));
+                        $statusIcon=$roomStatus==='booked'?'🔴':($roomStatus==='available'?'🟢':($roomStatus==='maintenance'?'🛠️':($roomStatus==='dirty'?'🧹':($roomStatus==='cleaning'?'🧽':'⚪'))));
+                        $bookingStatus=strtolower(trim((string)($room['bookingStatus']??'')));
+                        $payStatus=trim((string)($room['payStatus']??'unpaid'));
+                        $payIcon=$payStatus==='paid'?'✅':($payStatus==='partial'?'⚠️':'❌');
+                        $guest=trim((string)($room['guestName']??''));
+                        $balance=(float)($room['balanceDue']??0);
+                        $total=(float)($room['totalAmount']??0);
+                        $statusLabel='';
+                        if($bookingStatus==='active')$statusLabel='Aktif';
+                        elseif($bookingStatus==='reserved')$statusLabel='Reserved';
+                        elseif($room['status']==='maintenance')$statusLabel='Maintenance';
+                        elseif($room['status']==='dirty')$statusLabel='Dirty';
+                        elseif($room['status']==='cleaning')$statusLabel='Cleaning';
+                        else $statusLabel='Kosong';
+                        $outstanding=$balance>0.5?number_format($balance,0,',','.'):'—';
+                        $line="{$statusIcon} {$roomNum} {$payIcon} {$statusLabel} | {$guest} | {$outstanding}";
+                        if(function_exists('mb_strlen') && mb_strlen($line)>60)$line=mb_substr($line,0,57).'...';
+                        elseif(strlen($line)>60)$line=substr($line,0,57).'...';
+                        $lines[]=$line;
+                    }
+                    $filterLabels=['all'=>'Semua','unpaid'=>'Belum Lunas','active'=>'Aktif','reserved'=>'Reserved'];
+                    $filterLabel=$filterLabels[$filter]??'Semua';
+                    $filterButtons=[
+                        ['text'=>'📋 Semua','callback_data'=>'room_payment_status_filter:all'],
+                        ['text'=>'❌ Belum Lunas','callback_data'=>'room_payment_status_filter:unpaid'],
+                        ['text'=>'🔴 Aktif','callback_data'=>'room_payment_status_filter:active'],
+                        ['text'=>'📅 Reserved','callback_data'=>'room_payment_status_filter:reserved'],
+                    ];
+                    $pagerButtons=$buildTelegramPagerRow($page,$totalPages,'room_payment_status_menu:p:');
+                    $buttons=array_chunk($filterButtons,2);
+                    if($pagerButtons)$buttons[]=$pagerButtons;
+                    $buttons[]=[['text'=>'⬅️ Kamar & Tamu','callback_data'=>'guest_ops_menu']];
+                    $rangeStart=$count>0?$offset+1:0;
+                    $rangeEnd=min($offset+$pageSize,$count);
+                    return [
+                        'text'=>implode("\n",$lines)."\n\n📄 Halaman *{$page}/{$totalPages}* · kamar *{$rangeStart}-{$rangeEnd}* dari *{$count}* · Filter: *{$filterLabel}*.",
+                        'markup'=>['inline_keyboard'=>$buttons]
+                    ];
+                } catch (Throwable $e) {
+                    error_log('[room_payment_status_menu] Error in function: '.$e->getMessage().' in '.$e->getFile().':'.$e->getLine());
+                    return [
+                        'text'=>"[!] *GAGAL MEMUAT STATUS BAYAR*\n\nDetail: ".$e->getMessage()."\nFile: ".$e->getFile().':'.$e->getLine()."\nSilakan coba lagi atau hubungi admin.",
+                        'markup'=>['inline_keyboard'=>[[['text'=>'[+] Coba Lagi','callback_data'=>'room_payment_status_menu'],['text'=>'[<] Kamar & Tamu','callback_data'=>'guest_ops_menu']]]]
+                    ];
                 }
-                $whereSql=implode(' AND ',$where);
-                $countSql="SELECT COUNT(DISTINCT r.number) FROM rooms r LEFT JOIN bookings b ON b.roomNumber=r.number AND (b.status='active' OR b.status='reserved') WHERE {$whereSql}";
-                $countStmt=$pdo->prepare($countSql);
-                $countStmt->execute($params);
-                $count=(int)$countStmt->fetchColumn();
-                if($count<=0){
-                    $msg="💰 *STATUS PEMBAYARAN PER KAMAR*\n\nTidak ada kamar yang cocok dengan filter.";
-                    return ['text'=>$msg,'markup'=>['inline_keyboard'=>[[['text'=>'⬅️ Kamar & Tamu','callback_data'=>'guest_ops_menu']]]]];
-                }
-                $totalPages=max(1,(int)ceil($count/$pageSize));
-                $page=min(max(1,$page),$totalPages);
-                $offset=($page-1)*$pageSize;
-                $sql="SELECT r.number,r.status,r.type,r.price,
-                    b.id,b.guestName,b.status AS bookingStatus,b.paymentStatus,b.balanceDue,b.totalAmount,
-                    COALESCE(b.paymentStatus,'unpaid') AS payStatus
-                    FROM rooms r
-                    LEFT JOIN bookings b ON b.roomNumber=r.number AND (b.status='active' OR b.status='reserved')
-                    WHERE {$whereSql}
-                    ORDER BY CASE r.status WHEN 'booked' THEN 1 WHEN 'maintenance' THEN 2 WHEN 'dirty' THEN 3 WHEN 'cleaning' THEN 4 ELSE 5 END,
-                    CAST(r.number AS UNSIGNED),r.number
-                    LIMIT ? OFFSET ?";
-                $stmt=$pdo->prepare($sql);
-                $stmt->bindValue(1,$pageSize,PDO::PARAM_INT);
-                $stmt->bindValue(2,$offset,PDO::PARAM_INT);
-                foreach($params as $i=>$v)$stmt->bindValue(3+$i,$v);
-                $stmt->execute();
-                $rows=$stmt->fetchAll(PDO::FETCH_ASSOC)?:[];
-                $buttons=[];$row=[];$lines=[];
-                $lines[]="💰 *STATUS PEMBAYARAN PER KAMAR*";
-                $lines[]="";
-                foreach($rows as $room){
-                    $roomNum=(string)($room['number']??'-');
-                    $roomStatus=strtolower(trim((string)($room['status']??'available')));
-                    $statusIcon=$roomStatus==='booked'?'🔴':($roomStatus==='available'?'🟢':($roomStatus==='maintenance'?'🛠️':($roomStatus==='dirty'?'🧹':($roomStatus==='cleaning'?'🧽':'⚪'))));
-                    $bookingStatus=strtolower(trim((string)($room['bookingStatus']??'')));
-                    $payStatus=trim((string)($room['payStatus']??'unpaid'));
-                    $payIcon=$payStatus==='paid'?'✅':($payStatus==='partial'?'⚠️':'❌');
-                    $guest=trim((string)($room['guestName']??''));
-                    $balance=(float)($room['balanceDue']??0);
-                    $total=(float)($room['totalAmount']??0);
-                    $statusLabel='';
-                    if($bookingStatus==='active')$statusLabel='Aktif';
-                    elseif($bookingStatus==='reserved')$statusLabel='Reserved';
-                    elseif($room['status']==='maintenance')$statusLabel='Maintenance';
-                    elseif($room['status']==='dirty')$statusLabel='Dirty';
-                    elseif($room['status']==='cleaning')$statusLabel='Cleaning';
-                    else $statusLabel='Kosong';
-                    $outstanding=$balance>0.5?number_format($balance,0,',','.'):'—';
-                    $line="{$statusIcon} {$roomNum} {$payIcon} {$statusLabel} | {$guest} | {$outstanding}";
-                    if(function_exists('mb_strlen') && mb_strlen($line)>60)$line=mb_substr($line,0,57).'...';
-                    elseif(strlen($line)>60)$line=substr($line,0,57).'...';
-                    $lines[]=$line;
-                }
-                $filterLabels=['all'=>'Semua','unpaid'=>'Belum Lunas','active'=>'Aktif','reserved'=>'Reserved'];
-                $filterLabel=$filterLabels[$filter]??'Semua';
-                $filterButtons=[
-                    ['text'=>'📋 Semua','callback_data'=>'room_payment_status_filter:all'],
-                    ['text'=>'❌ Belum Lunas','callback_data'=>'room_payment_status_filter:unpaid'],
-                    ['text'=>'🔴 Aktif','callback_data'=>'room_payment_status_filter:active'],
-                    ['text'=>'📅 Reserved','callback_data'=>'room_payment_status_filter:reserved'],
-                ];
-                $pagerButtons=$buildTelegramPagerRow($page,$totalPages,'room_payment_status_menu:p:');
-                $buttons=array_chunk($filterButtons,2);
-                if($pagerButtons)$buttons[]=$pagerButtons;
-                $buttons[]=[['text'=>'⬅️ Kamar & Tamu','callback_data'=>'guest_ops_menu']];
-                $rangeStart=$count>0?$offset+1:0;
-                $rangeEnd=min($offset+$pageSize,$count);
-                return [
-                    'text'=>implode("\n",$lines)."\n\n📄 Halaman *{$page}/{$totalPages}* · kamar *{$rangeStart}-{$rangeEnd}* dari *{$count}* · Filter: *{$filterLabel}*.",
-                    'markup'=>['inline_keyboard'=>$buttons]
-                ];
             };
             $buildTelegramGuestServiceDetail = static function(PDO $pdo, array $staff, string $identifier) use ($telegramPlainText): array {
                 $request=tamasyaGuestServiceRequestByIdentifier($pdo,$identifier,false);
