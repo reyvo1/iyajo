@@ -275,8 +275,9 @@ function tamasyaCanonicalReservedCheckInInTransaction(PDO $pdo,array $actor,arra
                 $accessStmt=$pdo->prepare("SELECT access_mode FROM room_access_control WHERE room_number=? LIMIT 1 FOR UPDATE");
                 $accessStmt->execute([$roomNumber]);
                 $accessMode=(string)($accessStmt->fetchColumn() ?: ($booking['accessMode'] ?? 'physical'));
-                $pdo->prepare("UPDATE room_access_control SET current_booking_id=?,physical_key_status='secured',last_event_at=CURRENT_TIMESTAMP,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE room_number=?")
-                    ->execute([$bookingId,(string)$actor['id'],$roomNumber]);
+                // current_booking_id only set when key is actually issued (key-issue command)
+                $pdo->prepare("UPDATE room_access_control SET physical_key_status='secured',last_event_at=CURRENT_TIMESTAMP,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE room_number=?")
+                    ->execute([(string)$actor['id'],$roomNumber]);
                 tamasyaSyncGuestServiceBookingLifecycle($pdo,$actor,(string)$bookingId,'active',$roomNumber,$source.'-checkin');
                 logActivity($pdo,'booking_checkin','Reservasi '.$bookingId.' check-in ke kamar '.$roomNumber,$actor['id']??null,$actor['name']??null);
 }

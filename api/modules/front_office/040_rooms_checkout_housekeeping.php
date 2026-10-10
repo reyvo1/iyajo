@@ -620,8 +620,8 @@ function finalizeActiveBookingOperationalState(PDO $pdo, string $bookingId, stri
     $pdo->prepare("UPDATE bookings SET actualCheckInAt=COALESCE(actualCheckInAt,CURRENT_TIMESTAMP),checkoutDueAt=COALESCE(checkoutDueAt,?),accessMode=?,keyControlStatus=COALESCE(NULLIF(keyControlStatus,''),'not_issued') WHERE id=?")
         ->execute([$checkoutDueAt,$accessMode,$bookingId]);
     tamasyaReconcileRoomOperationalProjection($pdo,$staff,$roomNumber,$source.'-active-booking');
-    $pdo->prepare("INSERT INTO room_access_control (room_number,physical_key_ref,current_booking_id,physical_key_status,last_event_at,updated_by,updated_at) VALUES (?,CONCAT('KEY-',?),?,'secured',CURRENT_TIMESTAMP,?,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE current_booking_id=VALUES(current_booking_id),physical_key_status='secured',last_event_at=CURRENT_TIMESTAMP,updated_by=VALUES(updated_by),updated_at=CURRENT_TIMESTAMP")
-        ->execute([$roomNumber,$roomNumber,$bookingId,$staff['id']??null]);
+    $pdo->prepare("INSERT INTO room_access_control (room_number,physical_key_ref,physical_key_status,last_event_at,updated_by,updated_at) VALUES (?,CONCAT('KEY-',?),'secured',CURRENT_TIMESTAMP,?,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE physical_key_status='secured',last_event_at=CURRENT_TIMESTAMP,updated_by=VALUES(updated_by),updated_at=CURRENT_TIMESTAMP")
+        ->execute([$roomNumber,$roomNumber,$staff['id']??null]);
 }
 
 /** Source line 3093: lockActiveBookingForRoom */
