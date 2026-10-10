@@ -463,19 +463,21 @@ switch ($action) {
                 string $emptyText,
                 int $page=1,
                 int $pageSize=30
-            ) use ($buildTelegramPagerRow): array {
+            ) use ($buildTelegramPagerRow, $telegramPaymentStatusLabel): array {
                 $pageSize=max(6,min(30,$pageSize));
                 $count=(int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE status='active'")->fetchColumn();
                 if($count<=0){
                     return ['text'=>$emptyText,'markup'=>['inline_keyboard'=>[[['text'=>'⬅️ Kamar & Tamu','callback_data'=>'guest_ops_menu']]]]];
                 }
                 $totalPages=max(1,(int)ceil($count/$pageSize));$page=min(max(1,$page),$totalPages);$offset=($page-1)*$pageSize;
-                $stmt=$pdo->prepare("SELECT roomNumber,guestName FROM bookings WHERE status='active' ORDER BY CAST(roomNumber AS UNSIGNED),roomNumber LIMIT ? OFFSET ?");
+                $stmt=$pdo->prepare("SELECT roomNumber,guestName,paymentStatus FROM bookings WHERE status='active' ORDER BY CAST(roomNumber AS UNSIGNED),roomNumber LIMIT ? OFFSET ?");
                 $stmt->bindValue(1,$pageSize,PDO::PARAM_INT);$stmt->bindValue(2,$offset,PDO::PARAM_INT);$stmt->execute();
                 $rows=$stmt->fetchAll(PDO::FETCH_ASSOC)?:[];
                 $buttons=[];$row=[];
                 foreach($rows as $booking){
-                    $label='🚪 '.(string)$booking['roomNumber'].' · '.trim((string)$booking['guestName']);
+                    $payStatus=trim((string)($booking['paymentStatus']??'unpaid'));
+                    $payIcon=$payStatus==='paid'?'✅':($payStatus==='partial'?'⚠️':'❌');
+                    $label=$payIcon.' 🚪 '.(string)$booking['roomNumber'].' · '.trim((string)$booking['guestName']);
                     if(function_exists('mb_substr'))$label=mb_substr($label,0,42);else$label=substr($label,0,42);
                     $row[]=['text'=>$label,'callback_data'=>$callbackPrefix.(string)$booking['roomNumber']];
                     if(count($row)>=2){$buttons[]=$row;$row=[];}
