@@ -1079,10 +1079,22 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                     } elseif (str_starts_with($callbackData,'room_payment_status_filter:')) {
                         $filter=substr($callbackData,strlen('room_payment_status_filter:'));
                     }
-                    $menu=buildTelegramRoomPaymentStatusMenu($pdo,$page,$filter);
-                    $replyText=$menu['text'];
-                    $replyMarkup=$menu['markup'];
-                    $alertText='Status Bayar Kamar';
+                    try {
+                        $menu=buildTelegramRoomPaymentStatusMenu($pdo,$page,$filter);
+                        $replyText=$menu['text'];
+                        $replyMarkup=$menu['markup'];
+                        $alertText='Status Bayar Kamar';
+                    } catch (Throwable $e) {
+                        error_log('[room_payment_status_menu] Error: '.$e->getMessage());
+                        $replyText="[!] *GAGAL MEMUAT STATUS BAYAR*\n\nTerjadi kesalahan saat memuat data. Silakan coba lagi atau hubungi admin.";
+                        $replyMarkup=['inline_keyboard'=>[
+                            [
+                                ['text'=>'[+] Coba Lagi','callback_data'=>'room_payment_status_menu'],
+                                ['text'=>'[<] Kamar & Tamu','callback_data'=>'guest_ops_menu']
+                            ]
+                        ]];
+                        $alertText='Gagal memuat';
+                    }
                 } elseif ($callbackData === 'receipt_menu') {
                     $rows=$pdo->query("SELECT id,roomNumber,guestName,status FROM bookings ORDER BY createdAt DESC LIMIT 12")->fetchAll(PDO::FETCH_ASSOC)?:[];
                     if(!$rows){$replyText='⚠️ Belum ada data sewa yang dapat dicetak.';$buttons=[];}
