@@ -1,0 +1,19 @@
+{
+  "base_release": "20261008-r15",
+  "base_codex_commit": "4ac3553b1bde4cc16e1ebcff391309f4bbdc00df",
+  "destination": "reyvo1/testamasya ONLY",
+  "package_kind": "complete source + UAT for staging; NOT production hosting release",
+  "patch_changes": [
+    "api/modules/comms/050_integrations_telegram_mail.php",
+    "api/channels/TelegramCompatibilityAdapter.php",
+    "api/routes/080_telegram_webhook.php",
+    ".github/workflows/tamasya-enterprise-rc1-uat.yml",
+    "tests/telegram-markdown-regression.php",
+    "tests/run-telegram-markdown-regression.sh",
+    "tests/fixtures/telegram-format-mock.php"
+  ],
+  "source_test_suite_local": "42/42 source suites PASS under PHP 8.4.24; 23/23 new Telegram assertions PASS",
+  "production_db_mutated": false,
+  "github_umat_after_new_fix": "PENDING",
+  "staging_server_deployment": "PENDING"
+}
