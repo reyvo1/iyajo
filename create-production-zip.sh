@@ -1,0 +1,114 @@
+#!/usr/bin/env bash
+# Create clean production zip for deployment
+# Run from repo root: ./create-production-zip.sh
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+cd "$REPO_ROOT"
+
+VERSION=$(grep -oP 'TAMASYA_BUILD_ID\s+\K\S+' release_contract.php | tr -d '";' || echo "prod-$(date +%Y%m%d-%H%M)")
+ZIP_NAME="tamasya-production-${VERSION}.zip"
+STAGING_DIR="/tmp/tamasya-production-${VERSION}"
+
+echo "=== Creating production zip: $ZIP_NAME ==="
+
+# Clean previous
+rm -rf "$STAGING_DIR"
+mkdir -p "$STAGING_DIR"
+
+# Use git to get all tracked files (excludes .gitignore files automatically)
+echo "Copying tracked files from git..."
+git ls-files | while IFS= read -r file; do
+    mkdir -p "$STAGING_DIR/$(dirname "$file")"
+    cp "$file" "$STAGING_DIR/$file"
+done
+
+# Also copy untracked but needed files (migrations, deploy, etc.)
+# migrations are tracked in git ls-files, but let's make sure
+cp -r migrations "$STAGING_DIR/" 2>/dev/null || true
+cp -r deploy "$STAGING_DIR/" 2>/dev/null || true
+cp -r scripts "$STAGING_DIR/" 2>/dev/null || true
+
+# Remove ONLY dev/test files from staging
+echo "Removing dev/test files..."
+
+# Remove tests folder entirely
+rm -rf "$STAGING_DIR/tests"
+
+# Remove .github workflows
+rm -rf "$STAGING_DIR/.github"
+
+# Remove documentation/audit files (keep only essential)
+rm -f "$STAGING_DIR"/*.md
+rm -f "$STAGING_DIR"/*.txt
+rm -f "$STAGING_DIR"/AUDIT-*
+rm -f "$STAGING_DIR"/HANDOFF-*
+rm -f "$STAGING_DIR"/FINAL-*
+rm -f "$STAGING_DIR"/GROWTH-*
+rm -f "$STAGING_DIR"/OWNER-*
+rm -f "$STAGING_DIR"/MODULE-*
+rm -f "$STAGING_DIR"/MULTI-*
+rm -f "$STAGING_DIR"/PRODUCTION-*
+rm -f "$STAGING_DIR"/REPORT-*
+rm -f "$STAGING_DIR"/TELEGRAM-*
+rm -f "$STAGING_DIR"/UI-*
+rm -f "$STAGING_DIR"/CANONICAL-*
+rm -f "$STAGING_DIR"/CONSISTENCY-*
+rm -f "$STAGING_DIR"/ENTERPRISE-*
+rm -f "$STAGING_DIR"/FINANCE-*
+rm -f "$STAGING_DIR"/R14_*
+rm -f "$STAGING_DIR"/R4_*
+rm -f "$STAGING_DIR"/RC1_*
+rm -f "$STAGING_DIR"/HYBRID-*
+rm -f "$STAGING_DIR"/POST-*
+rm -f "$STAGING_DIR"/TAMASYA-*
+rm -f "$STAGING_DIR"/TESTAMASYA-*
+rm -f "$STAGING_DIR"/APPLY-*
+rm -f "$STAGING_DIR"/MIGRATION-*
+rm -f "$STAGING_DIR"/R16_*
+
+# Remove example env files (keep .env.example if needed for reference)
+rm -f "$STAGING_DIR"/.env.*.example
+
+# Remove checksum files
+rm -f "$STAGING_DIR"/FILE_CHECKSUMS.sha256
+rm -f "$STAGING_DIR"/*.sha256
+
+# Remove package files
+rm -f "$STAGING_DIR"/package*.json
+rm -f "$STAGING_DIR"/playwright.config.mjs
+
+# Remove test files from api (but keep the actual modules!)
+find "$STAGING_DIR/api" -name "*test*" -delete 2>/dev/null || true
+find "$STAGING_DIR/api" -name "*Test*" -delete 2>/dev/null || true
+
+# Remove any .py test files
+find "$STAGING_DIR" -name "*.py" -delete 2>/dev/null || true
+
+# Remove .mjs test files (keep actual .mjs if any)
+find "$STAGING_DIR" -name "*.mjs" -delete 2>/dev/null || true
+
+# Create zip
+echo "Creating zip..."
+cd /tmp
+zip -r "$REPO_ROOT/$ZIP_NAME" "tamasya-production-${VERSION}" -x "*/.git/*" "*/node_modules/*" "*/.DS_Store" "*/Thumbs.db" > /dev/null
+
+# Cleanup
+rm -rf "$STAGING_DIR"
+
+# Verify
+echo ""
+echo "=== Production Zip Ready ==="
+echo "File: $REPO_ROOT/$ZIP_NAME"
+echo "Size: $(du -h "$REPO_ROOT/$ZIP_NAME" | cut -f1)"
+echo ""
+echo "File count in zip:"
+unzip -l "$REPO_ROOT/$ZIP_NAME" | tail -3
+echo ""
+echo "Deploy to production:"
+echo "  1. Upload $ZIP_NAME to server"
+echo "  2. Extract to new directory"
+echo "  3. Run: php first_install.php (fresh DB) or php scripts/activate-growth-enterprise.php --apply (existing DB)"
+echo "  4. Configure .env with production credentials"
+echo "  5. Set APP_TIMEZONE, APP_ENCRYPTION_KEY, etc."

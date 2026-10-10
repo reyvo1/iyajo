@@ -137,3 +137,67 @@
 - Finalizer errors for missing semantic roles now point to the maintenance tool.
 - Database schema remains unchanged; database_setup.sql and all 13 migrations are byte-identical to R4.1.
 - Targeted safety checks 15/15 PASS; PHP lint 101/101, JS/MJS 57/57, shell 2/2, JSON 5/5; configurator self-test ok=true.
+
+## 2026-10-11 - TELEGRAM ROOM PAYMENT STATUS MENU & BUG FIXES
+
+### Perubahan Utama:
+
+#### 1. Menu Baru: `room_payment_status_menu` (Telegram)
+- **Fungsi**: Melihat status pembayaran per kamar (Lunas/Belum Lunas/Sebagian) dengan filter & pagination
+- **Akses**: Admin, Manager, Receptionist, Finance
+- **Lokasi**: Menu `Kamar & Tamu` → `💰 Status Bayar Kamar`
+- **Filter**: Semua / Belum Lunas / Aktif / Reserved
+- **Pagination**: 30 kamar per halaman (konsisten dengan picker lain)
+- **Icon Status**: 
+  - ✅ Lunas / ❌ Belum Bayar / ⚠️ Sebagian (payment)
+  - 🔴🟢🛠️🧹🧽⚪ (status kamar)
+  - 🔴🟢🟡⚪ (status booking: Aktif/Reserved/Maintenance/Kosong)
+
+#### 2. Bug Fixes Critical:
+- **Revenue Recognition Logic** (`019_canonical_financial_semantics.php`): Urutan cek `baseAmount+taxAmount` sebelum `taxSnapshotStatus` → revenue recognized benar untuk unresolved tax dengan baseAmount valid
+- **Room Access Guard** (`091_room_access_issue.php`): Hapus cek redundant `current_booking_id` yang salah blokir key-issue valid
+- **Check-in Timing** (`043_multi_room_reservations.php`, `040_rooms_checkout_housekeeping.php`): `current_booking_id` hanya di-set saat `key-issue`, bukan saat check-in
+- **Telegram Payment Status Display**: Tambah ✅/❌/⚠️ di active booking picker (`080_telegram_webhook.php`)
+- **Function Call Bug** (`080_telegram_webhook.php`): Fix `$buildTelegramRoomPaymentStatusMenu` variable call vs function name
+- **Syntax Error** (`080_telegram_webhook.php`): Fix bracket nesting di try-catch block
+- **Function Call Bug**: `$buildTelegramRoomPaymentStatusMenu` variable call di handler
+
+#### 3. Error Handling Robust:
+- Try-catch di dalam `buildTelegramRoomPaymentStatusMenu` function
+- Error detail (message, file, line) dikirim ke user + log server
+- Error handling di handler callback
+
+#### 4. R164 Custody Cleanup:
+- `tamasyaR164AssertCleanupCustodySafe` guard di `100_cleanup_tools.php` & `030_ota_cleanup_audit.php`
+- Schema alignment migrasi `orphan_outstanding_room_key` & `room_key_custody_mismatch`
+
+#### 5. Test Coverage:
+- Unit test: `tests/r164-access-issue-guard-regression.php` (update expectation)
+- Unit test: `tests/r164-custody-cleanup-regression.php` (7 test)
+- Unit test: `tests/r164-custody-schema-migration-regression.php` (9 test)
+- UAT Test: `tests/uat_rc1/scenario_telegram.py` - room_payment_status_menu UAT (filter, pagination, error handling)
+
+### Test Results:
+- **41 Regression Suites**: PASS (41/41)
+- **UAT GitHub**: 1099/1099 assertions PASS
+- **Syntax/Checksum**: PASS
+
+### Files Changed:
+- `api/routes/080_telegram_webhook.php` - Main Telegram webhook handler
+- `api/modules/finance/019_canonical_financial_semantics.php` - Revenue recognition logic
+- `api/support/091_room_access_issue.php` - Room access guard
+- `api/modules/front_office/043_multi_room_reservations.php` - Check-in timing
+- `api/modules/front_office/040_rooms_checkout_housekeeping.php` - Check-in timing
+- `api/modules/finance/100_cleanup_tools.php` - R164 custody guard
+- `api/routes/030_ota_cleanup_audit.php` - OTA cleanup with custody guard
+- `api/support/080_schema_alignment.php` - Schema alignment R164
+- `tests/uat_rc1/scenario_telegram.py` - UAT test for room_payment_status_menu
+- `tests/r164-access-issue-guard-regression.php` - Updated expectation
+- `tests/r164-custody-cleanup-regression.php` - New test file
+- `tests/r164-custody-schema-migration-regression.php` - New test file
+- `FILE_CHECKSUMS.sha256` - Updated checksums
+- `release_contract.php` - Version bump
+
+### Production Package:
+- `tamasya-production-prod-20261011-0350.zip` (2.1 MB, 334 files)
+

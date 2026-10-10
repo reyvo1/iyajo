@@ -220,5 +220,27 @@ try:
 finally:
     db("UPDATE hotel_operational_settings SET cash_variance_tolerance=? WHERE id='system_default'",[old_tolerance])
 
+# room_payment_status_menu UAT
+_,room_pay_status=sim_cb('room_payment_status_menu','room_payment_status_menu',message='uat-room-pay-status')
+check('room_payment_status_menu renders without error',status==200 and body.get('success') is True,body)
+text=body.get('message',{}).get('text','')
+check('room_payment_status_menu shows status header','💰 *STATUS PEMBAYARAN PER KAMAR*' in text,text)
+check('room_payment_status_menu shows filter buttons','Belum Lunas' in text and 'Aktif' in text and 'Reserved' in text,text)
+check('room_payment_status_menu shows pagination or empty state',('Halaman' in text or 'Tidak ada kamar' in text),text)
+
+# Test filter: unpaid
+_,unpaid=sim_cb('room_pay_status_unpaid','room_payment_status_filter:unpaid',message='uat-room-pay-unpaid')
+check('Filter unpaid works',status==200 and body.get('success') is True,body)
+unpaid_text=body.get('message',{}).get('text','')
+check('Filter unpaid shows only unpaid/partial',('Belum Lunas' in unpaid_text or 'Tidak ada kamar' in unpaid_text),unpaid_text)
+
+# Test filter: active
+_,active=sim_cb('room_pay_status_active','room_payment_status_filter:active',message='uat-room-pay-active')
+check('Filter active works',status==200 and body.get('success') is True,body)
+
+# Test pagination
+_,page2=sim_cb('room_pay_status_page2','room_payment_status_menu:p:2',message='uat-room-pay-page2')
+check('Pagination works',status==200 and body.get('success') is True,body)
+
 check('Telegram UAT leaves journals balanced',not db('SELECT journal_entry_id FROM journal_lines GROUP BY journal_entry_id HAVING ABS(SUM(debit)-SUM(credit))>0.001'))
 print('TELEGRAM-UAT',sum(x['pass'] for x in results),'/',len(results))
