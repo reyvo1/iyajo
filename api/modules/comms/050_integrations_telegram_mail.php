@@ -990,7 +990,13 @@ function tamasyaTelegramFormatAmount($amount): string {
 
 /** Simulator response data follows the resolved Telegram identity, never the caller role. */
 function tamasyaTelegramSimulationHotelData($pdo, ?array $staff): ?array {
-    return $staff ? getRoleScopedHotelData($pdo, $staff) : null;
+    if (!$staff) return null;
+    try {
+        return getRoleScopedHotelData($pdo, $staff);
+    } catch (Throwable $e) {
+        error_log('[Telegram Simulation] getRoleScopedHotelData failed: '.$e->getMessage());
+        return null;
+    }
 }
 
 function tamasyaTelegramExtensionQuote(PDO $pdo,array $actor,array $booking,array $room,int $nights,string $operationId): array {
