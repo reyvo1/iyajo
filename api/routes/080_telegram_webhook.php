@@ -1088,7 +1088,7 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                         $filter=substr($callbackData,strlen('room_payment_status_filter:'));
                     }
                     try {
-                        $menu=buildTelegramRoomPaymentStatusMenu($pdo,$page,$filter);
+                        $menu=$buildTelegramRoomPaymentStatusMenu($pdo,$page,$filter);
                         $replyText=$menu['text'];
                         $replyMarkup=$menu['markup'];
                         $alertText='Status Bayar Kamar';
