@@ -20,6 +20,7 @@ foreach(['issued','pending_smart_issue','pending_smart_revoke','missing','overri
 foreach(['issued','missing','override','lost','pending','unknown','returned',''] as $state)
     keyIssueGuardExpect(false,array_merge($secured,['physical_key_status'=>$state]),'Reject unsecured physical-key custody '.$state);
 keyIssueGuardExpect(false,array_merge($secured,['current_booking_id'=>'booking-2']),'Reject custody bound to another booking');
-keyIssueGuardExpect(false,array_merge($secured,['current_booking_id'=>'booking-1']),'Reject stale custody still bound to same booking');
+// Stale custody from previous stay is OVERWRITTEN when booking's keyControlStatus allows issuing
+keyIssueGuardExpect(true,array_merge($secured,['current_booking_id'=>'booking-1']),'Allow new key issue for active booking with stale custody (booking keyControlStatus=not_issued)');
 keyIssueGuardExpect(false,['keyControlStatus'=>'returned','physical_key_status'=>'missing','current_booking_id'=>null],'Returned booking cannot bypass missing key report');
 echo 'PASS: canonical issue eligibility is fail-closed for unresolved states'.PHP_EOL;
