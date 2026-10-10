@@ -562,7 +562,7 @@ switch ($action) {
                 PDO $pdo,
                 int $page=1,
                 string $filter='all',
-                int $pageSize=20
+                int $pageSize=30
             ) use ($buildTelegramPagerRow, $telegramPlainText, $telegramPaymentStatusLabel): array {
                 $pageSize=max(6,min(30,$pageSize));
                 $where=['1=1'];
