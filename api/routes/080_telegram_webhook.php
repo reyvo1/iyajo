@@ -950,6 +950,15 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     break;
                 }
                 
+                // EARLY answerCallbackQuery: MUST be called BEFORE any handler logic
+                // to prevent "loading forever" if handler throws exception
+                if (empty($telegramCallbackEarlyAcked)) {
+                    telegramApiCall($token,'answerCallbackQuery', [
+                        "callback_query_id" => $callbackQueryId,
+                        "text" => $alertText ?: "Memproses..."
+                    ]);
+                }
+                
                 $replyText = "";
                 $replyMarkup = null;
                 $alertText = "";
