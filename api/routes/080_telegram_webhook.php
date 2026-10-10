@@ -912,7 +912,7 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     } elseif (str_starts_with($callbackData,'mr_')) {
                         $allowedCallback=in_array($callbackRole,['admin','manager','receptionist'],true);
                     } elseif (in_array($callbackData,$reservationCallbacks,true) || $matchesPrefix($callbackData,$reservationPrefixes)) {
-                        $allowedCallback = in_array($callbackRole,['admin','manager','receptionist'],true);
+                        $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
                     } elseif (in_array($callbackData,$vacancyCallbacks,true) || $matchesPrefix($callbackData,$vacancyPrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'],true);
                     } elseif (in_array($callbackData,$housekeepingCallbacks,true) || $matchesPrefix($callbackData,$housekeepingPrefixes)) {
