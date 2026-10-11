@@ -11,6 +11,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.TAMASYA_UAT_BASE_URL || 'http://127.0.0.1:38184',
     browserName: 'chromium',
+    channel: 'chrome',
     timezoneId: 'Asia/Makassar',
     trace: 'retain-on-failure',
     video: 'off',

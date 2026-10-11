@@ -2635,29 +2635,34 @@ Pilih kamar yang menerima transaksi keuangan.
                     }catch(TelegramDuplicateOperationException $e){$replyText='ℹ️ Biaya dan pembayaran ini sudah diproses; tidak dibuat ganda.';$alertText='Sudah diproses';}
                     catch(Throwable $e){$replyText=clientExceptionMessage('❌ Pembayaran biaya tambahan ditolak',$e);$alertText='Belum tersimpan';}
                 } elseif (strpos($callbackData, "r_extend:") === 0) {
-                    $roomNumber = explode(":", $callbackData)[1];
-                    $stmtActive = $pdo->prepare("SELECT * FROM bookings WHERE roomNumber = ? AND status = 'active' LIMIT 1");
-                    $stmtActive->execute([$roomNumber]);
-                    $booking = $stmtActive->fetch();
+                    try {
+                        $roomNumber = explode(":", $callbackData)[1];
+                        $stmtActive = $pdo->prepare("SELECT * FROM bookings WHERE roomNumber = ? AND status = 'active' LIMIT 1");
+                        $stmtActive->execute([$roomNumber]);
+                        $booking = $stmtActive->fetch();
 
-                    if (!$booking) {
-                        $replyText = "⚠️ Kamar nomor {$roomNumber} tidak sedang disewa (aktif)!";
-                        $alertText = "Error";
-                    } else {
-                        if ($loggedInStaff) {
-                            $stmtSetState = $pdo->prepare("UPDATE staff SET telegram_state = 'waiting_for_extend_nights', telegram_context = ? WHERE id = ?");
-                            $stmtSetState->execute([$roomNumber, $loggedInStaff['id']]);
+                        if (!$booking) {
+                            $replyText = "⚠️ Kamar nomor {$roomNumber} tidak sedang disewa (aktif)!";
+                            $alertText = "Error";
+                        } else {
+                            if ($loggedInStaff) {
+                                $stmtSetState = $pdo->prepare("UPDATE staff SET telegram_state = 'waiting_for_extend_nights', telegram_context = ? WHERE id = ?");
+                                $stmtSetState->execute([$roomNumber, $loggedInStaff['id']]);
+                            }
+                            $replyText = "⏳ *PERPANJANG SEWA KAMAR {$roomNumber}*\n" .
+                                         "👤 Tamu: *{$booking['guestName']}*\n\n" .
+                                         "Berapa malam masa sewa kamar ini ingin diperpanjang?\n" .
+                                         "*(Ketik angka saja, contoh: `1` atau `2`)*";
+                            $replyMarkup = [
+                                "inline_keyboard" => [
+                                    [["text" => "❌ Batalkan", "callback_data" => "cancel_booking_process"]]
+                                ]
+                            ];
+                            $alertText = "Perpanjang " . $roomNumber;
                         }
-                        $replyText = "⏳ *PERPANJANG SEWA KAMAR {$roomNumber}*\n" .
-                                     "👤 Tamu: *{$booking['guestName']}*\n\n" .
-                                     "Berapa malam masa sewa kamar ini ingin diperpanjang?\n" .
-                                     "*(Ketik angka saja, contoh: `1` atau `2`)*";
-                        $replyMarkup = [
-                            "inline_keyboard" => [
-                                [["text" => "❌ Batalkan", "callback_data" => "cancel_booking_process"]]
-                            ]
-                        ];
-                        $alertText = "Perpanjang " . $roomNumber;
+                    } catch (Throwable $e) {
+                        $replyText = clientExceptionMessage('Perpanjangan ditolak', $e);
+                        $alertText = 'Error';
                     }
                 } elseif (strpos($callbackData, 'r_extend_nego:') === 0) {
                     try{
@@ -2676,35 +2681,40 @@ Pilih kamar yang menerima transaksi keuangan.
                 } elseif (strpos($callbackData, "r_extend_confirm:") === 0) {
                     $replyText='⚠️ Tombol perpanjangan lama tidak berlaku. Buka kembali Perpanjang Kamar agar harga dan pembayaran sesuai.';
                 } elseif (strpos($callbackData, "r_layanan:") === 0) {
-                    $roomNumber = explode(":", $callbackData)[1];
-                    $stmtActive = $pdo->prepare("SELECT * FROM bookings WHERE roomNumber = ? AND status = 'active' LIMIT 1");
-                    $stmtActive->execute([$roomNumber]);
-                    $booking = $stmtActive->fetch();
+                    try {
+                        $roomNumber = explode(":", $callbackData)[1];
+                        $stmtActive = $pdo->prepare("SELECT * FROM bookings WHERE roomNumber = ? AND status = 'active' LIMIT 1");
+                        $stmtActive->execute([$roomNumber]);
+                        $booking = $stmtActive->fetch();
 
-                    if (!$booking) {
-                        $replyText = "⚠️ Kamar nomor {$roomNumber} tidak sedang disewa (aktif)!";
-                        $alertText = "Error";
-                    } else {
-                        if ($loggedInStaff) {
-                            $stmtSetState = $pdo->prepare("UPDATE staff SET telegram_state = 'waiting_for_layanan_type', telegram_context = ? WHERE id = ?");
-                            $stmtSetState->execute([$roomNumber, $loggedInStaff['id']]);
+                        if (!$booking) {
+                            $replyText = "⚠️ Kamar nomor {$roomNumber} tidak sedang disewa (aktif)!";
+                            $alertText = "Error";
+                        } else {
+                            if ($loggedInStaff) {
+                                $stmtSetState = $pdo->prepare("UPDATE staff SET telegram_state = 'waiting_for_layanan_type', telegram_context = ? WHERE id = ?");
+                                $stmtSetState->execute([$roomNumber, $loggedInStaff['id']]);
+                            }
+                            $replyText = "🛠 *PILIH JENIS LAYANAN UNTUK KAMAR {$roomNumber}*\n" .
+                                         "👤 Tamu: *{$booking['guestName']}*\n\n" .
+                                         "Daftar layanan dibaca langsung dari Master Data property:";
+                            $extraRoot=tamasyaRequireSystemFinanceCategory($pdo,'extra_service','income',false);
+                            $stmtExtraSubs=$pdo->prepare("SELECT id,name FROM subcategories WHERE category_id=? AND is_active=1 ORDER BY name,id");
+                            $stmtExtraSubs->execute([(string)$extraRoot['id']]);$extraSubs=$stmtExtraSubs->fetchAll(PDO::FETCH_ASSOC)?:[];
+                            $serviceButtons=[];$serviceRow=[];
+                            foreach($extraSubs as $service){
+                                $serviceRow[]=['text'=>'🛎️ '.(string)$service['name'],'callback_data'=>'r_layanan_type:'.$roomNumber.':'.(string)$service['id']];
+                                if(count($serviceRow)>=2){$serviceButtons[]=$serviceRow;$serviceRow=[];}
+                            }
+                            if($serviceRow)$serviceButtons[]=$serviceRow;
+                            $serviceButtons[]=[['text'=>'✍️ Layanan Kustom','callback_data'=>'r_layanan_type:'.$roomNumber.':__custom__']];
+                            $serviceButtons[]=[["text" => "❌ Batalkan", "callback_data" => "cancel_booking_process"]];
+                            $replyMarkup = ["inline_keyboard" => $serviceButtons];
+                            $alertText = "Layanan " . $roomNumber;
                         }
-                        $replyText = "🛠 *PILIH JENIS LAYANAN UNTUK KAMAR {$roomNumber}*\n" .
-                                     "👤 Tamu: *{$booking['guestName']}*\n\n" .
-                                     "Daftar layanan dibaca langsung dari Master Data property:";
-                        $extraRoot=tamasyaRequireSystemFinanceCategory($pdo,'extra_service','income',false);
-                        $stmtExtraSubs=$pdo->prepare("SELECT id,name FROM subcategories WHERE category_id=? AND is_active=1 ORDER BY name,id");
-                        $stmtExtraSubs->execute([(string)$extraRoot['id']]);$extraSubs=$stmtExtraSubs->fetchAll(PDO::FETCH_ASSOC)?:[];
-                        $serviceButtons=[];$serviceRow=[];
-                        foreach($extraSubs as $service){
-                            $serviceRow[]=['text'=>'🛎️ '.(string)$service['name'],'callback_data'=>'r_layanan_type:'.$roomNumber.':'.(string)$service['id']];
-                            if(count($serviceRow)>=2){$serviceButtons[]=$serviceRow;$serviceRow=[];}
-                        }
-                        if($serviceRow)$serviceButtons[]=$serviceRow;
-                        $serviceButtons[]=[['text'=>'✍️ Layanan Kustom','callback_data'=>'r_layanan_type:'.$roomNumber.':__custom__']];
-                        $serviceButtons[]=[["text" => "❌ Batalkan", "callback_data" => "cancel_booking_process"]];
-                        $replyMarkup = ["inline_keyboard" => $serviceButtons];
-                        $alertText = "Layanan " . $roomNumber;
+                    } catch (Throwable $e) {
+                        $replyText = clientExceptionMessage('Layanan ditolak', $e);
+                        $alertText = 'Error';
                     }
                 } elseif (strpos($callbackData, "r_layanan_type:") === 0) {
                     $parts = explode(":", $callbackData,3);
@@ -2790,61 +2800,71 @@ Pilih kamar yang menerima transaksi keuangan.
                     if($loggedInStaff && $paymentStatus!=='paid')$pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
 
                 } elseif (strpos($callbackData, "r_transfer:") === 0) {
-                    $parts=explode(":",$callbackData);
-                    $roomNumber=trim((string)($parts[1]??''));
-                    $page=(isset($parts[2])&&$parts[2]==='p')?max(1,(int)($parts[3]??1)):1;
-                    $stmtActive=$pdo->prepare("SELECT * FROM bookings WHERE roomNumber=? AND status='active' LIMIT 1");
-                    $stmtActive->execute([$roomNumber]);$booking=$stmtActive->fetch(PDO::FETCH_ASSOC);
-                    if(!$booking){
-                        $replyText="⚠️ Kamar nomor {$roomNumber} tidak sedang disewa (aktif)!";$alertText='Error';
-                    }else{
-                        if($loggedInStaff){
-                            $stmtSetState=$pdo->prepare("UPDATE staff SET telegram_state='waiting_for_transfer_target',telegram_context=? WHERE id=?");
-                            $stmtSetState->execute([$roomNumber,$loggedInStaff['id']]);
-                        }
-                        $menu=$buildTelegramSellableRoomPicker(
-                            $pdo,'r_transfer_target:'.$roomNumber.':','r_transfer:'.$roomNumber.':p:',
-                            "🔄 *PINDAH KAMAR - TAMU ".strtoupper((string)$booking['guestName'])."*
+                    try {
+                        $parts=explode(":",$callbackData);
+                        $roomNumber=trim((string)($parts[1]??''));
+                        $page=(isset($parts[2])&&$parts[2]==='p')?max(1,(int)($parts[3]??1)):1;
+                        $stmtActive=$pdo->prepare("SELECT * FROM bookings WHERE roomNumber=? AND status='active' LIMIT 1");
+                        $stmtActive->execute([$roomNumber]);$booking=$stmtActive->fetch(PDO::FETCH_ASSOC);
+                        if(!$booking){
+                            $replyText="⚠️ Kamar nomor {$roomNumber} tidak sedang disewa (aktif)!";$alertText='Error';
+                        }else{
+                            if($loggedInStaff){
+                                $stmtSetState=$pdo->prepare("UPDATE staff SET telegram_state='waiting_for_transfer_target',telegram_context=? WHERE id=?");
+                                $stmtSetState->execute([$roomNumber,$loggedInStaff['id']]);
+                            }
+                            $menu=$buildTelegramSellableRoomPicker(
+                                $pdo,'r_transfer_target:'.$roomNumber.':','r_transfer:'.$roomNumber.':p:',
+                                "🔄 *PINDAH KAMAR - TAMU ".strtoupper((string)$booking['guestName'])."*
 Kamar Lama: *{$roomNumber}*",
-                            'Pilih nomor kamar kosong tujuan pindah.',
-                            '❌ *MAAF, SEMUA KAMAR PENUH!*
+                                'Pilih nomor kamar kosong tujuan pindah.',
+                                '❌ *MAAF, SEMUA KAMAR PENUH!*
 
 Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
-                            'booking_transfer_menu',$page
-                        );
-                        $replyText=$menu['text'];$replyMarkup=$menu['markup'];$alertText='Pilih Kamar Tujuan';
+                                'booking_transfer_menu',$page
+                            );
+                            $replyText=$menu['text'];$replyMarkup=$menu['markup'];$alertText='Pilih Kamar Tujuan';
+                        }
+                    } catch (Throwable $e) {
+                        $replyText = clientExceptionMessage('Pindah kamar ditolak', $e);
+                        $alertText = 'Error';
                     }
                 } elseif (strpos($callbackData, "r_transfer_target:") === 0) {
-                    $parts = explode(":", $callbackData);
-                    $roomNumber = $parts[1];
-                    $targetRoomNumber = $parts[2];
+                    try {
+                        $parts = explode(":", $callbackData);
+                        $roomNumber = $parts[1];
+                        $targetRoomNumber = $parts[2];
 
-                    $targetStmt=$pdo->prepare("SELECT * FROM rooms WHERE number=? LIMIT 1");
-                    $targetStmt->execute([$targetRoomNumber]);
-                    $targetRoom=$targetStmt->fetch(PDO::FETCH_ASSOC);
-                    $targetBlockers=$targetRoom ? getRoomOperationalBlockers($pdo,$targetRoomNumber,false) : [];
-                    if(!$targetRoom || tamasyaDeriveRoomOperationalStatus($targetBlockers)!=='available'){
-                        $replyText=$targetBlockers
-                            ? "⚠️ ".roomOperationalBlockerMessage($targetRoomNumber,$targetBlockers)
-                            : "⚠️ Kamar tujuan {$targetRoomNumber} sudah tidak tersedia. Silakan pilih kamar lain.";
-                        $replyMarkup=["inline_keyboard"=>[[["text"=>"⬅️ Pilih Kamar Lain","callback_data"=>"r_transfer:".$roomNumber]]]];
-                        $alertText='Kamar tujuan ditolak';
-                    }else{
-                        $newCtx = $roomNumber . ":" . $targetRoomNumber;
-                        if ($loggedInStaff) {
-                            $stmtSetState = $pdo->prepare("UPDATE staff SET telegram_state = 'waiting_for_transfer_cost', telegram_context = ? WHERE id = ?");
-                            $stmtSetState->execute([$newCtx, $loggedInStaff['id']]);
+                        $targetStmt=$pdo->prepare("SELECT * FROM rooms WHERE number=? LIMIT 1");
+                        $targetStmt->execute([$targetRoomNumber]);
+                        $targetRoom=$targetStmt->fetch(PDO::FETCH_ASSOC);
+                        $targetBlockers=$targetRoom ? getRoomOperationalBlockers($pdo,$targetRoomNumber,false) : [];
+                        if(!$targetRoom || tamasyaDeriveRoomOperationalStatus($targetBlockers)!=='available'){
+                            $replyText=$targetBlockers
+                                ? "⚠️ ".roomOperationalBlockerMessage($targetRoomNumber,$targetBlockers)
+                                : "⚠️ Kamar tujuan {$targetRoomNumber} sudah tidak tersedia. Silakan pilih kamar lain.";
+                            $replyMarkup=["inline_keyboard"=>[[["text"=>"⬅️ Pilih Kamar Lain","callback_data"=>"r_transfer:".$roomNumber]]]];
+                            $alertText='Kamar tujuan ditolak';
+                        }else{
+                            $newCtx = $roomNumber . ":" . $targetRoomNumber;
+                            if ($loggedInStaff) {
+                                $stmtSetState = $pdo->prepare("UPDATE staff SET telegram_state = 'waiting_for_transfer_cost', telegram_context = ? WHERE id = ?");
+                                $stmtSetState->execute([$newCtx, $loggedInStaff['id']]);
+                            }
+
+                            $replyText = "💰 *BIAYA TAMBAHAN PINDAH KAMAR*\n\n" .
+                                         "Apakah ada biaya tambahan (surcharge) untuk pemindahan Kamar *{$roomNumber}* ke Kamar *{$targetRoomNumber}*?\n\n" .
+                                         "*(Ketik angka saja, contoh: `0` jika gratis, atau `50000` jika ada biaya)*";
+                            $replyMarkup = [
+                                "inline_keyboard" => [
+                                    [["text" => "❌ Batalkan", "callback_data" => "cancel_booking_process"]]
+                                ]
+                            ];
+                            $alertText = "Ketik Biaya Tambahan";
                         }
-
-                        $replyText = "💰 *BIAYA TAMBAHAN PINDAH KAMAR*\n\n" .
-                                     "Apakah ada biaya tambahan (surcharge) untuk pemindahan Kamar *{$roomNumber}* ke Kamar *{$targetRoomNumber}*?\n\n" .
-                                     "*(Ketik angka saja, contoh: `0` jika gratis, atau `50000` jika ada biaya)*";
-                        $replyMarkup = [
-                            "inline_keyboard" => [
-                                [["text" => "❌ Batalkan", "callback_data" => "cancel_booking_process"]]
-                            ]
-                        ];
-                        $alertText = "Ketik Biaya Tambahan";
+                    } catch (Throwable $e) {
+                        $replyText = clientExceptionMessage('Pindah kamar ditolak', $e);
+                        $alertText = 'Error';
                     }
                 } elseif (strpos($callbackData, "r_transfer_confirm:") === 0) {
                     $parts = explode(":", $callbackData);
