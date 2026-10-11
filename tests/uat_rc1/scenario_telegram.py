@@ -221,26 +221,35 @@ finally:
     db("UPDATE hotel_operational_settings SET cash_variance_tolerance=? WHERE id='system_default'",[old_tolerance])
 
 # room_payment_status_menu UAT
-_,room_pay_status=sim_cb('room_payment_status_menu','room_payment_status_menu',message='uat-room-pay-status')
-check('room_payment_status_menu renders without error',status==200 and body.get('success') is True,body)
-text=body.get('message',{}).get('text','')
+# Assert on the captured responses. These previously read the loop variable `body`,
+# which still held the last consistency_guard response and made every assertion
+# below check stale data instead of the room payment status menu.
+room_pay_status_s,room_pay_status=sim_cb('room_payment_status_menu','room_payment_status_menu',message='uat-room-pay-status')
+check('room_payment_status_menu renders without error',room_pay_status_s==200 and room_pay_status.get('success') is True,room_pay_status)
+text=room_pay_status.get('message',{}).get('text','')
 check('room_payment_status_menu shows status header','💰 *STATUS PEMBAYARAN PER KAMAR*' in text,text)
-check('room_payment_status_menu shows filter buttons','Belum Lunas' in text and 'Aktif' in text and 'Reserved' in text,text)
+# The filter labels live on the inline keyboard buttons, not in the body text.
+# Asserting them against `text` could never hold: the body only renders a status
+# label per room plus the active filter name.
+pay_markup=room_pay_status.get('message',{}).get('replyMarkup') or room_pay_status.get('message',{}).get('reply_markup') or {}
+pay_buttons=[b for row in (pay_markup.get('inline_keyboard') or []) for b in row]
+pay_button_text=' '.join(str(b.get('text') or '') for b in pay_buttons)
+check('room_payment_status_menu shows filter buttons','Belum Lunas' in pay_button_text and 'Aktif' in pay_button_text and 'Reserved' in pay_button_text,pay_button_text)
 check('room_payment_status_menu shows pagination or empty state',('Halaman' in text or 'Tidak ada kamar' in text),text)
 
 # Test filter: unpaid
-_,unpaid=sim_cb('room_pay_status_unpaid','room_payment_status_filter:unpaid',message='uat-room-pay-unpaid')
-check('Filter unpaid works',status==200 and body.get('success') is True,body)
-unpaid_text=body.get('message',{}).get('text','')
+unpaid_s,unpaid=sim_cb('room_pay_status_unpaid','room_payment_status_filter:unpaid',message='uat-room-pay-unpaid')
+check('Filter unpaid works',unpaid_s==200 and unpaid.get('success') is True,unpaid)
+unpaid_text=unpaid.get('message',{}).get('text','')
 check('Filter unpaid shows only unpaid/partial',('Belum Lunas' in unpaid_text or 'Tidak ada kamar' in unpaid_text),unpaid_text)
 
 # Test filter: active
-_,active=sim_cb('room_pay_status_active','room_payment_status_filter:active',message='uat-room-pay-active')
-check('Filter active works',status==200 and body.get('success') is True,body)
+active_s,active=sim_cb('room_pay_status_active','room_payment_status_filter:active',message='uat-room-pay-active')
+check('Filter active works',active_s==200 and active.get('success') is True,active)
 
 # Test pagination
-_,page2=sim_cb('room_pay_status_page2','room_payment_status_menu:p:2',message='uat-room-pay-page2')
-check('Pagination works',status==200 and body.get('success') is True,body)
+page2_s,page2=sim_cb('room_pay_status_page2','room_payment_status_menu:p:2',message='uat-room-pay-page2')
+check('Pagination works',page2_s==200 and page2.get('success') is True,page2)
 
 check('Telegram UAT leaves journals balanced',not db('SELECT journal_entry_id FROM journal_lines GROUP BY journal_entry_id HAVING ABS(SUM(debit)-SUM(credit))>0.001'))
 print('TELEGRAM-UAT',sum(x['pass'] for x in results),'/',len(results))
