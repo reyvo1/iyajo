@@ -56,12 +56,17 @@ switch ($action) {
         requireRoles($loggedInStaff,['admin','manager','finance']);
         if($_SERVER['REQUEST_METHOD']!=='POST'){http_response_code(405);echo json_encode(['success'=>false,'error'=>'Method Not Allowed']);break;}
         try{
+            // `amount` is the NET remittance the OTA actually transferred to the bank.
+            // `commissionAmount` is the channel deduction from the gross receivable.
+            // commission 0 reproduces the previous two-transaction settlement exactly.
             $amount=round((float)($input['amount']??0),2);
+            $commissionAmount=round((float)($input['commissionAmount']??0),2);
             $date=trim((string)($input['date']??date('Y-m-d')));
             $bankAccountId=trim((string)($input['bankAccountId']??''));
             $notes=trim((string)($input['notes']??''));
             $operationId=trim((string)($input['operationId']??($GLOBALS['tamasya_request_operation_id']??'')))?:generateServerId('ota_disb_op');
             if(!is_finite($amount)||$amount<=0 || !validIsoDate($date))throw new InvalidArgumentException('Nominal dan tanggal pencairan OTA tidak valid.');
+            if(!is_finite($commissionAmount)||$commissionAmount<0)throw new InvalidArgumentException('Komisi OTA tidak valid. Isi 0 bila channel tidak memotong komisi.');
             if(strlen($operationId)>100)throw new InvalidArgumentException('ID pencairan OTA melebihi 100 byte.');
             if($bankAccountId==='' || strtolower($bankAccountId)==='ota_receivable')throw new InvalidArgumentException('Pilih rekening bank tujuan yang valid.');
             $pdo->beginTransaction();
@@ -72,9 +77,10 @@ switch ($action) {
             $account=$pdo->prepare("SELECT id,name FROM bank_accounts WHERE id=? LIMIT 1");
             $account->execute([$bankAccountId]);$accountRow=$account->fetch(PDO::FETCH_ASSOC);
             if(!$accountRow)throw new RuntimeException('Metadata rekening bank tujuan tidak ditemukan setelah validasi.');
-            $existing=$pdo->prepare("SELECT id,source_transaction_id,destination_transaction_id,amount,disbursement_date,bank_account_id,notes,created_by FROM ota_disbursements WHERE operation_id=? LIMIT 1 FOR UPDATE");$existing->execute([$operationId]);$existingRow=$existing->fetch(PDO::FETCH_ASSOC);
+            $existing=$pdo->prepare("SELECT id,source_transaction_id,destination_transaction_id,amount,commission_amount,disbursement_date,bank_account_id,notes,created_by FROM ota_disbursements WHERE operation_id=? LIMIT 1 FOR UPDATE");$existing->execute([$operationId]);$existingRow=$existing->fetch(PDO::FETCH_ASSOC);
             if($existingRow){
                 if(!moneyMatches((float)$existingRow['amount'],$amount,0.001)
+                    || !moneyMatches((float)($existingRow['commission_amount']??0),$commissionAmount,0.001)
                     || (string)$existingRow['disbursement_date']!==$date
                     || (string)$existingRow['bank_account_id']!==$bankAccountId
                     || trim((string)($existingRow['notes']??''))!==$notes
@@ -83,11 +89,15 @@ switch ($action) {
                 }
                 tamasyaFinancialCommit($pdo);echo json_encode(['success'=>true,'duplicate'=>true,'disbursementId'=>$existingRow['id'],'db'=>getRoleScopedHotelData($pdo,$loggedInStaff)]);break;}
             $state=buildOtaReceivableState($pdo,true);$available=(float)$state['availableTotal'];
-            if($amount>$available+0.005)throw new RuntimeException('Nominal pencairan melebihi Piutang OTA yang belum dialokasikan. Tersedia Rp '.number_format($available,0,',','.').'.');
+            // The receivable is settled in full by net + commission. Guarding only the
+            // net let a gross amount reach the bank and overstate cash by exactly the
+            // commission the channel never remitted.
+            $otaSettlementTotal=round($amount+$commissionAmount,2);
+            if($otaSettlementTotal>$available+0.005)throw new RuntimeException('Diterima + komisi melebihi Piutang OTA yang belum dialokasikan. Tersedia Rp '.number_format($available,0,',','.').'. Diterima Rp '.number_format($amount,0,',','.').' + komisi Rp '.number_format($commissionAmount,0,',','.').' = Rp '.number_format($otaSettlementTotal,0,',','.').'.');
             // Decimal ledger allocations must total exactly the posted amount.
             // Rounded floats plus epsilon previously allowed one-cent drift.
-            $allocations=tamasyaOtaAllocateCents($state['items'],$amount);
-            $id=generateServerId('ota_disb');$sourceTx=generateServerId('tx_ota_out');$destTx=generateServerId('tx_ota_in');$actor=currentStaffLabel($loggedInStaff);
+            $allocations=tamasyaOtaAllocateCents($state['items'],$otaSettlementTotal);
+            $id=generateServerId('ota_disb');$sourceTx=generateServerId('tx_ota_out');$destTx=generateServerId('tx_ota_in');$commissionTx=$commissionAmount>0?generateServerId('tx_ota_fee'):null;$actor=currentStaffLabel($loggedInStaff);
             $descriptionOut='[Mutasi] Pengurangan Piutang OTA untuk pencairan ke '.(string)$accountRow['name'];
             $descriptionIn=$notes!==''?$notes:'[Mutasi] Penerimaan pencairan dana Piutang OTA';
             tamasyaPostFinancialTransaction($pdo,[
@@ -102,18 +112,33 @@ switch ($action) {
                 'taxSnapshotStatus'=>'not_applicable','taxSource'=>'ota_settlement','transactionKind'=>'ota_transfer','sourceEntity'=>'ota_disbursement',
                 'sourceEntityId'=>$id,'isSystemGenerated'=>1,'operationId'=>tamasyaOtaLedgerOperationId($operationId,'in'),'updatedBy'=>$loggedInStaff['id']??null,'updatedSource'=>'web','version'=>1
             ],$loggedInStaff,'ota',['source'=>'web']);
-            $pdo->prepare("INSERT INTO ota_disbursements(id,operation_id,disbursement_date,bank_account_id,amount,notes,source_transaction_id,destination_transaction_id,status,created_by,created_by_name,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?, 'completed',?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
-                ->execute([$id,$operationId,$date,$bankAccountId,$amount,$notes?:null,$sourceTx,$destTx,$loggedInStaff['id'],$actor]);
+            if($commissionTx!==null){
+                // The commission settles against the OTA receivable, not the drawer: no
+                // money leaves the bank account, the hotel simply never received it.
+                // Posting it on 'ota_receivable' keeps it out of cash-expense totals while
+                // still recognising the cost in the profit and loss statement.
+                $commissionCategory=tamasyaRequireSystemFinanceCategory($pdo,'ota_commission','expense',true);
+                $commissionDescription='Komisi channel OTA atas pencairan ke '.(string)$accountRow['name'];
+                tamasyaPostFinancialTransaction($pdo,[
+                    'id'=>$commissionTx,'type'=>'expense','category'=>(string)$commissionCategory['name'],'categoryId'=>(string)$commissionCategory['id'],
+                    'categorySystemKey'=>'ota_commission','subcategory'=>'OTA','amount'=>$commissionAmount,'date'=>$date,
+                    'description'=>$commissionDescription,'createdBy'=>$actor,'bankAccountId'=>'ota_receivable','baseAmount'=>$commissionAmount,'taxAmount'=>0,'taxRate'=>0,
+                    'taxSnapshotStatus'=>'not_applicable','taxSource'=>'ota_settlement','transactionKind'=>'ota_commission','sourceEntity'=>'ota_disbursement',
+                    'sourceEntityId'=>$id,'isSystemGenerated'=>1,'operationId'=>tamasyaOtaLedgerOperationId($operationId,'fee'),'updatedBy'=>$loggedInStaff['id']??null,'updatedSource'=>'web','version'=>1
+                ],$loggedInStaff,'ota',['source'=>'web']);
+            }
+            $pdo->prepare("INSERT INTO ota_disbursements(id,operation_id,disbursement_date,bank_account_id,amount,commission_amount,notes,source_transaction_id,destination_transaction_id,status,created_by,created_by_name,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?, 'completed',?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP)")
+                ->execute([$id,$operationId,$date,$bankAccountId,$amount,$commissionAmount,$notes?:null,$sourceTx,$destTx,$loggedInStaff['id'],$actor]);
             $insertItem=$pdo->prepare("INSERT INTO ota_disbursement_items(id,disbursement_id,receivable_transaction_id,booking_id,allocated_amount,created_at) VALUES (?,?,?,?,?,CURRENT_TIMESTAMP)");
             foreach($allocations as $allocation){$insertItem->execute(['ota_item_'.substr(hash('sha256',$id.'|'.$allocation['transactionId']),0,64),$id,$allocation['transactionId'],$allocation['bookingId'],$allocation['amount']]);}
             $otaAfterStmt=$pdo->prepare("SELECT * FROM ota_disbursements WHERE id=? LIMIT 1");$otaAfterStmt->execute([$id]);$otaAfter=$otaAfterStmt->fetch(PDO::FETCH_ASSOC)?:['id'=>$id,'amount'=>$amount,'bank_account_id'=>$bankAccountId,'status'=>'completed'];
-            $otaAfter['allocations']=$allocations;$otaAfter['sourceTransactionId']=$sourceTx;$otaAfter['destinationTransactionId']=$destTx;
+            $otaAfter['allocations']=$allocations;$otaAfter['sourceTransactionId']=$sourceTx;$otaAfter['destinationTransactionId']=$destTx;$otaAfter['commissionTransactionId']=$commissionTx;
             writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Pencairan Piutang OTA','ota_disbursement',$id,null,$otaAfter,'web');
             $notifId=generateServerId('n');$pdo->prepare("INSERT INTO notifications(id,message,timestamp,`read`,type) VALUES (?,?,CURRENT_TIMESTAMP,0,'finance')")
-                ->execute([$notifId,'Pencairan Piutang OTA Rp '.number_format($amount,0,',','.').' ke '.$accountRow['name'].' dicatat secara atomik.']);
+                ->execute([$notifId,'Pencairan Piutang OTA Rp '.number_format($amount,0,',','.').($commissionAmount>0?' (komisi Rp '.number_format($commissionAmount,0,',','.').')':'').' ke '.$accountRow['name'].' dicatat secara atomik.']);
             bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
-            broadcastTelegramNotification($pdo,"🌐 *PENCAIRAN PIUTANG OTA*\n\n💰 Nominal: *Rp ".number_format($amount,0,',','.')."*\n🏦 Tujuan: *{$accountRow['name']}*\n👤 Oleh: *{$actor}*",true);
-            echo json_encode(['success'=>true,'message'=>'Pencairan Piutang OTA berhasil dicatat dan dialokasikan ke booking secara atomik.','disbursementId'=>$id,'allocations'=>$allocations,'db'=>getRoleScopedHotelData($pdo,$loggedInStaff)]);
+            broadcastTelegramNotification($pdo,"🌐 *PENCAIRAN PIUTANG OTA*\n\n💰 Diterima: *Rp ".number_format($amount,0,',','.').($commissionAmount>0?"*\n💸 Komisi OTA: *Rp ".number_format($commissionAmount,0,',','.')."*":"") . "*\n🏦 Tujuan: *{$accountRow['name']}*\n👤 Oleh: *{$actor}*",true);
+            echo json_encode(['success'=>true,'message'=>'Pencairan Piutang OTA berhasil dicatat dan dialokasikan ke booking secara atomik.','disbursementId'=>$id,'netAmount'=>$amount,'commissionAmount'=>$commissionAmount,'allocations'=>$allocations,'db'=>getRoleScopedHotelData($pdo,$loggedInStaff)]);
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();http_response_code($e instanceof InvalidArgumentException?400:409);echo json_encode(['success'=>false,'error'=>clientExceptionMessage('Gagal mencatat pencairan OTA',$e)]);}
         break;
 

@@ -1323,6 +1323,7 @@ CREATE TABLE `ota_disbursements` (
   `disbursement_date` date NOT NULL,
   `bank_account_id` varchar(50) NOT NULL,
   `amount` decimal(15,2) NOT NULL,
+  `commission_amount` decimal(15,2) NOT NULL DEFAULT 0.00,
   `notes` text DEFAULT NULL,
   `source_transaction_id` varchar(50) NOT NULL,
   `destination_transaction_id` varchar(50) NOT NULL,

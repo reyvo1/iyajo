@@ -76,6 +76,12 @@ function tamasyaFinanceSemanticRoleDefinitions(): array {
         'pos_refund'=>['type'=>'expense','required'=>false,'label'=>'Retur POS','description'=>'Kategori kontra-pendapatan saat penjualan POS dibatalkan/refund.'],
         'pos_cogs'=>['type'=>'expense','required'=>false,'label'=>'HPP POS','description'=>'Kategori HPP non-kas untuk persediaan yang terjual melalui POS. Wajib di-bind sebelum POS dipakai.'],
         'pos_cogs_reversal'=>['type'=>'income','required'=>false,'label'=>'Pembalik HPP POS','description'=>'Kategori pembalik HPP saat stok POS dipulihkan karena void/refund.'],
+        // OTA channels remit net of their commission. The receivable stays booked at
+        // the gross room rate, so the deduction must be recognised as its own cost
+        // instead of being stranded inside the settlement transfer. It settles against
+        // the OTA receivable account, so it clears the outstanding balance without
+        // being counted as a cash outflow from the drawer.
+        'ota_commission'=>['type'=>'expense','required'=>false,'label'=>'Komisi OTA','description'=>'Potongan komisi channel OTA atas pencairan Piutang OTA. Bukan pengeluaran kas; mengurangi Piutang OTA.'],
     ];
 }
 

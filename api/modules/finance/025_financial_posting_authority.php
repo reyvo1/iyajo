@@ -39,7 +39,9 @@ function tamasyaFinancialPostingAuthorityDefinitions(): array {
         ],
         'ota'=>[
             'label'=>'OTA Receivable / Settlement',
-            'kinds'=>['ota_transfer'],
+            // ota_commission settles the channel deduction against the receivable. It is
+            // not cash movement, so it is booked separately from the transfer pair.
+            'kinds'=>['ota_transfer','ota_commission'],
             'sourceEntities'=>['ota_disbursement'],
         ],
         'guest_deposit'=>[
