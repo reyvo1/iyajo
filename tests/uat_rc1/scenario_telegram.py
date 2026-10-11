@@ -238,18 +238,23 @@ check('room_payment_status_menu shows filter buttons','Belum Lunas' in pay_butto
 check('room_payment_status_menu shows pagination or empty state',('Halaman' in text or 'Tidak ada kamar' in text),text)
 
 # Test filter: unpaid
+# A denied callback answers {"success":true,"status":"callback_denied"} with no
+# message, so asserting only on success let dead buttons pass. Each check below
+# therefore requires a rendered body carrying the filter/page it asked for.
 unpaid_s,unpaid=sim_cb('room_pay_status_unpaid','room_payment_status_filter:unpaid',message='uat-room-pay-unpaid')
-check('Filter unpaid works',unpaid_s==200 and unpaid.get('success') is True,unpaid)
 unpaid_text=unpaid.get('message',{}).get('text','')
+check('Filter unpaid works',unpaid_s==200 and unpaid.get('success') is True and bool(unpaid_text) and 'Filter: *Belum Lunas*' in unpaid_text,{'status':unpaid_s,'body':unpaid})
 check('Filter unpaid shows only unpaid/partial',('Belum Lunas' in unpaid_text or 'Tidak ada kamar' in unpaid_text),unpaid_text)
 
 # Test filter: active
 active_s,active=sim_cb('room_pay_status_active','room_payment_status_filter:active',message='uat-room-pay-active')
-check('Filter active works',active_s==200 and active.get('success') is True,active)
+active_text=active.get('message',{}).get('text','')
+check('Filter active works',active_s==200 and active.get('success') is True and bool(active_text) and 'Filter: *Aktif*' in active_text,{'status':active_s,'body':active})
 
 # Test pagination
 page2_s,page2=sim_cb('room_pay_status_page2','room_payment_status_menu:p:2',message='uat-room-pay-page2')
-check('Pagination works',page2_s==200 and page2.get('success') is True,page2)
+page2_text=page2.get('message',{}).get('text','')
+check('Pagination works',page2_s==200 and page2.get('success') is True and bool(page2_text) and ('Halaman' in page2_text or 'Tidak ada kamar' in page2_text),{'status':page2_s,'body':page2})
 
 check('Telegram UAT leaves journals balanced',not db('SELECT journal_entry_id FROM journal_lines GROUP BY journal_entry_id HAVING ABS(SUM(debit)-SUM(credit))>0.001'))
 print('TELEGRAM-UAT',sum(x['pass'] for x in results),'/',len(results))
