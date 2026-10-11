@@ -978,6 +978,10 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     break;
                 }
                 
+                $replyText = "";
+                $replyMarkup = null;
+                $alertText = "";
+
                 // EARLY answerCallbackQuery: MUST be called BEFORE any handler logic
                 // to prevent "loading forever" if handler throws exception
                 // Use telegramApiCall directly (works in simulation mode) to avoid exception from Required variant
@@ -987,11 +991,7 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                         "text" => $alertText ?: "Memproses..."
                     ]);
                 }
-                
-                $replyText = "";
-                $replyMarkup = null;
-                $alertText = "";
-                
+
                 $authStaff = null;
                 $isLoginAction = false;
                 
