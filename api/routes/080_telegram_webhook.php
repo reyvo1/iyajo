@@ -859,7 +859,7 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
 
                 // Otorisasi callback dilakukan sebelum handler mana pun menyentuh database.
                 // Tombol lama yang masih tersimpan di chat tidak boleh menjadi bypass role.
-                $callbackRole = strtolower((string)($loggedInStaff['role'] ?? ''));
+                $callbackRole = $loggedInStaff ? strtolower((string)($loggedInStaff['role'] ?? '')) : '';
                 $isPublicCallback = in_array($callbackData, ['main_menu','room_status_menu','ai_prompt'], true)
                     || str_starts_with($callbackData, 'room_status_menu:p:')
                     || str_starts_with($callbackData, 'login_as_id:');
