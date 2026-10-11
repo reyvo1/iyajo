@@ -17,7 +17,8 @@ $telegramSimulationAllowed = static function (): bool {
 };
 switch ($action) {
     case 'telegram-bot':
-        requireRoles($loggedInStaff, ['admin']);
+        // Simulator: allow unknown users for testing unbound identity scenarios
+        // Real operations still require proper binding via /bind KODE
         if (!$telegramSimulationAllowed()) {
             http_response_code(403);
             echo json_encode(["success" => false, "error" => "Simulator Telegram tidak tersedia pada produksi dan hanya dapat diaktifkan pada staging/development."]);
