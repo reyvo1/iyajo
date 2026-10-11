@@ -787,6 +787,7 @@ CREATE TABLE `hotel_operational_settings` (
   `require_key_control` tinyint(1) NOT NULL DEFAULT 1,
   `require_payment_before_key_issue` tinyint(1) NOT NULL DEFAULT 0,
   `require_night_audit_for_night_shift` tinyint(1) NOT NULL DEFAULT 1,
+  `night_audit_enabled` tinyint(1) NOT NULL DEFAULT 1,
   `cash_variance_tolerance` decimal(15,2) NOT NULL DEFAULT 0.00,
   `smart_lock_bridge_url` varchar(500) DEFAULT NULL,
   `smart_lock_bridge_token` text DEFAULT NULL,

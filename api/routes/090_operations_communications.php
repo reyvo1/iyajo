@@ -110,7 +110,7 @@ switch ($action) {
             'housekeeping-save'=>['operations'], 'housekeeping-status'=>['operations'],
             'maintenance-ticket-save'=>['operations'], 'maintenance-ticket-status'=>['operations'],
             'guest-profile-save'=>['operations'], 'guest-sync'=>['operations'], 'guest-service-open'=>['operations'], 'guest-service-progress'=>['operations'], 'guest-service-close'=>['operations'],
-            'lost-found-open'=>['operations'], 'lost-found-secure'=>['operations'], 'lost-found-notify'=>['operations'], 'lost-found-close'=>['operations'], 'maintenance-cancellation-review'=>['operations'], 'operational-incident-open'=>['operations'], 'operational-incident-progress'=>['operations'], 'operational-incident-resolve'=>['operations'], 'room-hold-open'=>['operations'], 'room-hold-release'=>['operations'], 'alert-ack'=>['operations'], 'operational-settings-save'=>['operations','config'], 'night-audit-mode-save'=>['operations','config'],
+            'lost-found-open'=>['operations'], 'lost-found-secure'=>['operations'], 'lost-found-notify'=>['operations'], 'lost-found-close'=>['operations'], 'maintenance-cancellation-review'=>['operations'], 'operational-incident-open'=>['operations'], 'operational-incident-progress'=>['operations'], 'operational-incident-resolve'=>['operations'], 'room-hold-open'=>['operations'], 'room-hold-release'=>['operations'], 'alert-ack'=>['operations'], 'operational-settings-save'=>['operations','config'], 'night-audit-mode-save'=>['operations','config'], 'schema-doctor'=>['operations'],
             'room-access-save'=>['operations'], 'key-issue'=>['operations'],
             'key-return'=>['operations'], 'room-key-recovered'=>['operations'], 'smart-lock-job-retry'=>['operations'],
             'smart-lock-job-manual-complete'=>['operations'], 'late-checkout-record'=>['operations'],
@@ -1177,6 +1177,17 @@ switch ($action) {
                 writeRequiredEnterpriseAudit($pdo,$loggedInStaff,$alertAuditAction,'system_alert',$id,$before,$after,'web');
                 bumpServerRevision($pdo);
                 tamasyaFinancialCommit($pdo);
+            } elseif ($command === 'schema-doctor') {
+                // Read-only schema drift report. Exists because the migration runners
+                // have no callers, so a property database could miss columns silently,
+                // and shared hosting has no terminal to inspect it. Reports only: it never
+                // executes DDL, so it is safe to open at any time.
+                requireCapability($loggedInStaff,'view_audit_log',['admin','manager']);
+                $report=tamasyaSchemaDoctorInspect($pdo);
+                writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Memeriksa drift skema database','schema_doctor','system_default',null,
+                    ['missingTables'=>count($report['missingTables']),'missingColumns'=>count($report['missingColumns']),'ok'=>$report['ok']],'web');
+                echo json_encode(['success'=>true,'data'=>$report],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+                break;
             } elseif ($command === 'night-audit-mode-save') {
                 // R16.4: avoid overloading "Night Audit required to close shift".
                 // Only Admin can change the feature mode, independently per property.

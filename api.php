@@ -57,6 +57,7 @@ require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'supp
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '003_property_identity.php';
 $__f = tamasyaResolveDomainSupportFile('004_property_setup.php'); if ($__f) { require_once $__f; } unset($__f);
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '005_runtime_observability.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '009_schema_doctor.php';
 $__f = tamasyaResolveDomainSupportFile('010_schema_contract.php'); if ($__f) { require_once $__f; } unset($__f);
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '012_domain_primitives.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '015_biometric_attendance.php';
