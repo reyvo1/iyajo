@@ -221,40 +221,56 @@ finally:
     db("UPDATE hotel_operational_settings SET cash_variance_tolerance=? WHERE id='system_default'",[old_tolerance])
 
 # room_payment_status_menu UAT
-# Assert on the captured responses. These previously read the loop variable `body`,
-# which still held the last consistency_guard response and made every assertion
-# below check stale data instead of the room payment status menu.
-room_pay_status_s,room_pay_status=sim_cb('room_payment_status_menu','room_payment_status_menu',message='uat-room-pay-status')
-check('room_payment_status_menu renders without error',room_pay_status_s==200 and room_pay_status.get('success') is True,room_pay_status)
-text=room_pay_status.get('message',{}).get('text','')
-check('room_payment_status_menu shows status header','💰 *STATUS PEMBAYARAN PER KAMAR*' in text,text)
-# The filter labels live on the inline keyboard buttons, not in the body text.
-# Asserting them against `text` could never hold: the body only renders a status
-# label per room plus the active filter name.
-pay_markup=room_pay_status.get('message',{}).get('replyMarkup') or room_pay_status.get('message',{}).get('reply_markup') or {}
-pay_buttons=[b for row in (pay_markup.get('inline_keyboard') or []) for b in row]
-pay_button_text=' '.join(str(b.get('text') or '') for b in pay_buttons)
-check('room_payment_status_menu shows filter buttons','Belum Lunas' in pay_button_text and 'Aktif' in pay_button_text and 'Reserved' in pay_button_text,pay_button_text)
-check('room_payment_status_menu shows pagination or empty state',('Halaman' in text or 'Tidak ada kamar' in text),text)
+#
+# Each callback is asserted against its OWN response. A denied callback answers
+# {"success":true,"status":"callback_denied"} with no message body at all, so a
+# check that only looks at `success` lets a dead button pass silently. Every
+# assertion below therefore requires a rendered body as well.
 
-# Test filter: unpaid
-# A denied callback answers {"success":true,"status":"callback_denied"} with no
-# message, so asserting only on success let dead buttons pass. Each check below
-# therefore requires a rendered body carrying the filter/page it asked for.
-unpaid_s,unpaid=sim_cb('room_pay_status_unpaid','room_payment_status_filter:unpaid',message='uat-room-pay-unpaid')
-unpaid_text=unpaid.get('message',{}).get('text','')
-check('Filter unpaid works',unpaid_s==200 and unpaid.get('success') is True and bool(unpaid_text) and 'Filter: *Belum Lunas*' in unpaid_text,{'status':unpaid_s,'body':unpaid})
-check('Filter unpaid shows only unpaid/partial',('Belum Lunas' in unpaid_text or 'Tidak ada kamar' in unpaid_text),unpaid_text)
+def _pay_markup(body):
+    message=(body.get('message') or {}) if isinstance(body,dict) else {}
+    return message.get('replyMarkup') or message.get('reply_markup') or {}
 
-# Test filter: active
-active_s,active=sim_cb('room_pay_status_active','room_payment_status_filter:active',message='uat-room-pay-active')
-active_text=active.get('message',{}).get('text','')
-check('Filter active works',active_s==200 and active.get('success') is True and bool(active_text) and 'Filter: *Aktif*' in active_text,{'status':active_s,'body':active})
+def _pay_buttons(body):
+    return [button for row in (_pay_markup(body).get('inline_keyboard') or []) for button in row]
 
-# Test pagination
-page2_s,page2=sim_cb('room_pay_status_page2','room_payment_status_menu:p:2',message='uat-room-pay-page2')
-page2_text=page2.get('message',{}).get('text','')
-check('Pagination works',page2_s==200 and page2.get('success') is True and bool(page2_text) and ('Halaman' in page2_text or 'Tidak ada kamar' in page2_text),{'status':page2_s,'body':page2})
+def _pay_rows(text):
+    # A rendered room line is "<icon> <number> <pay icon> <status> | <guest> | <outstanding>".
+    return [line for line in (text or '').split('\n') if ' | ' in line]
+
+pay_s,pay_body=sim_cb('room_payment_status_menu','room_payment_status_menu',message='uat-room-pay-status')
+pay_text=(pay_body.get('message') or {}).get('text','')
+check('room_payment_status_menu renders without error',pay_s==200 and pay_body.get('success') is True and pay_body.get('status')!='callback_denied' and bool(pay_text),{'status':pay_s,'body':pay_body})
+check('room_payment_status_menu shows status header','💰 *STATUS PEMBAYARAN PER KAMAR*' in pay_text,pay_text)
+check('room_payment_status_menu shows pagination or empty state',('Halaman' in pay_text or 'Tidak ada kamar' in pay_text),pay_text)
+check('room_payment_status_menu defaults to the Semua filter',('Tidak ada kamar' in pay_text or 'Filter: *Semua*' in pay_text),pay_text)
+pay_callbacks={str(button.get('callback_data') or '') for button in _pay_buttons(pay_body)}
+if 'Tidak ada kamar' in pay_text:
+    # The empty state is a deliberate branch: it renders only the way back, no filter row.
+    check('room_payment_status_menu empty state offers only the way back',pay_callbacks=={'guest_ops_menu'},sorted(pay_callbacks))
+else:
+    for pay_filter in ('all','unpaid','active','reserved'):
+        check('room_payment_status_menu offers filter button '+pay_filter,'room_payment_status_filter:'+pay_filter in pay_callbacks,sorted(pay_callbacks))
+    check('room_payment_status_menu keeps the back button',('guest_ops_menu' in pay_callbacks),sorted(pay_callbacks))
+
+# Test filter: unpaid must never surface a fully paid booking.
+unpaid_s,unpaid_body=sim_cb('room_pay_status_unpaid','room_payment_status_filter:unpaid',message='uat-room-pay-unpaid')
+unpaid_text=(unpaid_body.get('message') or {}).get('text','')
+unpaid_rows=_pay_rows(unpaid_text)
+check('Filter unpaid works',unpaid_s==200 and unpaid_body.get('success') is True and unpaid_body.get('status')!='callback_denied' and bool(unpaid_text) and ('Tidak ada kamar' in unpaid_text or 'Filter: *Belum Lunas*' in unpaid_text),{'status':unpaid_s,'body':unpaid_body})
+check('Filter unpaid shows only unpaid/partial',('Tidak ada kamar' in unpaid_text) or all('✅' not in row for row in unpaid_rows),{'rows':unpaid_rows})
+
+# Test filter: active must never surface a reserved or vacant room.
+active_s,active_body=sim_cb('room_pay_status_active','room_payment_status_filter:active',message='uat-room-pay-active')
+active_text=(active_body.get('message') or {}).get('text','')
+active_rows=_pay_rows(active_text)
+check('Filter active works',active_s==200 and active_body.get('success') is True and active_body.get('status')!='callback_denied' and bool(active_text) and ('Tidak ada kamar' in active_text or 'Filter: *Aktif*' in active_text),{'status':active_s,'body':active_body})
+check('Filter active hides reserved and vacant rooms',('Tidak ada kamar' in active_text) or all('Reserved' not in row and 'Kosong' not in row for row in active_rows),{'rows':active_rows})
+
+# Test pagination: page 2 must answer with a rendered page, never a denied stub.
+page2_s,page2_body=sim_cb('room_pay_status_page2','room_payment_status_menu:p:2',message='uat-room-pay-page2')
+page2_text=(page2_body.get('message') or {}).get('text','')
+check('Pagination works',page2_s==200 and page2_body.get('success') is True and page2_body.get('status')!='callback_denied' and bool(page2_text) and ('Halaman' in page2_text or 'Tidak ada kamar' in page2_text),{'status':page2_s,'body':page2_body})
 
 check('Telegram UAT leaves journals balanced',not db('SELECT journal_entry_id FROM journal_lines GROUP BY journal_entry_id HAVING ABS(SUM(debit)-SUM(credit))>0.001'))
 print('TELEGRAM-UAT',sum(x['pass'] for x in results),'/',len(results))
