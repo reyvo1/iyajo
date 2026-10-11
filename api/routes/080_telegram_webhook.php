@@ -968,9 +968,9 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                 
                 // EARLY answerCallbackQuery: MUST be called BEFORE any handler logic
                 // to prevent "loading forever" if handler throws exception
-                // Use telegramApiCallRequired which supports simulation mode (returns mock success)
+                // Use telegramApiCall directly (works in simulation mode) to avoid exception from Required variant
                 if (empty($telegramCallbackEarlyAcked)) {
-                    telegramApiCallRequired($token,'answerCallbackQuery', [
+                    telegramApiCall($token,'answerCallbackQuery', [
                         "callback_query_id" => $callbackQueryId,
                         "text" => $alertText ?: "Memproses..."
                     ]);
