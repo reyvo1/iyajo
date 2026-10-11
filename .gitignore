@@ -25,3 +25,7 @@ uploads/*
 !uploads/public-site/
 uploads/public-site/*
 !uploads/public-site/.htaccess
+
+# Local config files (not for release)
+.database_setup_key.php
+hotel_local_credentials.php
