@@ -65,6 +65,35 @@ function tamasyaMarkRequestOperationUncertain(PDO $pdo, string $operationId, str
 }
 
 /** Source line 109: clientExceptionMessage */
+/**
+ * Turn a PDOException into an actionable but non-revealing sentence.
+ *
+ * Every PDOException used to collapse into "<context>. Referensi: <hash>", so a
+ * missing migration column or a duplicate key was indistinguishable from a crash
+ * and the operator had nothing to act on. The SQLSTATE family is stable and public,
+ * so it can be reported as meaning without disclosing SQL, column names, or paths.
+ * The full driver text stays in the error log next to the reference.
+ */
+function tamasyaPdoExceptionClientMessage(PDOException $error): ?string {
+    $sqlstate = strtoupper(trim((string)$error->getCode()));
+    $driverCode = (int)($error->errorInfo[1] ?? 0);
+    if ($sqlstate === '') {
+        if ($driverCode === 1062) return 'Data sudah ada sebelumnya (duplikat). Periksa kembali data yang sama tidak tersimpan dua kali.';
+        if ($driverCode === 1205 || $driverCode === 1213) return 'Data sedang dikunci oleh proses lain. Tunggu sebentar lalu ulangi penyimpanan.';
+        return null;
+    }
+    return match (true) {
+        str_starts_with($sqlstate, '23') => 'Data ditolak karena bentrok integrity (sudah ada atau tidak boleh berduplikasi). Periksa kembali nilai yang sama.',
+        $sqlstate === '40001' || $sqlstate === '40P01' => 'Konflik transaksi dengan proses lain. Tunggu sebentar lalu ulangi penyimpanan.',
+        str_starts_with($sqlstate, '42') => 'Struktur database belum lengkap untuk operasi ini. Jalankan migrasi/timestamping database sebelum menyimpan.',
+        str_starts_with($sqlstate, '08') => 'Koneksi ke database terputus. Data belum tersimpan; ulangi setelah koneksi pulih.',
+        str_starts_with($sqlstate, '21') => 'Kolom atau data tidak sesuai dengan struktur penyimpanan. Periksa ulang isian yang diminta server.',
+        str_starts_with($sqlstate, '28') => 'Akses database ditolak. Periksa hak akses aplikasi.',
+        str_starts_with($sqlstate, '0A') || str_starts_with($sqlstate, '22') => 'Nilai yang dikirim tidak valid untuk server. Periksa kembali isian formulir.',
+        default => null,
+    };
+}
+
 function clientExceptionMessage(string $context, Throwable $error): string {
     global $appDebug;
     $reference = strtoupper(substr(bin2hex(random_bytes(6)), 0, 10));
@@ -79,6 +108,11 @@ function clientExceptionMessage(string $context, Throwable $error): string {
 
     if ($appDebug) {
         return trim($context . ': ' . $error->getMessage(), ': ');
+    }
+
+    if ($error instanceof PDOException) {
+        $mapped = tamasyaPdoExceptionClientMessage($error);
+        if ($mapped !== null) return trim($context . '. ' . $mapped . ' (Referensi: ' . $reference . ')', '. ');
     }
 
     if ($error instanceof InvalidArgumentException ||

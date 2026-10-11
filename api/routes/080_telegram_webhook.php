@@ -2940,7 +2940,7 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                                 $result = finalizeTelegramRoomTransfer(
                                     $pdo,$loggedInStaff,$roomNumber,$targetRoomNumber,(float)$cost,'unpaid',$telegramCallbackOperationId,'callback','not_required','Kamar asal tidak memiliki kunci fisik yang masih outstanding.'
                                 );
-                                $guestName = (string)($result['guestName'] ?? 'Tamu');
+                                $guestName = tamasyaTelegramPlainText((string)($result['guestName'] ?? 'Tamu'), 120);
                                 if (empty($result['duplicate'])) {
                                     $tgMsg = "🔄 *PEMINDAHAN KAMAR (TRANSFER ROOM)*\n\n" .
                                              "👤 *Tamu*: {$guestName}\n" .
@@ -2998,7 +2998,7 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                                 $result=finalizeTelegramRoomTransfer(
                                     $pdo,$loggedInStaff,$roomNumber,$targetRoomNumber,$cost,$paymentStatus,$telegramCallbackOperationId,'callback',$keyDisposition,$keyReason
                                 );
-                                $guestName=(string)($result['guestName']??'Tamu');
+                                $guestName=tamasyaTelegramPlainText((string)($result['guestName']??'Tamu'),120);
                                 if(empty($result['duplicate'])){
                                     $tgMsg="🔄 *PEMINDAHAN KAMAR (TRANSFER ROOM)*\n\n" .
                                            "👤 *Tamu*: {$guestName}\n" .
@@ -6021,7 +6021,7 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                                 $transferOperationId=$telegramUpdateOperationId.'_room_transfer';
                                 if(strlen($transferOperationId)>100)$transferOperationId='tg_transfer_'.substr(hash('sha256',$telegramUpdateOperationId.'|'.$roomNumber.'|'.$targetRoomNumber.'|'.$cost.'|folio'),0,64);
                                 $result=finalizeTelegramRoomTransfer($pdo,$loggedInStaff,$roomNumber,$targetRoomNumber,$cost,'unpaid',$transferOperationId,'message','not_required','Kamar asal tidak memiliki kunci fisik yang masih outstanding.');
-                                $guestName=(string)($result['guestName']??'Tamu');
+                                $guestName=tamasyaTelegramPlainText((string)($result['guestName']??'Tamu'),120);
                                 if(empty($result['duplicate'])){
                                     broadcastTelegramNotification($pdo,"🔄 *PEMINDAHAN KAMAR*\n\n👤 *Tamu*: {$guestName}\n🚪 *{$roomNumber}* → *{$targetRoomNumber}*\n💰 *Biaya Tambahan Folio*: Rp ".tamasyaTelegramFormatAmount($cost)."\n💳 *Settlement*: BELUM DIBAYAR — melalui Pembayaran/Checkout\n👤 *Oleh*: {$loggedInStaff['name']}");
                                 }
@@ -6065,7 +6065,7 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                                 ? 'Petugas mengonfirmasi via Telegram bahwa kunci kamar asal sudah kembali/ditemukan saat pindah kamar.'
                                 : 'Petugas mengonfirmasi via Telegram bahwa kunci kamar asal belum kembali/hilang saat pindah kamar.';
                             $result=finalizeTelegramRoomTransfer($pdo,$loggedInStaff,$roomNumber,$targetRoomNumber,$cost,$paymentStatus,$transferOperationId,'message',$keyDisposition,$keyReason);
-                            $guestName=(string)($result['guestName']??'Tamu');
+                            $guestName=tamasyaTelegramPlainText((string)($result['guestName']??'Tamu'),120);
                             if(empty($result['duplicate'])){
                                 $tgMsg="🔄 *PEMINDAHAN KAMAR (TRANSFER ROOM)*\n\n👤 *Tamu*: {$guestName}\n🚪 *Kamar Asal*: {$roomNumber}\n🚪 *Kamar Tujuan*: {$targetRoomNumber}\n🔑 *Kunci Asal*: ".($keyDisposition==='returned'?'✅ KEMBALI/DITEMUKAN':'⚠️ BELUM KEMBALI/HILANG')."\n💰 *Biaya Tambahan*: Rp ".tamasyaTelegramFormatAmount($cost)."\n💳 *Settlement*: ⏳ BELUM DIBAYAR — melalui Pembayaran/Checkout\n👤 *Oleh*: {$loggedInStaff['name']}";
                                 broadcastTelegramNotification($pdo,$tgMsg);

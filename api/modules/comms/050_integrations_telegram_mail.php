@@ -795,7 +795,11 @@ function getCheckInTelegramMessage($booking, $roomType, $taxDetailStr = "", $sta
     
     return "🟢 *REGISTRASI TAMU BARU* (Check-in)\n" .
            "──────────────────\n" .
-           "👤 Tamu: *" . ($booking['guestName'] ?? '') . "*" . $phoneStr . "\n" .
+           // Guest name is operator-supplied and goes into parse_mode=Markdown. An
+           // unmatched _ or [ made Telegram reject the whole message with
+           // "can't parse entities", so a financial broadcast was dropped because of a
+           // guest called Budi_Santosa. Strip the markup characters first.
+           "👤 Tamu: *" . tamasyaTelegramPlainText($booking['guestName'] ?? '', 120) . "*" . $phoneStr . "\n" .
            "🔑 Kamar: *" . $roomNum . "* (" . $roomType . ")\n" .
            "📅 Check-in: *" . ($booking['checkIn'] ?? '') . "*\n" .
            "📅 Check-out: *" . ($booking['checkOut'] ?? '') . "* (" . $nights . " Malam)\n" .
@@ -839,7 +843,8 @@ function getCheckOutTelegramMessage($booking, $roomType, $staffName = "System") 
     
     return "🔴 *TAMU CHECK-OUT SELESAI*\n" .
            "──────────────────\n" .
-           "👤 Tamu: *" . ($booking['guestName'] ?? '') . "*\n" .
+           // Same escaping reason as the check-in broadcast above.
+           "👤 Tamu: *" . tamasyaTelegramPlainText($booking['guestName'] ?? '', 120) . "*\n" .
            "🔑 Kamar: *" . ($booking['roomNumber'] ?? '') . "* (" . $roomType . ")\n" .
            "📅 Check-in: *" . ($booking['checkIn'] ?? '') . "*\n" .
            "📅 Check-out: *" . ($booking['checkOut'] ?? '') . "*\n" .
