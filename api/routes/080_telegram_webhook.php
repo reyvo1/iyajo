@@ -94,17 +94,17 @@ switch ($action) {
         $messageId = $input['messageId'] ?? '';
 
         // In simulation mode, resolve staff from telegram binding if not already logged in
-        if ($simulationMode) {
-            if (!$loggedInStaff) {
-                $loggedInStaff = findActiveStaffByTelegramUserId($pdo, (string)$chatId);
-            }
+        if ($simulationMode && !$loggedInStaff) {
+            $loggedInStaff = findActiveStaffByTelegramUserId($pdo, (string)$chatId);
             if (!$loggedInStaff) {
                 http_response_code(401);
                 echo json_encode(["success" => false, "error" => "Telegram ID belum terikat ke akun staf. Hubungi Admin."]);
                 break;
             }
-            // Simpan staff yang sudah ter-resolve untuk dipakai di telegram_webhook_entry
-            // menghindari query ganda yang bisa gagal di bawah load tinggi
+            // Cache only staff resolved from the simulated Telegram identity itself.
+            // A staff loaded from the web session must never be reused here, or an
+            // unknown Telegram id would silently inherit the session operator and
+            // the identity would report itself bound.
             $GLOBALS['tamasya_sim_callback_staff'] = $loggedInStaff;
         }
 
