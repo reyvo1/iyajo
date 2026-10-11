@@ -187,7 +187,8 @@ switch ($action) {
     // ----------------------------------------------------------------
     case 'telegram-webhook':
         telegram_webhook_entry:
-            $propertyName=tamasyaPropertyDisplayName($pdo);
+            try {
+                $propertyName=tamasyaPropertyDisplayName($pdo);
             // Password tidak pernah diterima melalui Telegram. Existing
             // staff.telegram_chat_id tetap bekerja; binding baru memakai kode sekali pakai.
         // Verify Telegram secret header before processing public webhook requests.
@@ -7167,6 +7168,13 @@ Shift aktif diambil langsung dari database:
             // Propagate safe stage/file/line/class metadata to the normal request
             // shutdown telemetry. Previously handled webhook exceptions were
             // counted as HTTP 500 with every diagnostic field NULL.
+            tamasyaRuntimeCaptureThrowable($e, 'telegram:webhook_processing');
+            http_response_code(500);
+            error_log('[Telegram Webhook] ' . $e->getMessage());
+            echo json_encode(["success" => false, "error" => clientExceptionMessage("Operasi Telegram gagal", $e)]);
+        }
+        } catch (Throwable $e) {
+            // Catch any unhandled exception in telegram webhook processing (including callbacks)
             tamasyaRuntimeCaptureThrowable($e, 'telegram:webhook_processing');
             http_response_code(500);
             error_log('[Telegram Webhook] ' . $e->getMessage());
