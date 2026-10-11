@@ -101,6 +101,9 @@ switch ($action) {
                 echo json_encode(["success" => false, "error" => "Telegram ID belum terikat ke akun staf. Hubungi Admin."]);
                 break;
             }
+            // Simpan staff yang sudah ter-resolve untuk dipakai di telegram_webhook_entry
+            // menghindari query ganda yang bisa gagal di bawah load tinggi
+            $GLOBALS['tamasya_sim_callback_staff'] = $loggedInStaff;
         }
 
         // Setup update payload for callback query simulation
@@ -853,7 +856,13 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                 }
 
                 // Gunakan Telegram User ID, bukan chat ID grup, untuk autentikasi staf.
-                $loggedInStaff = findActiveStaffByTelegramUserId($pdo, $fromId);
+                // Di simulation mode, gunakan staff yang sudah di-resolve di telegram-callback
+                // untuk menghindari query ganda yang bisa gagal.
+                if (!empty($GLOBALS['tamasya_sim_callback_staff'])) {
+                    $loggedInStaff = $GLOBALS['tamasya_sim_callback_staff'];
+                } else {
+                    $loggedInStaff = findActiveStaffByTelegramUserId($pdo, $fromId);
+                }
                 try {
                     $callbackData = tamasyaTelegramResolveCallbackData($pdo, $loggedInStaff ?: null, (string)$callbackData);
                 } catch (Throwable $callbackTokenError) {
