@@ -94,17 +94,19 @@ switch ($action) {
         $messageId = $input['messageId'] ?? '';
 
         // In simulation mode, resolve staff from telegram binding if not already logged in
-if ($simulationMode && !$loggedInStaff) {
-    $loggedInStaff = findActiveStaffByTelegramUserId($pdo, (string)$chatId);
-    if (!$loggedInStaff) {
-        http_response_code(401);
-        echo json_encode(["success" => false, "error" => "Telegram ID belum terikat ke akun staf. Hubungi Admin."]);
-        break;
-    }
-    // Simpan staff yang sudah ter-resolve untuk dipakai di telegram_webhook_entry
-    // menghindari query ganda yang bisa gagal di bawah load tinggi
-    $GLOBALS['tamasya_sim_callback_staff'] = $loggedInStaff;
-}
+        if ($simulationMode) {
+            if (!$loggedInStaff) {
+                $loggedInStaff = findActiveStaffByTelegramUserId($pdo, (string)$chatId);
+            }
+            if (!$loggedInStaff) {
+                http_response_code(401);
+                echo json_encode(["success" => false, "error" => "Telegram ID belum terikat ke akun staf. Hubungi Admin."]);
+                break;
+            }
+            // Simpan staff yang sudah ter-resolve untuk dipakai di telegram_webhook_entry
+            // menghindari query ganda yang bisa gagal di bawah load tinggi
+            $GLOBALS['tamasya_sim_callback_staff'] = $loggedInStaff;
+        }
 
         // Setup update payload for callback query simulation
         $update = [
@@ -7182,15 +7184,21 @@ Shift aktif diambil langsung dari database:
             tamasyaRuntimeCaptureThrowable($e, 'telegram:webhook_processing');
             http_response_code(500);
             error_log('[Telegram Webhook] ' . $e->getMessage());
-            echo json_encode(["success" => false, "error" => clientExceptionMessage("Operasi Telegram gagal", $e)]);
+            if (!empty($GLOBALS['is_telegram_simulation'])) {
+                $errMsg = 'Operasi Telegram gagal: ' . $e->getMessage()
+                    . ' in ' . basename((string)$e->getFile()) . ':' . $e->getLine();
+                echo json_encode(["success" => false, "error" => $errMsg]);
+            } else {
+                echo json_encode(["success" => false, "error" => clientExceptionMessage("Operasi Telegram gagal", $e)]);
+            }
         }
         } catch (Throwable $e) {
-            // Catch any unhandled exception in telegram webhook processing (including callbacks)
             tamasyaRuntimeCaptureThrowable($e, 'telegram:webhook_processing');
             http_response_code(500);
             error_log('[Telegram Webhook] ' . $e->getMessage());
-            if (!empty($GLOBALS["is_telegram_simulation"])) {
-                $errMsg = "Operasi Telegram gagal: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine();
+            if (!empty($GLOBALS['is_telegram_simulation'])) {
+                $errMsg = 'Operasi Telegram gagal: ' . $e->getMessage()
+                    . ' in ' . basename((string)$e->getFile()) . ':' . $e->getLine();
                 echo json_encode(["success" => false, "error" => $errMsg]);
             } else {
                 echo json_encode(["success" => false, "error" => clientExceptionMessage("Operasi Telegram gagal", $e)]);
