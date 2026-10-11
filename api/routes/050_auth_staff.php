@@ -97,7 +97,15 @@ switch ($action) {
                 $lock=$pdo->prepare("SELECT * FROM staff WHERE id=? AND status='active' LIMIT 1 FOR UPDATE");
                 $lock->execute([$user['id']]);
                 $locked=$lock->fetch(PDO::FETCH_ASSOC);
-                if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
+if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
+            // A permissions value that cannot be decoded used to hard-deny every action
+            // for this account while the browser still rendered the buttons, because the
+            // corrupt value and "no custom permissions" are indistinguishable on the wire.
+            // Normalise it back to the role baseline on login so the operator is not
+            // permanently locked out of saving.
+            if(tamasyaRepairStaffPermissionsRow($pdo,(string)$locked['id'],$locked['permissions']??null)){
+                $locked['permissions']=null;
+            }
                 $before=tamasyaTwoFactorAuditSnapshot($locked);
                 if($replacementPasswordHash!==null)$pdo->prepare("UPDATE staff SET password=? WHERE id=?")->execute([$replacementPasswordHash,$locked['id']]);
                 $pdo->prepare("UPDATE staff SET two_factor_code_hash=?,two_factor_challenge_hash=?,two_factor_device_id=?,two_factor_expires=? WHERE id=?")
@@ -379,6 +387,8 @@ switch ($action) {
                 echo json_encode(["success"=>false,"error"=>"Gaji staf tidak boleh bernilai negatif."]);
                 break;
             }
+            try { $normalizedPermissions = isset($input['permissions']) ? tamasyaNormalizeSubmittedPermissions($input['permissions']) : null; }
+            catch (InvalidArgumentException $permissionsError) { http_response_code(422); echo json_encode(['success'=>false,'error'=>$permissionsError->getMessage()]); break; }
 
             try {
                 $pdo->beginTransaction();
@@ -394,7 +404,7 @@ switch ($action) {
 
                 $staffId = generateServerId("s");
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                $permissions = isset($input['permissions']) ? json_encode($input['permissions']) : null;
+                $permissions = isset($input['permissions']) ? json_encode($normalizedPermissions) : null;
                 $stmt = $pdo->prepare("INSERT INTO staff (id, name, username, password, role, status, salary, leave_start, leave_end, leave_reason, leave_type, two_factor_active, telegram_chat_id, permissions, password_changed_at, require_password_change) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, 0)");
                 $stmt->execute([$staffId, $name, $username, $hashed_password, $role, $salary, $leaveStart, $leaveEnd, $leaveReason, $leaveType, $twoFactorActive, $permissions]);
 
@@ -560,7 +570,7 @@ switch ($action) {
                 if ($twoFactorActive !== null) { $fieldsToUpdate[] = "two_factor_active = ?"; $params[] = $twoFactorActive; }
                 if (array_key_exists('permissions', $input)) {
                     $fieldsToUpdate[] = "permissions = ?";
-                    $params[] = $input['permissions'] !== null ? json_encode($input['permissions']) : null;
+                    $params[] = $input['permissions'] !== null ? json_encode(tamasyaNormalizeSubmittedPermissions($input['permissions'])) : null;
                 }
 
                 if ($shouldUnbindTelegram) {

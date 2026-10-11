@@ -8,6 +8,67 @@
  */
 if (!defined('TAMASYA_API_ENTRY')) { http_response_code(404); exit; }
 
+/** Normalise a submitted permissions payload before it reaches the database.
+ *
+ * The staff create/update handlers used to call json_encode() on the raw input, so a
+ * client that posted permissions as a JSON *string* was stored double-encoded. Later
+ * reads decode that column to a PHP string instead of an array, which
+ * tamasyaPermissionOverride() treats as corrupt and hard-denies. Because
+ * tamasyaSessionPermissions() then reports plain null, the browser falls back to the
+ * role and renders the action, while the server refuses it: the operator sees a
+ * working button that answers 403 on every save.
+ *
+ * Only an object/array payload is accepted from now on; anything else is rejected at
+ * the boundary with an actionable message instead of silently bricking the account.
+ */
+function tamasyaNormalizeSubmittedPermissions($raw): array {
+    if ($raw === null) return [];
+    if (is_string($raw)) {
+        $trimmed = trim($raw);
+        if ($trimmed === '') return [];
+        $decoded = json_decode($trimmed, true);
+        if (json_last_error() !== JSON_ERROR_NONE || !is_array($decoded)) {
+            throw new InvalidArgumentException('Format permissions tidak valid. Kirim objek JSON (desktopTabs/capabilities), bukan teks JSON.');
+        }
+        return $decoded;
+    }
+    if (!is_array($raw)) {
+        throw new InvalidArgumentException('Format permissions tidak valid. Kirim objek JSON (desktopTabs/capabilities).');
+    }
+    return $raw;
+}
+
+/** Repair one staff.permissions value that can no longer be decoded into an object.
+ *
+ * Returns true when the row was rewritten. Passing the already loaded row avoids a
+ * second SELECT on the login hot path.
+ */
+function tamasyaRepairStaffPermissionsRow(PDO $pdo, string $staffId, $raw): bool {
+    if ($raw === null || trim((string)$raw) === '') return false;
+    if (is_array(json_decode((string)$raw, true))) return false;
+    $pdo->prepare("UPDATE staff SET permissions=NULL WHERE id=?")->execute([$staffId]);
+    error_log('[Permissions] staff.permissions tidak dapat dibaca sebagai objek; dikembalikan ke baseline role untuk staff ' . $staffId);
+    return true;
+}
+
+/** Repair every staff.permissions row that can no longer be decoded into an object.
+ *
+ * A corrupt override is unrecoverable through the UI: saving the account is itself
+ * permission gated, so the account stays locked out of every mutation. The role in
+ * staff.role remains the authoritative baseline entitlement, so an unreadable
+ * override is normalised back to that baseline rather than denying every action
+ * forever. The rewrite is logged so the change is auditable.
+ */
+function tamasyaRepairCorruptStaffPermissions(PDO $pdo): int {
+    $rows = $pdo->query("SELECT id, permissions FROM staff WHERE permissions IS NOT NULL AND TRIM(permissions) <> ''")
+        ->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    $repaired = 0;
+    foreach ($rows as $row) {
+        if (tamasyaRepairStaffPermissionsRow($pdo, (string)$row['id'], $row['permissions'])) $repaired++;
+    }
+    return $repaired;
+}
+
 /** Source line 2039: requireRoles */
 function tamasyaIsOwnerRole($user): bool {
     return is_array($user) && strtolower(trim((string)($user['role'] ?? ''))) === 'owner';
