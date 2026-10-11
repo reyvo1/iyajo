@@ -79,15 +79,24 @@ rm -f "$STAGING_DIR"/*.sha256
 rm -f "$STAGING_DIR"/package*.json
 rm -f "$STAGING_DIR"/playwright.config.mjs
 
-# Remove test files from api (but keep the actual modules!)
-find "$STAGING_DIR/api" -name "*test*" -delete 2>/dev/null || true
-find "$STAGING_DIR/api" -name "*Test*" -delete 2>/dev/null || true
+# Remove test files from api (but keep the actual modules!). The pattern is anchored to
+# a leading "test" so a future production file such as "latest-rooms.php" is never
+# silently deleted by a loose glob.
+find "$STAGING_DIR/api" -type f \( -name "test-*" -o -name "test_*" -o -name "*_test.php" -o -name "Test*.php" \) -delete 2>/dev/null || true
+
+# Remove .mjs test files. Never use a recursive delete here: services/realtime/server.mjs
+# and webpublic/scripts/apply-production-config.mjs are production files and a blanket
+# `find -name "*.mjs" -delete` was silently removing the realtime service from the bundle.
+find "$STAGING_DIR/tests" -name "*.mjs" -delete 2>/dev/null || true
+rm -f "$STAGING_DIR"/playwright.config.mjs 2>/dev/null || true
 
 # Remove any .py test files
-find "$STAGING_DIR" -name "*.py" -delete 2>/dev/null || true
+find "$STAGING_DIR/tests" -name "*.py" -delete 2>/dev/null || true
 
-# Remove .mjs test files (keep actual .mjs if any)
-find "$STAGING_DIR" -name "*.mjs" -delete 2>/dev/null || true
+# Never ship environment files. .env holds live production credentials and the target
+# server already has its own; staging secrets must not travel inside the bundle.
+rm -f "$STAGING_DIR/.env" "$STAGING_DIR/.env.*" 2>/dev/null || true
+find "$STAGING_DIR" -maxdepth 2 -name ".env" -o -maxdepth 2 -name ".env.*" 2>/dev/null | while IFS= read -r leftover; do rm -f "$leftover"; done
 
 # Create zip
 echo "Creating zip..."
