@@ -2687,7 +2687,9 @@ Pilih kamar yang menerima transaksi keuangan.
                             $alertText = "Perpanjang " . $roomNumber;
                         }
                     } catch (Throwable $e) {
-                        $replyText = clientExceptionMessage('Perpanjangan ditolak', $e);
+                        // Return detailed error in simulation mode for debugging
+                        $errMsg = 'Perpanjangan ditolak: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine();
+                        $replyText = !empty($GLOBALS['is_telegram_simulation']) ? $errMsg : clientExceptionMessage('Perpanjangan ditolak', $e);
                         $alertText = 'Error';
                     }
                 } elseif (strpos($callbackData, 'r_extend_nego:') === 0) {
