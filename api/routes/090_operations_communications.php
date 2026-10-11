@@ -347,11 +347,25 @@ switch ($action) {
                 $after=array_replace($before,['actual_cash'=>$actual,'variance'=>$variance,'close_override_reason'=>$reason,'notes'=>$notes]);
                 writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Merevisi kas fisik shift tertutup','shift_session',$id,$before,$after,'web');
                 $pending=$pdo->prepare("SELECT * FROM approval_requests WHERE request_type='shift_cash_variance' AND entity_type='shift_session' AND entity_id=? AND status='pending' FOR UPDATE");$pending->execute([$id]);
+                $selfRequestedReviews=[];
                 foreach($pending->fetchAll(PDO::FETCH_ASSOC)?:[] as $review){
+                    // Separation of duties: the canonical approval-decide path already
+                    // refuses self-approval at :381. This loop approved every pending
+                    // variance review for the shift regardless of who requested it, so a
+                    // manager who closed their own drawer with a variance could revise
+                    // actual_cash and then approve the resulting review themselves.
+                    // Leave those reviews pending for an independent approver.
+                    if((string)($review['requester_id']??'')===(string)($loggedInStaff['id']??'')){
+                        $selfRequestedReviews[]=(string)$review['id'];
+                        continue;
+                    }
                     $decisionNote='Kas fisik diperiksa dan direvisi: '.$reason;
                     $pdo->prepare("UPDATE approval_requests SET status='approved',approver_id=?,approver_name=?,decision_notes=?,decided_at=CURRENT_TIMESTAMP WHERE id=? AND status='pending'")
                         ->execute([$loggedInStaff['id'],$loggedInStaff['name'],$decisionNote,$review['id']]);
                     writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Memeriksa selisih melalui revisi kas fisik','approval_request',(string)$review['id'],$review,array_replace($review,['status'=>'approved','decision_notes'=>$decisionNote,'revisedActualCash'=>$actual,'revisedVariance'=>$variance]),'web');
+                }
+                if($selfRequestedReviews){
+                    error_log('[Shift Cash Revise] Permintaan selisih kas milik pemohon sendiri tidak disetujui otomatis dan tetap menunggu approver lain: '.implode(', ',$selfRequestedReviews));
                 }
                 bumpServerRevision($pdo);
                 tamasyaFinancialCommit($pdo);

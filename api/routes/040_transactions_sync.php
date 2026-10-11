@@ -144,7 +144,7 @@ switch ($action) {
             $subcategorySystemKey = null;
             $roomNumber = array_key_exists('roomNumber', $input) && $input['roomNumber'] !== '' ? $input['roomNumber'] : null;
             $proofUrl = $input['proofUrl'] ?? null;
-            $amount = (int)round((float)($input['amount'] ?? 0));
+            $amount = round((float)($input['amount'] ?? 0), 2);
             $date = (string)($input['date'] ?? date('Y-m-d'));
             $description = trim((string)($input['description'] ?? ''));
             $createdBy = currentStaffLabel($loggedInStaff);
@@ -488,6 +488,18 @@ switch ($action) {
                     'updatedBy'=>$loggedInStaff['id']??null,'updatedSource'=>'web','version'=>1
                 ];
                 $postingOptions=['requireCatalog'=>true,'lockCatalog'=>true,'source'=>'web'];
+                // Resolve the operating shift BEFORE posting so the cash-coverage guard
+                // inside tamasyaPostFinancialTransaction() can see it. The shift used to
+                // be attached after the row was written, so the guard received an empty
+                // shiftSessionId, returned early, and an expense could drive the open
+                // drawer below zero and surface later as an unexplained closing variance.
+                // When no shift is open this stays null and the existing guard below
+                // still rejects the save, so behaviour for the no-shift case is unchanged.
+                $liveShiftSessionId=null;
+                if(!$isHistoricalImport){
+                    $openShiftForCoverage=getOpenShiftForStaff($pdo,(string)($loggedInStaff['id']??''),false);
+                    $liveShiftSessionId=$openShiftForCoverage?(string)$openShiftForCoverage['id']:null;
+                }
                 // Manual/backfill split uses ONE canonical transaction row on every
                 // path (online and offline).  The journal expands the durable snapshot
                 // into cash + bank debit legs, so accounting stays native without sibling
@@ -499,6 +511,7 @@ switch ($action) {
                     'splitTransferAmount'=>$isSplitPayment?$splitTransferAmount:0,
                     'splitTransferBankAccountId'=>$isSplitPayment?$splitTransferBankAccountId:null,
                     'documentNumber'=>$documentNumber,'operationId'=>$operationId,
+                    'shiftSessionId'=>$liveShiftSessionId,
                 ]),$loggedInStaff,$postingAuthority,$postingOptions);
                 if ($catalogSnapshot!==null) tamasyaCatalogSaveTransactionSnapshot($pdo,$txId,$operationId,$catalogSnapshot);
                 if(!$isHistoricalImport && !getOpenShiftForStaff($pdo,(string)($loggedInStaff['id']??''),false)){
@@ -606,7 +619,7 @@ switch ($action) {
                 $finalSubcategory = array_key_exists('subcategory',$input) ? (trim((string)$input['subcategory'])?:null) : (($oldTx['subcategory']??null)!==null?(trim((string)$oldTx['subcategory'])?:null):null);
                 $finalCategorySystemKey = null;
                 $finalSubcategorySystemKey = null;
-                $finalAmount = array_key_exists('amount',$input) ? (int)round((float)$input['amount']) : (int)$oldTx['amount'];
+                $finalAmount = array_key_exists('amount',$input) ? round((float)$input['amount'],2) : round((float)$oldTx['amount'],2);
                 $finalDate = (string)($input['date'] ?? $oldTx['date']);
                 $finalDescription = trim((string)($input['description'] ?? $oldTx['description']));
                 if (!in_array($finalType,['income','expense'],true) || ($finalCategory==='' && $finalCategoryId===null) || $finalAmount<=0 || $finalDescription==='' || !validIsoDate($finalDate)) {
@@ -872,7 +885,7 @@ switch ($action) {
                     'categorySystemKey'=>fn($v)=>$v===''||$v===null?null:tamasyaNormalizeCatalogKey($v),
                     'subcategoryId'=>fn($v)=>$v===''||$v===null?null:trim((string)$v),
                     'subcategorySystemKey'=>fn($v)=>$v===''||$v===null?null:tamasyaNormalizeCatalogKey($v),
-                    'amount'=>fn($v)=>(int)round((float)$v), 'date'=>fn($v)=>(string)$v,
+                    'amount'=>fn($v)=>round((float)$v,2), 'date'=>fn($v)=>(string)$v,
                     'description'=>fn($v)=>trim((string)$v), 'bookingSource'=>fn($v)=>$v ?: null,
                     'baseAmount'=>fn($v)=>$v===''||$v===null?null:(float)$v,
                     'taxAmount'=>fn($v)=>$v===''||$v===null?null:(float)$v,
@@ -912,6 +925,20 @@ switch ($action) {
                     if ((int)$stmtCheck->fetchColumn()===0) { $pdo->rollBack(); http_response_code(400); echo json_encode(["success"=>false,"error"=>"Booking terkait tidak ditemukan."]); break; }
                 }
                 if (!$mutationChanges) { $pdo->rollBack(); http_response_code(400); echo json_encode(["success"=>false,"error"=>"Tidak ada perubahan."]); break; }
+                // An edit can raise a cash expense just as a create can, but this branch went
+                // through tamasyaMutateFinancialTransaction() without ever consulting the
+                // open-shift cash-coverage guard. On an open shift the amount could be
+                // raised to anything, leaving expected_cash negative at close time.
+                // A locked/closed shift is already refused above, so only the live case
+                // is evaluated here.
+                $editCoverageTx=array_merge($oldTx,$mutationChanges);
+                if(!$isHistoricalTx){
+                    if(trim((string)($editCoverageTx['shiftSessionId']??''))===''){
+                        $openShiftForEditCoverage=getOpenShiftForStaff($pdo,(string)($loggedInStaff['id']??''),false);
+                        $editCoverageTx['shiftSessionId']=$openShiftForEditCoverage?(string)$openShiftForEditCoverage['id']:null;
+                    }
+                    tamasyaAssertOpenShiftCashCanCoverExpense($pdo,$editCoverageTx);
+                }
                 tamasyaMutateFinancialTransaction(
                     $pdo,$id,$mutationChanges,$loggedInStaff,'finance_correction','manual_edit',
                     ['source'=>'web','lockRows'=>true,'requireAll'=>true,'requireUnlocked'=>true,'reason'=>$changeReason]

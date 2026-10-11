@@ -185,12 +185,20 @@ switch ($action) {
 
                     // 1. Kirim ke bot chat privat milik staf (jika telegram_chat_id terdaftar)
                     if (!empty($token) && !empty($userChatId)) {
-                        $urlSend = "https://api.telegram.org/bot" . $token . "/sendMessage";
-                        sendHttpPost($urlSend, [
+                        // tamasyaTelegramApiCallWithFormatRecovery instead of a raw
+                        // sendHttpPost: it short-circuits in simulation, honours
+                        // TELEGRAM_API_BASE_URL, and retries once without parse_mode when
+                        // Telegram rejects the entities. The raw call returned false on
+                        // failure and the result was discarded, so a note or staff name
+                        // containing a backtick silently lost the clock-in confirmation.
+                        $clockInTelegram = tamasyaTelegramApiCallWithFormatRecovery($token, 'sendMessage', [
                             "chat_id" => $userChatId,
                             "text" => $tgMessage,
                             "parse_mode" => "Markdown"
                         ]);
+                        if (empty($clockInTelegram['ok'])) {
+                            error_log('[Telegram Attendance In] deliver gagal: '.telegramApiErrorMessage($clockInTelegram));
+                        }
                     }
 
                     // 2. Broadcast ke grup/channel yang terdaftar (jika ada)
@@ -393,8 +401,10 @@ switch ($action) {
                                      "📝 *Catatan*: " . ($notes ? "`{$notes}`" : ($att['notes'] ? "`{$att['notes']}`" : "`Tidak ada`")) . "\n\n" .
                                      "Hati-hati di jalan saat pulang dan selamat beristirahat! 🏠✨";
                         if (!empty($token) && !empty($userChatId)) {
-                            $urlSend = "https://api.telegram.org/bot" . $token . "/sendMessage";
-                            sendHttpPost($urlSend, ["chat_id" => $userChatId,"text" => $tgMessage,"parse_mode" => "Markdown"]);
+                            $clockOutTelegram = tamasyaTelegramApiCallWithFormatRecovery($token, 'sendMessage', ["chat_id" => $userChatId,"text" => $tgMessage,"parse_mode" => "Markdown"]);
+                            if (empty($clockOutTelegram['ok'])) {
+                                error_log('[Telegram Attendance Out] deliver gagal: '.telegramApiErrorMessage($clockOutTelegram));
+                            }
                         }
                         broadcastTelegramNotification($pdo, "⏰ *Absen Keluar Staf*\n\nStaf *{$att['staff_name']}* telah melakukan absensi keluar pada tanggal `{$att['date']}` jam `{$clockOut}`.");
                     } catch (Exception $tgErr) {
@@ -734,10 +744,11 @@ switch ($action) {
 
                 if($deferredSalaryTelegram){
                     try{
-                        $tgRes=sendHttpPost('https://api.telegram.org/bot'.$deferredSalaryTelegram['token'].'/sendMessage',[
+                        // Same reason as attendance: a raw sendHttpPost discarded its
+                        // result, so a parse failure left the slip silently unsent.
+                        $resObj=tamasyaTelegramApiCallWithFormatRecovery($deferredSalaryTelegram['token'],'sendMessage',[
                             'chat_id'=>$deferredSalaryTelegram['chatId'],'text'=>$deferredSalaryTelegram['message'],'parse_mode'=>'Markdown'
                         ]);
-                        $resObj=json_decode($tgRes,true);
                         if(!empty($resObj['ok'])){
                             $tgSuccess=true;
                             if($status!=='paid'){

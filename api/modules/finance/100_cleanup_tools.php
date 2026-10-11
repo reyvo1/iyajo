@@ -542,7 +542,17 @@ function buildImplementationCleanupPreview(PDO $pdo, array $bookingIds, array $t
 function recalculateCleanupShiftSessions(PDO $pdo, array $shiftIds, string $batchId): void {
     foreach(array_values(array_unique(array_filter($shiftIds))) as $shiftId){
         $stmt=$pdo->prepare("SELECT * FROM shift_sessions WHERE id=? LIMIT 1 FOR UPDATE");$stmt->execute([$shiftId]);$shift=$stmt->fetch(PDO::FETCH_ASSOC);
+        // A closed shift is a signed record: its expected_cash, variance and issued
+        // shift report were frozen at close time. Rewriting them after a purge would
+        // make the stored report disagree with what the cashier signed off on, and
+        // would erase the variance history. The sibling recalculatePurgedShiftSessions()
+        // already skips closed shifts; this one did not, so the purge silently
+        // restated signed figures. Skipped shifts are logged rather than silently dropped.
         if(!$shift)continue;
+        if(($shift['status']??'')==='closed'){
+            error_log('[DATA CLEANUP '.$batchId.'] shift '.$shiftId.' sudah ditutup; expected_cash, variance, dan laporan shift tidak ditulis ulang.');
+            continue;
+        }
         $sum=$pdo->prepare("SELECT COALESCE(SUM(CASE WHEN type='income' AND COALESCE(transactionKind,'manual')<>'security_deposit_forfeit' THEN CASE WHEN COALESCE(isSplitPayment,0)=1 AND COALESCE(splitCashAmount,0)>0 AND COALESCE(splitTransferAmount,0)>0 AND COALESCE(splitTransferBankAccountId,'')<>'' AND ABS(amount-(COALESCE(splitCashAmount,0)+COALESCE(splitTransferAmount,0)))<=0.01 THEN COALESCE(splitCashAmount,0) WHEN (bankAccountId IS NULL OR bankAccountId='' OR bankAccountId='cash') THEN amount ELSE 0 END ELSE 0 END),0) cash_income, COALESCE(SUM(CASE WHEN type='expense' THEN CASE WHEN COALESCE(isSplitPayment,0)=1 AND COALESCE(splitCashAmount,0)>0 AND COALESCE(splitTransferAmount,0)>0 AND COALESCE(splitTransferBankAccountId,'')<>'' AND ABS(amount-(COALESCE(splitCashAmount,0)+COALESCE(splitTransferAmount,0)))<=0.01 THEN COALESCE(splitCashAmount,0) WHEN (bankAccountId IS NULL OR bankAccountId='' OR bankAccountId='cash') THEN amount ELSE 0 END ELSE 0 END),0) cash_expense, COALESCE(SUM(CASE WHEN type='income' AND COALESCE(transactionKind,'manual') NOT IN ('internal_transfer','ota_transfer','security_deposit_forfeit') THEN CASE WHEN COALESCE(isSplitPayment,0)=1 AND COALESCE(splitCashAmount,0)>0 AND COALESCE(splitTransferAmount,0)>0 AND COALESCE(splitTransferBankAccountId,'')<>'' AND ABS(amount-(COALESCE(splitCashAmount,0)+COALESCE(splitTransferAmount,0)))<=0.01 THEN COALESCE(splitTransferAmount,0) WHEN bankAccountId IS NOT NULL AND bankAccountId<>'' AND bankAccountId<>'cash' AND LOWER(bankAccountId) NOT IN ('ota_receivable','inventory_asset','guest_receivable','accounts_payable') THEN amount ELSE 0 END ELSE 0 END),0) digital_income, COUNT(*) tx_count FROM transactions WHERE shiftSessionId=?");
         $sum->execute([$shiftId]);$tot=$sum->fetch(PDO::FETCH_ASSOC)?:[];
         $income=(float)($tot['cash_income']??0);$expense=(float)($tot['cash_expense']??0);$digital=(float)($tot['digital_income']??0);$txCount=(int)($tot['tx_count']??0);$expected=(float)($shift['opening_cash']??0)+$income-$expense;

@@ -880,8 +880,19 @@ switch ($action) {
 
                 tamasyaFinancialCommit($pdo);
 
+                // Broadcast runs after the commit, so it must never be able to fail a save that
+                // already succeeded. Previously an exception here fell into the outer
+                // catch, which answered "Gagal memperbarui pemesanan" for a booking that
+                // was already written; the rollback was a no-op and the operator saw a
+                // failure for data that was saved. Mirrors the smart-lock handling below.
+                $bookingTelegramBroadcastError = null;
                 if ($deferredBookingTransactionTelegramMessage !== null) {
-                    broadcastTelegramNotification($pdo, $deferredBookingTransactionTelegramMessage, true);
+                    try {
+                        broadcastTelegramNotification($pdo, $deferredBookingTransactionTelegramMessage, true);
+                    } catch (Throwable $telegramBroadcastError) {
+                        error_log('[Booking Telegram Broadcast] '.$telegramBroadcastError->getMessage());
+                        $bookingTelegramBroadcastError = 'Notifikasi Telegram gagal dikirim; pemesanan tetap tersimpan.';
+                    }
                 }
 
                 // Job revoke smart-lock sengaja dipanggil setelah commit. Kegagalan
@@ -934,6 +945,9 @@ switch ($action) {
                             ? "Reservasi {$guestN} berhasil dipindahkan dari Kamar {$oldRoomNumber} ke Kamar {$newRoomNumber}."
                             : "Tamu {$guestN} berhasil dipindahkan dari Kamar {$oldRoomNumber} ke Kamar {$newRoomNumber}. Kamar asal masuk alur Housekeeping/QC; kamar tujuan menjadi kamar aktif.")
                         : "Pemesanan berhasil diperbarui!",
+                    // The save is committed; a failed notification is reported as a
+                    // warning so the operator is never told a persisted change failed.
+                    "warnings" => $bookingTelegramBroadcastError ? [$bookingTelegramBroadcastError] : [],
                     "transferLifecycle" => $transferLifecycleResult ? [
                         'oldRoomNumber'=>$transferLifecycleResult['oldRoomNumber'] ?? null,
                         'newRoomNumber'=>$transferLifecycleResult['newRoomNumber'] ?? null,
@@ -953,7 +967,7 @@ switch ($action) {
                     $response['db'] = getRoleScopedHotelData($pdo, $loggedInStaff);
                 }
                 echo json_encode($response,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 tamasyaApplyExceptionHttpStatus($e, 500);
                 echo json_encode(["success" => false, "message" => clientExceptionMessage($isDedicatedRoomTransfer?"Gagal memindahkan kamar":"Gagal memperbarui pemesanan", $e)]);
@@ -1035,8 +1049,8 @@ switch ($action) {
                     "message" => "Pemesanan berhasil dihapus!",
                     "db" => getRoleScopedHotelData($pdo, $loggedInStaff)
                 ]);
-            } catch (Exception $e) {
-                $pdo->rollBack();
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
                 tamasyaApplyExceptionHttpStatus($e, 500);
                 echo json_encode(["success" => false, "message" => clientExceptionMessage("Gagal menghapus pemesanan", $e)]);
             }
@@ -1173,7 +1187,7 @@ switch ($action) {
                     "message" => "Kamar berhasil dihapus!",
                     "db" => getRoleScopedHotelData($pdo, $loggedInStaff)
                 ]);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 tamasyaApplyExceptionHttpStatus($e, 500);
                 echo json_encode(["success" => false, "message" => clientExceptionMessage("Gagal menghapus kamar", $e)]);
@@ -1231,7 +1245,7 @@ switch ($action) {
                     "message" => "Kamar baru berhasil ditambahkan!",
                     "db" => getRoleScopedHotelData($pdo, $loggedInStaff)
                 ]);
-            } catch (Exception $e) {
+            } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
                 tamasyaApplyExceptionHttpStatus($e, 500);
                 echo json_encode(["success" => false, "message" => clientExceptionMessage("Gagal menambah kamar", $e)]);
@@ -1303,7 +1317,7 @@ switch ($action) {
                 'message'=>'Data kamar berhasil diperbarui!',
                 'db'=>getRoleScopedHotelData($pdo,$loggedInStaff)
             ]);
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             tamasyaApplyExceptionHttpStatus($e, 500);
             echo json_encode(["success" => false, "message" => clientExceptionMessage("Gagal mengubah data kamar", $e)]);
@@ -1840,7 +1854,7 @@ switch ($action) {
             }else{$statusResponse['db']=getRoleScopedHotelData($pdo,$loggedInStaff);}
             echo json_encode($statusResponse);
 
-        } catch (Exception $e) {
+        } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
             tamasyaApplyExceptionHttpStatus($e, 500);
             echo json_encode(["success" => false, "message" => clientExceptionMessage("Gagal update status booking", $e)]);

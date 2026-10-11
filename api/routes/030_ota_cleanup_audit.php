@@ -536,7 +536,7 @@ switch ($action) {
             if($newIsOpenEnded)$newStayMode='open_ended';
             $newScheduledCheckInAt=array_key_exists('scheduledCheckInAt',$bookingPatch)?($bookingPatch['scheduledCheckInAt']?:null):($oldBooking['scheduledCheckInAt']??null);
             $newScheduledCheckOutAt=array_key_exists('scheduledCheckOutAt',$bookingPatch)?($bookingPatch['scheduledCheckOutAt']?:null):($oldBooking['scheduledCheckOutAt']??null);
-            $newTotal = (int)round((float)($bookingPatch['totalAmount'] ?? $oldBooking['totalAmount'] ?? 0));
+            $newTotal = round((float)($bookingPatch['totalAmount'] ?? $oldBooking['totalAmount'] ?? 0), 2);
             $newPaymentMethod = strtolower(trim((string)($bookingPatch['paymentMethod'] ?? $oldBooking['paymentMethod'] ?? 'cash')));
             $newBankAccountId = array_key_exists('bankAccountId', $bookingPatch)
                 ? (trim((string)$bookingPatch['bankAccountId']) ?: null)
@@ -773,7 +773,7 @@ switch ($action) {
             $createdAdjustmentIds = [];
             if ($oldTx) {
                 $targetType = strtolower(trim((string)($transactionPatch['type'] ?? $oldTx['type'] ?? 'income')));
-                $targetAmount = (int)round((float)($transactionPatch['amount'] ?? $oldTx['amount'] ?? 0));
+                $targetAmount = round((float)($transactionPatch['amount'] ?? $oldTx['amount'] ?? 0), 2);
                 $targetDate = (string)($transactionPatch['date'] ?? $oldTx['date']);
                 $targetDescription = trim((string)($transactionPatch['description'] ?? $oldTx['description']));
                 $targetCategory = trim((string)($transactionPatch['category'] ?? $oldTx['category']));
@@ -910,7 +910,7 @@ switch ($action) {
                         'id'=>$reverseId,'type'=>$reverseType,'category'=>$oldTx['category'],'subcategory'=>$oldTx['subcategory']??null,
                         'categoryId'=>$oldTx['categoryId']??null,'categorySystemKey'=>$oldTx['categorySystemKey']??null,
                         'subcategoryId'=>$oldTx['subcategoryId']??null,'subcategorySystemKey'=>$oldTx['subcategorySystemKey']??null,
-                        'roomNumber'=>$oldTx['roomNumber']??$newRoomNumber,'amount'=>(int)round((float)$oldTx['amount']),'date'=>$targetDate,
+                        'roomNumber'=>$oldTx['roomNumber']??$newRoomNumber,'amount'=>round((float)$oldTx['amount'],2),'date'=>$targetDate,
                         'description'=>$reverseDescription,'createdBy'=>currentStaffLabel($loggedInStaff),'bankAccountId'=>$oldTx['bankAccountId']??null,
                         'bookingId'=>$bookingId,'bookingSource'=>$oldTx['bookingSource']??$newBookingSource,
                         'baseAmount'=>$oldTx['baseAmount']??null,'taxAmount'=>$oldTx['taxAmount']??null,'taxRate'=>$oldTx['taxRate']??null,

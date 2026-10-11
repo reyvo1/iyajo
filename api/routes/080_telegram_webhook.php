@@ -849,7 +849,10 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                 // Callback operasional hanya boleh dijalankan di chat privat. Tombol
                 // yang diteruskan ke grup tidak boleh membaca atau mengubah database hotel.
                 if (!$isPrivateTelegramChat) {
-                    sendHttpPost("https://api.telegram.org/bot".$token."/answerCallbackQuery", [
+                    // Routed through telegramApiCall so simulation short-circuits,
+                    // TELEGRAM_API_BASE_URL is honoured, and a transport failure is
+                    // observable instead of a discarded sendHttpPost result.
+                    telegramApiCall($token,'answerCallbackQuery', [
                         "callback_query_id"=>$callbackQueryId,
                         "text"=>"Buka bot melalui chat privat",
                         "show_alert"=>true
@@ -4191,8 +4194,10 @@ Shift telah ditutup, sesi server berstatus *CLOSED*, dan rekonsiliasi kas tersim
                     $welcomeText = "🔒 *BOT BELUM MENGAKTIFKAN GRUP INI*
 
 Demi keamanan data hotel, grup harus ditambahkan oleh Administrator melalui menu konfigurasi aplikasi. Chat ID grup: `{$chatId}`.";
-                    $urlWelcome = "https://api.telegram.org/bot" . $token . "/sendMessage";
-                    sendHttpPost($urlWelcome, ["chat_id" => $chatId, "text" => $welcomeText, "parse_mode" => "Markdown"]);
+                    $welcomeDelivery = tamasyaTelegramApiCallWithFormatRecovery($token, 'sendMessage', ["chat_id" => $chatId, "text" => $welcomeText, "parse_mode" => "Markdown"]);
+                    if (empty($welcomeDelivery['ok'])) {
+                        error_log('[Telegram Group Welcome] deliver gagal: '.telegramApiErrorMessage($welcomeDelivery));
+                    }
                 }
                 echo json_encode(["success" => true, "status" => "Processed member update"]);
                 break;
@@ -4227,8 +4232,12 @@ Demi keamanan data hotel, grup harus ditambahkan oleh Administrator melalui menu
 
             // Remove password-bearing messages from the Telegram chat when possible.
             if (($isPendingPasswordInput || $isInlineLoginCommand) && empty($GLOBALS['is_telegram_simulation']) && !empty($update['message']['message_id'])) {
-                $deleteUrl = "https://api.telegram.org/bot" . $token . "/deleteMessage";
-                sendHttpPost($deleteUrl, ["chat_id" => $chatId, "message_id" => $update['message']['message_id']]);
+                // This delete removes a password-bearing message from the chat, so a
+                // silent failure leaves the credential on screen. Log it when it fails.
+                $deleteDelivery = telegramApiCall($token,'deleteMessage',["chat_id" => $chatId, "message_id" => $update['message']['message_id']]);
+                if (empty($deleteDelivery['ok'])) {
+                    error_log('[Telegram Secret Cleanup] deleteMessage gagal: '.telegramApiErrorMessage($deleteDelivery));
+                }
             }
 
             // 3. Process reply text exactly like simulator but with database writes
@@ -4326,7 +4335,10 @@ Demi keamanan database multi-user, command, tombol, binding akun, data tamu, AI,
                 $pdo->prepare("INSERT INTO telegram_messages (id,sender,`text`,timestamp,isAi,telegram_user_id,staff_id,command) VALUES (?,'bot',?,?,0,?,?,?)")
                     ->execute([$groupBotMsgId,$replyText,date('Y-m-d H:i:s'),(string)$fromId,$loggedInStaff['id'] ?? null,substr($command,0,100)]);
                 if (empty($GLOBALS['is_telegram_simulation'])) {
-                    sendHttpPost("https://api.telegram.org/bot".$token."/sendMessage", ["chat_id"=>$chatId,"text"=>$replyText,"parse_mode"=>"Markdown"]);
+                    $restrictedDelivery = tamasyaTelegramApiCallWithFormatRecovery($token,'sendMessage', ["chat_id"=>$chatId,"text"=>$replyText,"parse_mode"=>"Markdown"]);
+                    if (empty($restrictedDelivery['ok'])) {
+                        error_log('[Telegram Group Restricted] deliver gagal: '.telegramApiErrorMessage($restrictedDelivery));
+                    }
                 }
                 echo json_encode(["success"=>true,"status"=>"group_restricted"]);
                 break;
