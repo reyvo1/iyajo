@@ -7189,7 +7189,12 @@ Shift aktif diambil langsung dari database:
             tamasyaRuntimeCaptureThrowable($e, 'telegram:webhook_processing');
             http_response_code(500);
             error_log('[Telegram Webhook] ' . $e->getMessage());
-            echo json_encode(["success" => false, "error" => clientExceptionMessage("Operasi Telegram gagal", $e)]);
+            if (!empty($GLOBALS["is_telegram_simulation"])) {
+                $errMsg = "Operasi Telegram gagal: " . $e->getMessage() . " in " . $e->getFile() . ":" . $e->getLine();
+                echo json_encode(["success" => false, "error" => $errMsg]);
+            } else {
+                echo json_encode(["success" => false, "error" => clientExceptionMessage("Operasi Telegram gagal", $e)]);
+            }
         }
         break;
 
