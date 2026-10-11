@@ -72,16 +72,17 @@ switch ($action) {
     // Simulasi Click Tombol Bot Telegram (Inline Keyboards)
     // ----------------------------------------------------------------
     case 'telegram-callback':
-        // In simulation mode, resolve staff from telegram binding like webhook does.
-        // This allows CI tests to work without web session while keeping production secure.
+        // Endpoint simulator callback. It is only ever valid where simulation is
+        // enabled: the payload below deliberately carries no update_id, so the
+        // production rails (update identity, claimTelegramUpdate idempotency,
+        // primary-cluster fencing, rate limit, private-chat gate) are switched
+        // off for this path. Refusing it outside simulation keeps those rails
+        // mandatory for every other caller, including authenticated admins.
         $simulationMode = $telegramSimulationAllowed();
-        if (!$simulationMode && !$loggedInStaff) {
+        if (!$simulationMode) {
             http_response_code(403);
             echo json_encode(["success" => false, "error" => "Simulator Telegram tidak tersedia pada produksi dan hanya dapat diaktifkan pada staging/development."]);
             break;
-        }
-        if (!$simulationMode) {
-            requireRoles($loggedInStaff, ['admin']);
         }
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);

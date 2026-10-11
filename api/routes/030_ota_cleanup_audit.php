@@ -285,7 +285,13 @@ switch ($action) {
             }
             // Rebuild journal lines after OTA pair reduction/deletion and after
             // selected ledger rows have been removed.
-            syncJournalProjections($pdo);
+            // Strict mode is mandatory here: the rebuild deletes every journal_line
+            // of an entry before regenerating it, so a failure while rebuilding
+            // would otherwise be swallowed (this batch owns an outer transaction,
+            // so syncJournalProjections cannot roll it back) and the batch would
+            // commit a journal entry with zero lines. Throwing lets the catch below
+            // roll the whole purge back instead of committing unbalanced data.
+            syncJournalProjections($pdo,true);
             recalculateCleanupShiftSessions($pdo,(array)$preview['shiftIds'],$batchId);
             $tombstones=[];foreach($bookingIds as $id)$tombstones[]=['type'=>'bookings','id'=>$id];foreach(array_merge($txIds,$otaDeletedTransactionIds) as $id)$tombstones[]=['type'=>'transactions','id'=>$id];foreach($vacancyReportIds as $id)$tombstones[]=['type'=>'room_vacancy_reports','id'=>$id];foreach($otaAdjustments as $adj){if(($adj['action']??'')==='delete')$tombstones[]=['type'=>'ota_disbursements','id'=>(string)$adj['disbursementId']];}
             insertSyncTombstones($pdo,$tombstones,$batchId,(string)$loggedInStaff['id']);
@@ -876,6 +882,14 @@ switch ($action) {
                 }
 
                 if (!empty($oldTx['lockedAt']) || $historicalSource) {
+                    // A correction reversal is idempotent only by operationId, which is
+                    // derived from the current request. Re-running the same correction
+                    // with a different reason or patch therefore produced a second full
+                    // reversal of the same original amount. The reversal marks the
+                    // original as disputed, so refuse to reverse it again.
+                    if ((string)($oldTx['reconciliationStatus'] ?? '') === 'disputed') {
+                        throw new DomainException('Transaksi ini sudah pernah dibalik oleh koreksi audit sebelumnya. Koreksi ulang harus targeting transaksi pengganti, bukan transaksi asli yang sudah dibalik.');
+                    }
                     $correctionMode = 'reversal-and-replacement';
                     $reverseId = generateServerId('tx_audit_reverse');
                     $replacementId = generateServerId('tx_audit_replace');
