@@ -105,9 +105,18 @@ if booking_id:
                            'isSplitPayment':False,'splitCashAmount':0,'splitTransferAmount':0,'splitTransferBankAccountId':None},
         }
         fix_status,fix_body=request('booking-audit-correction','POST',payload,'acct_fix_'+run)
+        # When the save fails, pull the recorded exception out of runtime telemetry
+        # and print it. The 500 body only carries an opaque reference, so without
+        # this the log cannot say which line threw.
+        diag=[]
+        if fix_status>=400:
+            diag=db("SELECT error_reference,error_class,source_file,source_line,safe_message,sql_state "
+                    "FROM runtime_request_events WHERE action='booking-audit-correction' "
+                    "AND error_reference IS NOT NULL ORDER BY id DESC LIMIT 1")
+            print('THROWN',json.dumps(diag,ensure_ascii=False,default=str)[:1200],flush=True)
         check('audit correction saves after the shift is closed',
               fix_status==200 and isinstance(fix_body,dict) and fix_body.get('success') is True,
-              {'status':fix_status,'error':(fix_body or {}).get('error'),'message':(fix_body or {}).get('message')})
+              {'status':fix_status,'error':(fix_body or {}).get('error'),'message':(fix_body or {}).get('message'),'diagnostic':diag})
 
         if fix_status==200 and (fix_body or {}).get('success') is True:
             # The correction must post a balanced replacement on the right account.
