@@ -1,5 +1,20 @@
 <?php
 if (!defined('TAMASYA_API_ENTRY')) { http_response_code(404); exit; }
+/** Payment method and billing mode labels for multi-room Telegram messages.
+ * The richer map in 080_telegram_webhook.php is a local closure and not reachable from
+ * this module, so these are repeated rather than showing raw internal codes such as
+ * 'cash' or 'split' to staff.
+ */
+function telegramMultiRoomPaymentLabel(string $method): string {
+    return ['cash'=>'TUNAI','transfer'=>'TRANSFER','qris'=>'QRIS','edc'=>'EDC','none'=>'TANPA METODE'][strtolower(trim($method))]
+        ?? strtoupper(trim($method));
+}
+
+function telegramMultiRoomBillingLabel(string $mode): string {
+    return ['individual'=>'Per kamar','split'=>'Digabung','master'=>'Satuan grup','corporate'=>'Korporat'][strtolower(trim($mode))]
+        ?? tamasyaTelegramPlainText($mode,40);
+}
+
 function tamasyaMultiRoomTelegramState(PDO $pdo,array $actor,string $state,array $context): void {
     $pdo->prepare('UPDATE staff SET telegram_state=?,telegram_context=? WHERE id=?')->execute([$state,tamasyaJsonEncode($context),$actor['id']]);
 }
@@ -49,7 +64,7 @@ function tamasyaMultiRoomTelegramConfirm(PDO $pdo,array $actor,array $ctx): arra
     $text=($ctx['lifecycleIntent']==='reserve'?"📅 *KONFIRMASI RESERVASI BEBERAPA KAMAR*\n\n":"🏨 *KONFIRMASI CHECK-IN LANGSUNG BEBERAPA KAMAR*\n\n").tamasyaTelegramPlainText($ctx['guestName'])."\n".$ctx['checkIn'].' → '.$ctx['checkOut']."\n";
     foreach($ctx['selected'] as $r)$text.='• '.$r['roomNumber'].' · '.tamasyaTelegramPlainText($r['guestName']?:$ctx['guestName']).' · Rp '.tamasyaTelegramFormatAmount($r['totalAmount'])."\n";
     $text.='Sumber: '.tamasyaTelegramPlainText($ctx['bookingSource'])."\n";
-    $text.="\nTagihan: ".$ctx['billingMode'].($ctx['billingMode']==='split'?' · master '.$ctx['routedPercent'].'%':'')."\nTotal termasuk PBJT: Rp ".tamasyaTelegramFormatAmount($total)."\nPembayaran: BELUM BAYAR. DP/pelunasan diterima lewat tombol Pembayaran grup setelah tersimpan.\n".($ctx['lifecycleIntent']==='check_in_now'?'Kamar akan langsung check-in.':'Kamar masih reservasi; belum dianggap menginap.');
+    $text.="\nTagihan: ".telegramMultiRoomBillingLabel((string)$ctx['billingMode']).(strtolower(trim((string)$ctx['billingMode']))==='split'?' · dibebankan ke master '.$ctx['routedPercent'].'%':'')."\nTotal termasuk PBJT: Rp ".tamasyaTelegramFormatAmount($total)."\nPembayaran: BELUM BAYAR. DP/pelunasan diterima lewat tombol Pembayaran grup setelah tersimpan.\n".($ctx['lifecycleIntent']==='check_in_now'?'Kamar akan langsung check-in.':'Kamar masih reservasi; belum dianggap menginap.');
     return ['text'=>$text,'markup'=>['inline_keyboard'=>[[['text'=>$ctx['lifecycleIntent']==='check_in_now'?'✅ Check-in semua':'✅ Simpan reservasi','callback_data'=>'mr_confirm:'.$ctx['nonce']]],[['text'=>'Batalkan','callback_data'=>'main_menu']]]]];
 }
 function tamasyaMultiRoomTelegramCallback(PDO $pdo,array $actor,string $callback,string $operationId): array {
@@ -114,7 +129,7 @@ function tamasyaMultiRoomTelegramCallback(PDO $pdo,array $actor,string $callback
     throw new InvalidArgumentException('Tindakan grup tidak dikenal.');
 }
 function tamasyaMultiRoomTelegramPaymentConfirm(PDO $pdo,array $actor,array $ctx): array {
-    tamasyaMultiRoomTelegramState($pdo,$actor,'waiting_mr_payment_confirm',$ctx);return ['text'=>'💰 Konfirmasi uang diterima: Rp '.tamasyaTelegramFormatAmount($ctx['amount']).' · '.$ctx['paymentMethod']."\nPembayaran dibagi proporsional ke sisa tagihan kamar, tidak membuat tagihan baru.",'markup'=>['inline_keyboard'=>[[['text'=>'✅ Simpan pembayaran','callback_data'=>'mr_pay_confirm:'.$ctx['nonce']]],[['text'=>'Batalkan','callback_data'=>'main_menu']]]]];
+    tamasyaMultiRoomTelegramState($pdo,$actor,'waiting_mr_payment_confirm',$ctx);return ['text'=>'💰 Konfirmasi uang diterima: Rp '.tamasyaTelegramFormatAmount($ctx['amount']).' · '.telegramMultiRoomPaymentLabel((string)$ctx['paymentMethod'])."\nPembayaran dibagi proporsional ke sisa tagihan kamar, tidak membuat tagihan baru.",'markup'=>['inline_keyboard'=>[[['text'=>'✅ Simpan pembayaran','callback_data'=>'mr_pay_confirm:'.$ctx['nonce']]],[['text'=>'Batalkan','callback_data'=>'main_menu']]]]];
 }
 function tamasyaMultiRoomTelegramMessage(PDO $pdo,array $actor,string $message): array {
     tamasyaMultiRoomRequire($pdo,$actor,true);$ctx=tamasyaMultiRoomTelegramContext($actor);$state=(string)$actor['telegram_state'];$text=trim($message);$markup=null;
