@@ -90,12 +90,15 @@ if tx_id and folio_a:
     rest_st,rest=request('enterprise-suite','POST',
         {'command':'folio-allocation-save','folioId':folio_a,'transactionId':tx_id,
          'amount':amount-(amount//2),'allocationRole':'guest','operationId':'fa_rest_'+run},'fa_rest_'+run)
-    # Same transaction may only appear once per folio, so either the remainder is
-    # merged or it is refused. Both are correct; silently doubling the money is not.
+    # A second row for the same folio and transaction is impossible by unique key, so
+    # the remainder must be refused as a clear conflict. A 500 here would report a
+    # legitimate business situation as a server fault.
     sum_after=db('SELECT COALESCE(SUM(amount),0) s FROM growth_folio_transaction_allocations WHERE transaction_id=?',[tx_id])
-    check('folio allocation never exceeds the transaction amount',
-          abs(float(sum_after[0]['s'])-amount)<0.01,
-          {'restStatus':rest_st,'total':float(sum_after[0]['s']),'transactionAmount':amount})
+    check('adding a second allocation row to the same folio is refused as a conflict',
+          rest_st==409,{'restStatus':rest_st,'error':rest.get('error')})
+    check('folio allocation total never exceeds the transaction amount',
+          float(sum_after[0]['s'])<=amount+0.01,
+          {'total':float(sum_after[0]['s']),'transactionAmount':amount})
 
     # 4. A second folio must not be able to claim the same money again.
     fb_st,folio_b,_=make_folio('fa_folio_b_'+run)
