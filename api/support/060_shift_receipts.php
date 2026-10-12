@@ -93,8 +93,26 @@ function tamasyaRequireOpenShiftForPhysicalCheckIn(PDO $pdo, array $staff, ?arra
  * key-issue transaction commits/rolls back. Admin/Manager semantics remain
  * unchanged: they may issue access without a cashier shift, as before FIX28R3.
  */
+/** Roles that may hold the room-access capability, i.e. may physically hand over a key.
+ * Receptionist keeps its original behaviour; any other role needs an explicit
+ * manage_room_access capability grant, which is exactly the permission that admitted
+ * them to the key screens in the first place.
+ */
+function tamasyaHasRoomAccessCapabilityForShift(array $staff): bool {
+    $role = strtolower(trim((string)($staff['role'] ?? '')));
+    if ($role === 'receptionist') return true;
+    if (!function_exists('hasCapability')) return $role === 'receptionist';
+    return hasCapability($staff,'manage_room_access',['receptionist']);
+}
+
 function tamasyaRequireOpenShiftForRoomAccessIssue(PDO $pdo, array $staff, ?array $settings = null): ?string {
-    if(strtolower((string)($staff['role']??''))!=='receptionist')return null;
+    // Keyed on the capability that authorised the action, not on the literal role
+    // string. hasCapability() honours a per-staff override for any role, so a finance
+    // or cleaning account granted manage_room_access passed the dispatcher gate and
+    // then skipped the shift requirement entirely, leaving a key issuance with no
+    // cashier and no shift attribution. A genuinely read-only role still skips it
+    // because it can never reach this function.
+    if(!tamasyaHasRoomAccessCapabilityForShift($staff))return null;
     $settings=is_array($settings)?$settings:($pdo->query("SELECT require_open_shift_for_sale FROM hotel_operational_settings WHERE id='system_default' LIMIT 1")->fetch(PDO::FETCH_ASSOC)?:[]);
     if((int)($settings['require_open_shift_for_sale']??1)!==1)return null;
     $staffId=trim((string)($staff['id']??''));

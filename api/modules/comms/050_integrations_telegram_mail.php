@@ -100,7 +100,70 @@ function getTelegramApiBaseUrl() {
 }
 
 /** Source line 4199: telegramApiCall */
+/** Telegram rejects text above 4096 characters with a 400 that is neither a
+ * malformed-entity nor "message is not modified", so telegramApiCallRequired()
+ * threw, the webhook answered 500, Telegram redelivered the update, and the
+ * long text was rebuilt and resent forever. Guarding here fixes every send path
+ * at once instead of trusting each menu builder to stay under the limit.
+ */
+if (!function_exists('tamasyaTelegramGuardPayload')) {
+    function tamasyaTelegramGuardPayload(array $payload): array {
+        $limit = 4096;
+        foreach (['text','caption'] as $field) {
+            if (!isset($payload[$field]) || !is_string($payload[$field])) continue;
+            if (function_exists('mb_strlen') ? mb_strlen($payload[$field]) <= $limit : strlen($payload[$field]) <= $limit) continue;
+            $cut = function_exists('mb_substr') ? mb_substr($payload[$field],0,$limit-40) : substr($payload[$field],0,$limit-40);
+            // Prefer a line boundary so Markdown emphasis is not sliced in half.
+            $lastBreak = function_exists('mb_strrpos') ? mb_strrpos($cut,"\n") : strrpos($cut,"\n");
+            if ($lastBreak !== false && $lastBreak > intdiv($limit,2)) {
+                $cut = function_exists('mb_substr') ? mb_substr($cut,0,$lastBreak) : substr($cut,0,$lastBreak);
+            }
+            // A cut can leave an unpaired emphasis marker, which makes Telegram reject
+            // the whole message. Drop the dangling tail so the text stays parseable.
+            foreach (['*','_'] as $marker) {
+                if (substr_count($cut,$marker) % 2 !== 0) {
+                    $lastMarker = strrpos($cut,$marker);
+                    if ($lastMarker !== false) {
+                        $cut = function_exists('mb_substr') ? mb_substr($cut,0,$lastMarker) : substr($cut,0,$lastMarker);
+                    }
+                }
+            }
+            $payload[$field] = rtrim($cut)."\n… (pesan dipotong oleh batas Telegram)";
+        }
+        // An inline keyboard larger than Telegram accepts fails the whole request,
+        // so the menu never renders at all. Menus built from unbounded master data
+        // (categories, subcategories, bank accounts) hit this once a property grows.
+        if (isset($payload['reply_markup']['inline_keyboard']) && is_array($payload['reply_markup']['inline_keyboard'])) {
+            $rows = $payload['reply_markup']['inline_keyboard'];
+            $maxRows = 100;
+            if (count($rows) > $maxRows) {
+                $payload['reply_markup']['inline_keyboard'] = array_slice($rows,0,$maxRows);
+                foreach (['text','caption'] as $field) {
+                    if (isset($payload[$field]) && is_string($payload[$field])) {
+                        $payload[$field] .= "\n… (daftar dipotong; gunakan pencarian atau filter di aplikasi web)";
+                    }
+                }
+            }
+            $buttons = 0;
+            foreach ($payload['reply_markup']['inline_keyboard'] as $row) { $buttons += is_array($row) ? count($row) : 0; }
+            if ($buttons > 100) {
+                $trimmed = [];
+                $kept = 0;
+                foreach ($payload['reply_markup']['inline_keyboard'] as $row) {
+                    $count = is_array($row) ? count($row) : 0;
+                    if ($kept + $count > 100) break;
+                    $trimmed[] = $row;
+                    $kept += $count;
+                }
+                $payload['reply_markup']['inline_keyboard'] = $trimmed;
+            }
+        }
+        return $payload;
+    }
+}
+
 function telegramApiCall($token, $method, $payload = [], $timeout = null) {
+    if (is_array($payload)) $payload = tamasyaTelegramGuardPayload($payload);
     if (!empty($GLOBALS['is_telegram_simulation'])) {
         if ($method === 'getMe') {
             return ['ok' => true, 'httpCode' => 200, 'data' => ['ok' => true, 'result' => ['id' => 123456, 'is_bot' => true, 'username' => 'simulation_bot']], 'raw' => ''];
@@ -863,12 +926,28 @@ function getCheckOutTelegramMessage($booking, $roomType, $staffName = "System") 
 function tamasyaTelegramCompactReplyMarkup(PDO $pdo, ?array $staff, ?array $replyMarkup): ?array {
     if (!$replyMarkup || empty($replyMarkup['inline_keyboard']) || !is_array($replyMarkup['inline_keyboard'])) return $replyMarkup;
     $staffId = trim((string)($staff['id'] ?? ''));
+    // Custody mutations are always tokenised, even when the payload is short enough
+    // to fit Telegram's 64-byte callback limit.
+    //
+    // Two reasons. First, the callback idempotency key is hashed from the chat message
+    // id, and a callback only ever edits that same message, so the key stayed constant
+    // across the whole conversation: after a key was returned, re-issuing it from the
+    // same message was rejected as "already processed" while the database still showed
+    // the key unissued. A fresh token per render gives a fresh idempotency key, so a new
+    // intent succeeds and a double tap on the same button still deduplicates. Second, a
+    // short raw payload never expired, leaving a key handover button in chat history
+    // actionable indefinitely.
+    $alwaysTokenise = ['key_issue_confirm:','key_issue_review:','r_checkout_key:','r_transfer_key:','vacancy_key:'];
     foreach ($replyMarkup['inline_keyboard'] as $ri => $row) {
         if (!is_array($row)) continue;
         foreach ($row as $bi => $button) {
             if (!is_array($button) || !isset($button['callback_data'])) continue;
             $callback = (string)$button['callback_data'];
-            if (strlen($callback) <= 64) continue;
+            $mustTokenise = false;
+            foreach ($alwaysTokenise as $prefix) {
+                if (str_starts_with($callback,$prefix)) { $mustTokenise = true; break; }
+            }
+            if (!$mustTokenise && strlen($callback) <= 64) continue;
             if ($staffId === '') throw new RuntimeException('Callback Telegram terlalu panjang dan tidak memiliki konteks staf untuk tokenisasi aman.');
             $token = 'tcb_' . bin2hex(random_bytes(12));
             $pdo->prepare("INSERT INTO telegram_callback_tokens(token,staff_id,callback_data,created_at,expires_at) VALUES (?,?,?,CURRENT_TIMESTAMP,DATE_ADD(CURRENT_TIMESTAMP,INTERVAL 30 MINUTE))")
