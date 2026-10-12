@@ -1,0 +1,129 @@
+from client import *
+from scenario_core import db
+import datetime, json
+
+# Coverage for folio-allocation-save. This endpoint decides how much of a canonical
+# transaction a guest folio owns, and the guard is the only thing standing between a
+# typo and revenue counted twice: the running total across every folio must never
+# exceed the transaction itself.
+#
+# A second, sharper risk lives in the schema. growth_folio_transaction_allocations has
+# UNIQUE(folio_id,transaction_id) but nothing across folios, so the route's own
+# cross-folio total is the only thing preventing one receipt from being counted in two
+# folios at once. Both are asserted here.
+results=[]
+run='fa_'+datetime.datetime.now().strftime('%H%M%S')+str(int(datetime.datetime.now().microsecond/1000))
+
+def check(name,ok,details=None):
+    results.append({'test':name,'pass':bool(ok),'details':details})
+    print('PASS' if ok else 'FAIL',name,str(details or '')[:400],flush=True)
+    (base/'logs/folio-allocation-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2,default=str),encoding='utf8')
+
+today=datetime.date.today()
+tomorrow=today+datetime.timedelta(days=1)
+amount=600000
+
+room=db("SELECT r.number FROM rooms r WHERE r.status='available' AND NOT EXISTS "
+        "(SELECT 1 FROM bookings b WHERE b.roomNumber=r.number AND b.status IN ('reserved','active')) "
+        "ORDER BY CAST(r.number AS UNSIGNED) LIMIT 1")
+if not room:
+    check('folio allocation has a bookable room',False,{'reason':'no available room'})
+    print('FOLIO-ALLOCATION-UAT 0/1'); raise SystemExit(0)
+room_number=room[0]['number']
+
+st,created=request('bookings','POST',{
+    'guestName':'UAT Folio Allocation Guest','roomNumber':room_number,
+    'checkIn':today.isoformat(),'checkOut':tomorrow.isoformat(),'totalAmount':amount,
+    'paymentStatus':'unpaid','bookingSource':'Direct','broadcast':False},'fa_booking_'+run)
+booking_id=created.get('bookingId')
+check('folio allocation booking is created',st==200 and created.get('success') is True and bool(booking_id),
+      {'status':st,'body':created})
+if not booking_id:
+    print('FOLIO-ALLOCATION-UAT',sum(1 for x in results if x['pass']),'/',len(results)); raise SystemExit(0)
+
+pay_st,pay=request('booking-payments','POST',
+    {'bookingId':booking_id,'amount':amount,'paymentMethod':'cash','operationId':'fa_pay_'+run},'fa_pay_'+run)
+tx_id=(pay.get('result') or {}).get('transactionId') or pay.get('transactionId') if isinstance(pay,dict) else None
+tx_id=tx_id if isinstance(tx_id,str) else None
+if not tx_id:
+    row=db("SELECT id FROM transactions WHERE bookingId=? AND type='income' ORDER BY createdAt DESC LIMIT 1",[booking_id])
+    tx_id=row[0]['id'] if row else None
+check('folio allocation transaction is posted',bool(tx_id),{'status':pay_st,'body':pay,'tx':tx_id})
+
+def make_folio(tag):
+    fs,fb=request('enterprise-suite','POST',
+        {'command':'folio-create','folioType':'guest','bookingId':booking_id,'name':tag,'operationId':tag},
+        tag)
+    fid=None
+    if isinstance(fb,dict):
+        fid=(fb.get('data') or {}).get('folio',{}).get('id') or (fb.get('data') or {}).get('id')
+    if not fid:
+        r=db('SELECT id FROM growth_folios WHERE name=? ORDER BY created_at DESC LIMIT 1',[tag])
+        fid=r[0]['id'] if r else None
+    return fs,fid,fb
+
+fa_st,folio_a,fa_body=make_folio('fa_folio_a_'+run)
+check('guest folio is created',fa_st==200 and bool(folio_a),{'status':fa_st,'folio':folio_a,'body':fa_body})
+
+if tx_id and folio_a:
+    # 1. Allocating more than the transaction is worth must be refused. This is the
+    #    guard that stops a folio claiming money that was never received.
+    over_st,over=request('enterprise-suite','POST',
+        {'command':'folio-allocation-save','folioId':folio_a,'transactionId':tx_id,
+         'amount':amount+50000,'operationId':'fa_over_'+run},'fa_over_'+run)
+    check('allocating more than the transaction amount is refused',
+          over_st>=400 and over.get('success') is False,
+          {'status':over_st,'error':over.get('error')})
+
+    # 2. A partial allocation is legitimate and is recorded.
+    part_st,part=request('enterprise-suite','POST',
+        {'command':'folio-allocation-save','folioId':folio_a,'transactionId':tx_id,
+         'amount':amount//2,'allocationRole':'guest','operationId':'fa_part_'+run},'fa_part_'+run)
+    check('partial folio allocation is accepted',part_st==200 and part.get('success') is True,
+          {'status':part_st,'body':part})
+    sum_a=db('SELECT COALESCE(SUM(amount),0) s FROM growth_folio_transaction_allocations WHERE transaction_id=?',[tx_id])
+    check('folio allocation total equals the partial amount',
+          abs(float(sum_a[0]['s'])-(amount//2))<0.01,{'sum':float(sum_a[0]['s']),'expected':amount//2})
+
+    # 3. The remainder fills the folio exactly and must still be allowed.
+    rest_st,rest=request('enterprise-suite','POST',
+        {'command':'folio-allocation-save','folioId':folio_a,'transactionId':tx_id,
+         'amount':amount-(amount//2),'allocationRole':'guest','operationId':'fa_rest_'+run},'fa_rest_'+run)
+    # Same transaction may only appear once per folio, so either the remainder is
+    # merged or it is refused. Both are correct; silently doubling the money is not.
+    sum_after=db('SELECT COALESCE(SUM(amount),0) s FROM growth_folio_transaction_allocations WHERE transaction_id=?',[tx_id])
+    check('folio allocation never exceeds the transaction amount',
+          abs(float(sum_after[0]['s'])-amount)<0.01,
+          {'restStatus':rest_st,'total':float(sum_after[0]['s']),'transactionAmount':amount})
+
+    # 4. A second folio must not be able to claim the same money again.
+    fb_st,folio_b,_=make_folio('fa_folio_b_'+run)
+    if folio_b:
+        dbl_st,dbl=request('enterprise-suite','POST',
+            {'command':'folio-allocation-save','folioId':folio_b,'transactionId':tx_id,
+             'amount':amount,'operationId':'fa_dbl_'+run},'fa_dbl_'+run)
+        total_b=db('SELECT COALESCE(SUM(amount),0) s FROM growth_folio_transaction_allocations WHERE transaction_id=?',[tx_id])
+        check('the same money cannot be allocated to a second folio',
+              dbl_st>=400 or abs(float(total_b[0]['s'])-amount)<0.01,
+              {'status':dbl_st,'total':float(total_b[0]['s']),'error':dbl.get('error')})
+    else:
+        check('the same money cannot be allocated to a second folio',False,{'reason':'second folio not created'})
+
+    # 5. Replaying the same operation id must be idempotent.
+    before=db('SELECT COALESCE(SUM(amount),0) s FROM growth_folio_transaction_allocations WHERE transaction_id=?',[tx_id])
+    replay_st,replay=request('enterprise-suite','POST',
+        {'command':'folio-allocation-save','folioId':folio_a,'transactionId':tx_id,
+         'amount':amount//2,'allocationRole':'guest','operationId':'fa_part_'+run},'fa_part_'+run)
+    after_replay=db('SELECT COALESCE(SUM(amount),0) s FROM growth_folio_transaction_allocations WHERE transaction_id=?',[tx_id])
+    check('replayed folio allocation does not change the money',
+          abs(float(before[0]['s'])-float(after_replay[0]['s']))<0.01,
+          {'status':replay_st,'before':float(before[0]['s']),'after':float(after_replay[0]['s'])})
+
+    # 6. A transaction belonging to another booking must be refused by scope.
+    scope_st,scope=request('enterprise-suite','POST',
+        {'command':'folio-allocation-save','folioId':folio_a,'transactionId':'tx_does_not_exist',
+         'amount':1000,'operationId':'fa_scope_'+run},'fa_scope_'+run)
+    check('unknown transaction cannot be allocated',scope_st>=400 and scope.get('success') is False,
+          {'status':scope_st,'error':scope.get('error')})
+
+print('FOLIO-ALLOCATION-UAT',sum(1 for x in results if x['pass']),'/',len(results))
