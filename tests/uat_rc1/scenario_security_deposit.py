@@ -79,9 +79,10 @@ else:
     check('security deposit journal entry is balanced',False,{'transactionId':tx_id})
 
 # 5. The ledger must reflect exactly what was received, once.
-ledger=db('SELECT entry_type AS entryType,COALESCE(SUM(amount),0) amt FROM transactions '
-          'WHERE bookingId=? AND transactionKind=\'security_deposit_received\' GROUP BY entry_type',[booking_id])
-received=sum(float(r['amt']) for r in ledger)
+# The deposit ledger is its own table; transactions only carry the money legs.
+ledger=db('SELECT entry_type AS entryType,COALESCE(SUM(amount),0) amt FROM guest_security_deposit_ledger '
+          'WHERE booking_id=? GROUP BY entry_type',[booking_id])
+received=sum(float(r['amt']) for r in ledger if str(r['entryType']).lower().find('refund')===-1)
 check('security deposit ledger holds the received amount exactly once',
       abs(received-500000)<0.01,{'ledger':ledger,'expected':500000})
 
@@ -90,8 +91,8 @@ replay_st,replay=request('guest-security-deposits','POST',
     {'id':booking_id,'command':'receive','requiredAmount':500000,'amount':400000,
      'paymentMethod':'cash','date':today.isoformat(),'notes':'UAT deposit received',
      'operationId':'dep_recv_'+run},'dep_recv_'+run)
-after=db('SELECT COALESCE(SUM(amount),0) amt FROM transactions '
-         'WHERE bookingId=? AND transactionKind=\'security_deposit_received\'',[booking_id])
+after=db("SELECT COALESCE(SUM(CASE WHEN entry_type LIKE 'refund%' THEN -amount ELSE amount END),0) amt "
+         "FROM guest_security_deposit_ledger WHERE booking_id=?",[booking_id])
 check('replayed deposit is idempotent',
       replay_st==200 and abs(float(after[0]['amt'])-500000)<0.01,
       {'status':replay_st,'ledgerTotal':float(after[0]['amt'])})
