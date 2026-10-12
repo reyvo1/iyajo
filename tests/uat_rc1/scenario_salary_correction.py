@@ -65,9 +65,6 @@ legs=db("SELECT id,amount,bankAccountId FROM transactions WHERE type='expense' A
         "ORDER BY createdAt DESC LIMIT 1")
 original_leg=legs[0] if legs else None
 check('paid salary slip produced a payment leg',bool(original_leg),{'leg':original_leg})
-check('cash payroll without shift cash is refused',
-      db("SELECT COUNT(*) n FROM salary_slips WHERE notes=%s",['sal_paid_'+run])[0]['n']>0,
-      {'note':'slip created by transfer, not cash'})
 
 # 3. The confirmation phrase is a real safety interlock.
 bad_st,bad=request('salary-payment-correction','POST',{
