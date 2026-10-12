@@ -452,6 +452,17 @@ switch ($action) {
             break;
         }
 
+        // A transaction correction is meaningless without the transaction it targets.
+        // Without this check \$oldTx stays null, \$correctionMode falls back to
+        // 'booking-only' at :797, and every field the operator typed into the
+        // "Transaksi Arus Kas Terpilih" panel is silently discarded while the
+        // response still reports success.
+        if ($transactionPatch && $transactionId === '') {
+            http_response_code(400);
+            echo json_encode(['success' => false, 'error' => 'Transaksi arus kas yang dikoreksi belum dipilih. Pilih transaksi asal lebih dulu, atau kosongkan bagian C bila hanya mengoreksi reservasi.']);
+            break;
+        }
+
         try {
             $pdo->beginTransaction();
 
@@ -991,7 +1002,11 @@ switch ($action) {
                 }
             }
 
-            recalculateBookingFinancials($pdo, $bookingId);
+            // Strict mode is mandatory. recalculateBookingFinancials() swallows any failure when
+            // $strict is false: it logs and returns normally, so this route could commit a
+            // corrected booking whose derived financial state was never rebuilt. This was
+            // the only one of 25 call sites in the codebase that omitted the flag.
+            recalculateBookingFinancials($pdo, $bookingId, true);
             $stmtCorrectedBooking = $pdo->prepare('SELECT * FROM bookings WHERE id = ? LIMIT 1');
             $stmtCorrectedBooking->execute([$bookingId]);
             $correctedBooking = $stmtCorrectedBooking->fetch() ?: [];
