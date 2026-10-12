@@ -51,10 +51,14 @@ check('purchase order is created',po_st==200 and bool(po_id),{'status':po_st,'po
 if po_id:
     # PO status is a state machine: draft -> submitted -> approved. approved cannot be
     # reached directly, so the PO would stay draft and every payment would be refused.
+    transitions={}
     for target in ('submitted','approved'):
-        request('growth-suite','POST',{'command':'po-status','id':po_id,'status':target,'operationId':'po_'+target[:3]+'_'+run},'po_'+target[:3]+'_'+run)
+        t_st,_=request('growth-suite','POST',{'command':'po-status','id':po_id,'status':target,
+            'operationId':'po_'+target[:3]+'_'+run},'po_'+target[:3]+'_'+run)
+        transitions[target]=t_st
     st=db('SELECT status,total_amount FROM growth_purchase_orders WHERE id=?',[po_id])
-    check('purchase order leaves draft',bool(st) and st[0]['status']!='draft',{'status':ast,'row':st})
+    check('purchase order walks the status machine to approved',
+          bool(st) and st[0]['status']=='approved',{'transitions':transitions,'row':st})
 
 if not po_id:
     print('PO-LINK-PAYMENT-UAT',sum(1 for x in results if x['pass']),'/',len(results)); raise SystemExit(0)
