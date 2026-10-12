@@ -2,6 +2,11 @@ from client import *
 from scenario_core import db
 import datetime, json
 
+# The property timezone, not the runner's. A run near UTC midnight made 'today'
+# land on a past date for the server and booking creation was rejected.
+HOTEL_TZ=datetime.timezone(datetime.timedelta(hours=8))
+today_hotel=lambda: datetime.datetime.now(HOTEL_TZ).date()
+
 # Coverage for po-link-payment: linking a real finance payment to a purchase order.
 #
 # The table is unique on (po_id,transaction_id) while the route's own running totals
@@ -9,14 +14,14 @@ import datetime, json
 # between "unique per pair" and "summed per entity" is where procurement money goes
 # missing or gets counted twice.
 results=[]
-run='po_'+datetime.datetime.now().strftime('%H%M%S')+str(int(datetime.datetime.now().microsecond/1000))
+run='po_'+datetime.datetime.now(HOTEL_TZ).strftime('%H%M%S')+str(int(datetime.datetime.now(HOTEL_TZ).microsecond/1000))
 
 def check(name,ok,details=None):
     results.append({'test':name,'pass':bool(ok),'details':details})
     print('PASS' if ok else 'FAIL',name,str(details or '')[:400],flush=True)
     (base/'logs/po-link-payment-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2,default=str),encoding='utf8')
 
-today=datetime.date.today()
+today=today_hotel()
 po_total=750000.0
 
 vendor=db("SELECT id FROM vendors WHERE isActive=1 LIMIT 1") or db("SELECT id FROM vendors LIMIT 1")

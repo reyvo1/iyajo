@@ -2,19 +2,24 @@ from client import *
 from scenario_core import db
 import datetime, json
 
+# The property timezone, not the runner's. A run near UTC midnight made 'today'
+# land on a past date for the server and booking creation was rejected.
+HOTEL_TZ=datetime.timezone(datetime.timedelta(hours=8))
+today_hotel=lambda: datetime.datetime.now(HOTEL_TZ).date()
+
 # Coverage for guest-security-deposits, which had no test at all despite moving
 # real money. The deposit ledger is what a hotel relies on at checkout, so this
 # asserts the money actually lands: a balanced journal, a liability that matches
 # the ledger, and a replay that cannot double-credit the guest.
 results=[]
-run='dep_'+datetime.datetime.now().strftime('%H%M%S')+str(int(datetime.datetime.now().microsecond/1000))
+run='dep_'+datetime.datetime.now(HOTEL_TZ).strftime('%H%M%S')+str(int(datetime.datetime.now(HOTEL_TZ).microsecond/1000))
 
 def check(name,ok,details=None):
     results.append({'test':name,'pass':bool(ok),'details':details})
     print('PASS' if ok else 'FAIL',name,str(details or '')[:400],flush=True)
     (base/'logs/security-deposit-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2,default=str),encoding='utf8')
 
-today=datetime.date.today()
+today=today_hotel()
 tomorrow=today+datetime.timedelta(days=1)
 
 room=db("SELECT r.number FROM rooms r WHERE r.status='available' AND NOT EXISTS "

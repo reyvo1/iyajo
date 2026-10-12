@@ -2,13 +2,18 @@ from client import *
 from scenario_core import db
 import datetime, json
 
+# The property timezone, not the runner's. A run near UTC midnight made 'today'
+# land on a past date for the server and booking creation was rejected.
+HOTEL_TZ=datetime.timezone(datetime.timedelta(hours=8))
+today_hotel=lambda: datetime.datetime.now(HOTEL_TZ).date()
+
 # Coverage for salary-payment-correction. Payroll money has no test at all, and
 # the route makes a strong promise in its own comment: the original paid slip and
 # payment are never deleted or overwritten; a reversal is created instead. That
 # promise is exactly what an auditor would check first, so it is asserted here
 # rather than assumed.
 results=[]
-run='sal_'+datetime.datetime.now().strftime('%H%M%S')+str(int(datetime.datetime.now().microsecond/1000))
+run='sal_'+datetime.datetime.now(HOTEL_TZ).strftime('%H%M%S')+str(int(datetime.datetime.now(HOTEL_TZ).microsecond/1000))
 
 def check(name,ok,details=None):
     results.append({'test':name,'pass':bool(ok),'details':details})

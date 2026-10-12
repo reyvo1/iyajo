@@ -2,6 +2,11 @@ from client import *
 from scenario_core import db
 import datetime, json
 
+# The property timezone, not the runner's. A run near UTC midnight made 'today'
+# land on a past date for the server and booking creation was rejected.
+HOTEL_TZ=datetime.timezone(datetime.timedelta(hours=8))
+today_hotel=lambda: datetime.datetime.now(HOTEL_TZ).date()
+
 # Coverage for folio-allocation-save. This endpoint decides how much of a canonical
 # transaction a guest folio owns, and the guard is the only thing standing between a
 # typo and revenue counted twice: the running total across every folio must never
@@ -12,14 +17,14 @@ import datetime, json
 # cross-folio total is the only thing preventing one receipt from being counted in two
 # folios at once. Both are asserted here.
 results=[]
-run='fa_'+datetime.datetime.now().strftime('%H%M%S')+str(int(datetime.datetime.now().microsecond/1000))
+run='fa_'+datetime.datetime.now(HOTEL_TZ).strftime('%H%M%S')+str(int(datetime.datetime.now(HOTEL_TZ).microsecond/1000))
 
 def check(name,ok,details=None):
     results.append({'test':name,'pass':bool(ok),'details':details})
     print('PASS' if ok else 'FAIL',name,str(details or '')[:400],flush=True)
     (base/'logs/folio-allocation-results.json').write_text(json.dumps(results,ensure_ascii=False,indent=2,default=str),encoding='utf8')
 
-today=datetime.date.today()
+today=today_hotel()
 tomorrow=today+datetime.timedelta(days=1)
 amount=600000
 

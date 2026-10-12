@@ -2,12 +2,17 @@ from client import *
 from scenario_core import db
 import datetime, json
 
+# The property timezone, not the runner's. A run near UTC midnight made 'today'
+# land on a past date for the server and booking creation was rejected.
+HOTEL_TZ=datetime.timezone(datetime.timedelta(hours=8))
+today_hotel=lambda: datetime.datetime.now(HOTEL_TZ).date()
+
 # Regression for the audit-correction path, which had zero coverage: every prior
 # UAT run was green while booking-audit-correction was untested. The reported
 # production failure was a cashier entering a bank transfer as physical cash,
 # the shift was then closed, and the admin could not save the correction.
 results=[]
-run='acct_'+datetime.datetime.now().strftime('%H%M%S')+str(int(datetime.datetime.now().microsecond/1000))
+run='acct_'+datetime.datetime.now(HOTEL_TZ).strftime('%H%M%S')+str(int(datetime.datetime.now(HOTEL_TZ).microsecond/1000))
 
 def check(name,ok,details=None):
     results.append({'test':name,'pass':bool(ok),'details':details})
@@ -23,7 +28,7 @@ def journal_balanced(entry_id):
 def journal_legs(entry_id):
     return db('SELECT account_code,account_name,debit,credit FROM journal_lines WHERE journal_entry_id=? ORDER BY account_code',[entry_id])
 
-today=datetime.date.today()
+today=today_hotel()
 tomorrow=today+datetime.timedelta(days=1)
 
 # Reuse the open shift that earlier scenarios already established, the same way the
