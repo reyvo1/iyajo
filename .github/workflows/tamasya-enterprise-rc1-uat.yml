@@ -850,6 +850,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 scenario_audit_correction.py
+          python3 scenario_security_deposit.py
 
       - name: Browser desktop and mobile control UAT
         run: |
