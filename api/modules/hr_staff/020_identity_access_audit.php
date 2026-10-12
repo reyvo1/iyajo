@@ -1496,7 +1496,30 @@ function requireAuth($pdo) {
                 }
                 return $user;
             }
-        } catch (Throwable $e) {}
+            // The session row exists but no condition matched. Record which one failed,
+            // otherwise a stale token, an expired session and a deactivated staff account
+            // are indistinguishable from the outside, and a database fault in this block
+            // was previously reported as "please log in again".
+            try {
+                $probe=$pdo->prepare("SELECT us.revoked_at,us.expires_at,us.last_activity,s.status FROM user_sessions us JOIN staff s ON s.id=us.staff_id WHERE us.token_hash=? LIMIT 1");
+                $probe->execute([$tokenHash]);
+                $row=$probe->fetch(PDO::FETCH_ASSOC);
+                if(!$row){
+                    tamasyaRuntimeLog('session_token_unknown',[],null);
+                }else{
+                    $reason=($row['revoked_at']!==null)?'revoked'
+                        :(strtotime((string)$row['expires_at'])<time()?'expired'
+                        :(strtotime((string)$row['last_activity'])<strtotime($idleCutoff)?'idle_timeout'
+                        :((string)$row['status']!=='active'?'staff_not_active':'unknown')));
+                    tamasyaRuntimeLog('session_rejected',['reason'=>$reason],null);
+                }
+            } catch (Throwable $probeError) {
+                tamasyaRuntimeLog('session_probe_failed',[],$probeError);
+            }
+        } catch (Throwable $e) {
+            // Never empty: a database fault here used to masquerade as a login problem.
+            tamasyaRuntimeLog('session_lookup_failed',[],$e);
+        }
     }
     
     // For telegram webhook, let it pass and do its own auth

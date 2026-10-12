@@ -1072,6 +1072,7 @@ switch ($action) {
             ]);
         } catch (Throwable $e) {
             if ($pdo->inTransaction()) $pdo->rollBack();
+            tamasyaRuntimeCaptureThrowable($e, 'booking-audit-correction');
             tamasyaApplyExceptionHttpStatus($e, 500);
             echo json_encode(['success' => false, 'error' => clientExceptionMessage('Gagal menerapkan koreksi audit reservasi', $e)]);
         }
