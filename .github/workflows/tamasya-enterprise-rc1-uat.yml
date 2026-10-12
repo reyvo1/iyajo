@@ -190,6 +190,7 @@ jobs:
             tests/uat_rc1/scenario_finance.py \
             tests/uat_rc1/scenario_operations.py \
             tests/uat_rc1/scenario_booking_finance_matrix.py \
+          tests/uat_rc1/scenario_audit_correction.py \
             tests/uat_rc1/scenario_extended.py \
             tests/uat_rc1/scenario_tax_edges.py \
             tests/uat_rc1/scenario_allocations.py \
@@ -724,6 +725,7 @@ jobs:
           python3 scenario_finance.py
           python3 scenario_operations.py
           python3 scenario_booking_finance_matrix.py
+          python3 scenario_audit_correction.py
 
       - name: Historical backfill split tax accounting and authorization
         working-directory: tests/uat_rc1
