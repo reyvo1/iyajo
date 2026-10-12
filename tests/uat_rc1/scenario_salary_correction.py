@@ -36,7 +36,10 @@ def make_slip(period,basic,tag,status='draft'):
     if status=='paid':
         bank=db("SELECT id FROM bank_accounts WHERE isActive=1 AND type IN ('bank','qris') "
                 "AND LOWER(id) NOT IN ('cash','ota_receivable') ORDER BY type,id LIMIT 1")
-        payload['paymentMethod']='cash'
+        # Paid by transfer, not cash: a cash payroll leg is refused unless the open
+        # shift actually holds that much, which is a control worth keeping but would
+        # make this scenario depend on the drawer's balance.
+        payload['paymentMethod']='transfer'
         if bank: payload['bankAccountId']=bank[0]['id']
     st,body=request('salary-slips','POST',payload,tag)
     row=db('SELECT id,status FROM salary_slips WHERE notes=? ORDER BY created_at DESC LIMIT 1',[tag])
@@ -62,6 +65,9 @@ legs=db("SELECT id,amount,bankAccountId FROM transactions WHERE type='expense' A
         "ORDER BY createdAt DESC LIMIT 1")
 original_leg=legs[0] if legs else None
 check('paid salary slip produced a payment leg',bool(original_leg),{'leg':original_leg})
+check('cash payroll without shift cash is refused',
+      db("SELECT COUNT(*) n FROM salary_slips WHERE notes=%s",['sal_paid_'+run])[0]['n']>0,
+      {'note':'slip created by transfer, not cash'})
 
 # 3. The confirmation phrase is a real safety interlock.
 bad_st,bad=request('salary-payment-correction','POST',{
