@@ -144,8 +144,8 @@ if booking_id:
             net=db("SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE -amount END),0) n FROM transactions WHERE bookingId=?",[booking_id])
             check('correction does not change net booking revenue',abs(float(net[0]['n'])-275000)<0.01,{'net':net})
 
-# Test isolation: this scenario closes a shift that later suites depend on being
-# open. Open a replacement so the next suite is not failed by our side effects.
+# Test isolation: closing a shift locks its transactions, so this scenario must run
+# last in the job. It also reopens a shift so any later job or suite starts clean.
 if closed_status==200 and closed_body.get('success') is True:
     reopen_status,reopen_body=request('operations-center','POST',{
         'command':'shift-open','openingCash':0,'shiftTime':open_shifts[0].get('shift_time') or 'siang',
