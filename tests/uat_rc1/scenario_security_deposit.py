@@ -82,7 +82,7 @@ else:
 # The deposit ledger is its own table; transactions only carry the money legs.
 ledger=db('SELECT entry_type AS entryType,COALESCE(SUM(amount),0) amt FROM guest_security_deposit_ledger '
           'WHERE booking_id=? GROUP BY entry_type',[booking_id])
-received=sum(float(r['amt']) for r in ledger if str(r['entryType']).lower().find('refund')===-1)
+received=sum(float(r['amt']) for r in ledger if 'refund' not in str(r['entryType']).lower())
 check('security deposit ledger holds the received amount exactly once',
       abs(received-500000)<0.01,{'ledger':ledger,'expected':500000})
 
