@@ -42,22 +42,29 @@ cfg_st,cfg=request('guest-security-deposits','POST',
 check('security deposit requirement is configured',
       cfg_st==200 and cfg.get('success') is True,{'status':cfg_st,'body':cfg})
 
-# 2. Receiving less than required must be refused: a partial deposit would make
-#    the guest look covered at checkout when they are not.
-short_st,short=request('guest-security-deposits','POST',
+# 2. Deposits may be taken in instalments, so a part payment is legitimate. The
+#    cap is the requirement itself: the running total may never exceed it.
+part_st,part=request('guest-security-deposits','POST',
     {'id':booking_id,'command':'receive','requiredAmount':500000,'amount':100000,
-     'paymentMethod':'cash','date':today.isoformat(),'operationId':'dep_short_'+run},
-    'dep_short_'+run)
-check('deposit below the required amount is refused',
-      short_st>=400 and short.get('success') is False,
-      {'status':short_st,'body':short})
+     'paymentMethod':'cash','date':today.isoformat(),'notes':'UAT part deposit',
+     'operationId':'dep_part_'+run},'dep_part_'+run)
+check('part security deposit is accepted',
+      part_st==200 and part.get('success') is True,{'status':part_st,'body':part})
 
-# 3. Receive the full deposit.
+over_st,over=request('guest-security-deposits','POST',
+    {'id':booking_id,'command':'receive','requiredAmount':500000,'amount':400000,
+     'paymentMethod':'cash','date':today.isoformat(),'notes':'UAT overpayment attempt',
+     'operationId':'dep_over_'+run},'dep_over_'+run)
+check('deposit beyond the remaining requirement is refused',
+      over_st>=400 and over.get('success') is False,
+      {'status':over_st,'error':over.get('error')})
+
+# 3. Take the remaining balance so the requirement is met.
 recv_st,recv=request('guest-security-deposits','POST',
-    {'id':booking_id,'command':'receive','requiredAmount':500000,'amount':500000,
+    {'id':booking_id,'command':'receive','requiredAmount':500000,'amount':400000,
      'paymentMethod':'cash','date':today.isoformat(),'notes':'UAT deposit received',
      'operationId':'dep_recv_'+run},'dep_recv_'+run)
-check('full security deposit is received',
+check('remaining security deposit is received',
       recv_st==200 and recv.get('success') is True,{'status':recv_st,'body':recv})
 
 # 4. The journal behind it must balance, or the deposit is recorded on one side only.
@@ -80,7 +87,7 @@ check('security deposit ledger holds the received amount exactly once',
 
 # 6. Replaying the same operation id must not credit the guest twice.
 replay_st,replay=request('guest-security-deposits','POST',
-    {'id':booking_id,'command':'receive','requiredAmount':500000,'amount':500000,
+    {'id':booking_id,'command':'receive','requiredAmount':500000,'amount':400000,
      'paymentMethod':'cash','date':today.isoformat(),'notes':'UAT deposit received',
      'operationId':'dep_recv_'+run},'dep_recv_'+run)
 after=db('SELECT COALESCE(SUM(amount),0) amt FROM transactions '
