@@ -52,7 +52,7 @@ check('part security deposit is accepted',
       part_st==200 and part.get('success') is True,{'status':part_st,'body':part})
 
 over_st,over=request('guest-security-deposits','POST',
-    {'id':booking_id,'command':'receive','requiredAmount':500000,'amount':400000,
+    {'id':booking_id,'command':'receive','requiredAmount':500000,'amount':500000,
      'paymentMethod':'cash','date':today.isoformat(),'notes':'UAT overpayment attempt',
      'operationId':'dep_over_'+run},'dep_over_'+run)
 check('deposit beyond the remaining requirement is refused',
