@@ -26,13 +26,20 @@ def journal_legs(entry_id):
 today=datetime.date.today()
 tomorrow=today+datetime.timedelta(days=1)
 
-# One dedicated open shift so the correction happens against a closed shift.
-shift_status,shift_body=request('operations-center','POST',{
-    'command':'shift-open','openingCash':0,'shiftTime':'siang',
-    'notes':'UAT audit-correction dedicated shift'},'acct_shift_open_'+run)
-check('audit correction opens its own shift',shift_status==200 and shift_body.get('success') is True,{'status':shift_status,'body':shift_body})
-open_shifts=db("SELECT id FROM shift_sessions WHERE status='open' ORDER BY opened_at DESC LIMIT 1")
+# Reuse the open shift that earlier scenarios already established, the same way the
+# other suites do. Opening a new one fails because the acting account is already bound
+# to a shift.
+open_shifts=db("SELECT id,shift_time FROM shift_sessions WHERE status='open' ORDER BY opened_at DESC,id DESC")
+check('audit correction sees an open shift to work against',len(open_shifts)>=1,open_shifts)
 shift_id=open_shifts[0]['id'] if open_shifts else None
+is_night_shift=shift_time_is_night=open_shifts and str(open_shifts[0].get('shift_time','')).lower() in ('malam','all')
+
+# A night shift cannot be closed until the night audit is finished. The correction
+# scenario needs a closed shift, so lift that one policy flag for the duration and
+# restore it afterwards, the same technique the integrity scenario uses.
+audit_before=db("SELECT require_night_audit_for_night_shift FROM hotel_operational_settings WHERE id='system_default'")
+if shift_id and is_night_shift:
+    db("UPDATE hotel_operational_settings SET require_night_audit_for_night_shift=0 WHERE id='system_default'")
 
 room=db("SELECT r.number FROM rooms r WHERE r.status='available' AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.roomNumber=r.number AND b.status IN ('reserved','active')) ORDER BY CAST(r.number AS UNSIGNED) LIMIT 1")
 if not room:
@@ -113,5 +120,10 @@ if booking_id:
             # Net revenue must be unchanged: reversal plus replacement cancel out.
             net=db("SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE -amount END),0) n FROM transactions WHERE bookingId=?",[booking_id])
             check('correction does not change net booking revenue',abs(float(net[0]['n'])-275000)<0.01,{'net':net})
+
+# Restore the night-audit policy this scenario lifted.
+if is_night_shift:
+    db("UPDATE hotel_operational_settings SET require_night_audit_for_night_shift=? WHERE id='system_default'",
+       [int((audit_before or [{'require_night_audit_for_night_shift':1}])[0].get('require_night_audit_for_night_shift') or 1)])
 
 print('AUDIT-CORRECTION-UAT',sum(1 for x in results if x['pass']),'/',len(results))
