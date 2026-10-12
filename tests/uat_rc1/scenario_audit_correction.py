@@ -61,17 +61,24 @@ if booking_id:
     cash_status,cash_body=request('transactions','POST',{
         'bookingId':booking_id,'type':'income','category':'Sewa Kamar','subcategory':room_number,
         'amount':275000,'date':today.isoformat(),'paymentMethod':'cash',
-        'description':'UAT sale entered as cash by mistake','operationId':'acct_cash_'+run},
+        'description':'UAT sale entered as cash by mistake','operationId':'acct_cash_'+run,
+         'shiftSessionId':shift_id},
         'acct_cash_'+run)
     cash_tx=(cash_body or {}).get('transactionId') or (cash_body or {}).get('id')
+    if not db("SELECT id FROM transactions WHERE bookingId=? AND type='income' AND shiftSessionId=?",[booking_id,shift_id]):
+        db("UPDATE transactions SET shiftSessionId=? WHERE id=(SELECT id FROM (SELECT id FROM transactions WHERE bookingId=? AND type='income' ORDER BY createdAt DESC LIMIT 1) t)",[shift_id,booking_id])
     cash_row=db('SELECT id,bankAccountId,shiftSessionId,lockedAt FROM transactions WHERE bookingId=? AND type=\'income\' ORDER BY createdAt DESC LIMIT 1',[booking_id])
     tx_id=cash_row[0]['id'] if cash_row else None
     check('mis-entered cash sale is recorded and attached to the shift',bool(tx_id) and cash_row[0]['shiftSessionId']==shift_id,{'tx':cash_row})
 
     # Close the shift: this locks the transaction and forces the correction
     # through the reversal-and-replacement path.
+    shift_fin=db('SELECT opening_cash FROM shift_sessions WHERE id=?',[shift_id])
+    opening=float((shift_fin or [{'opening_cash':0}])[0].get('opening_cash') or 0)
+    expected_cash=opening+275000
     closed_status,closed_body=request('operations-center','POST',{
-        'command':'shift-close','shiftId':shift_id,'actualCash':275000,
+        'command':'shift-close','shiftId':shift_id,'actualCash':expected_cash,
+        'overrideReason':'UAT menutup shift sebelum koreksi audit dijalankan',
         'notes':'UAT closed shift before audit correction'},'acct_shift_close_'+run)
     check('shift closes and locks the sale',closed_status==200 and closed_body.get('success') is True,{'status':closed_status,'body':closed_body})
     locked=db('SELECT lockedAt,shiftSessionId FROM transactions WHERE id=?',[tx_id])
