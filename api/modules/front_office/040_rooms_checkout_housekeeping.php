@@ -2024,11 +2024,18 @@ function finalizeTelegramCheckout(PDO $pdo, array $staff, string $roomNumber, st
             $txId = 'tx_tg_settle_'.$suffix;
             $label = $splitActive ? ('Split Tunai + '.strtoupper((string)$splitTransferMethod)) : ($method === 'qris' ? 'QRIS' : ($method === 'transfer' ? 'Transfer' : ($method === 'ota' ? 'Piutang OTA' : 'Tunai')));
             $desc = "Pelunasan Kamar {$roomNumber} - " . (string)$booking['guestName'] . " ({$label}, Telegram)";
+            // Telegram checkout settlement is also live booking income, so it needs the
+            // same tax snapshot contract as the web checkout. Without it this row fails
+            // tamasyaAssertLiveTaxSnapshotIntegrity() and blocks later postings.
+            $settlementTaxRule=resolveConfiguredTaxRule($pdo,$bookingSource,'settlement',date('Y-m-d'));
             tamasyaPostFinancialTransaction($pdo,[
                 'id'=>$txId,'type'=>'income','category'=>$roomCategoryName,'categorySystemKey'=>'room_rental','subcategory'=>(string)$booking['roomType'],
                 'roomNumber'=>$roomNumber,'amount'=>$remaining,'date'=>date('Y-m-d'),'description'=>$desc,'createdBy'=>currentStaffLabel($staff),
                 'bankAccountId'=>$bankAccountId,'bookingId'=>(string)$booking['id'],'bookingSource'=>$bookingSource,'baseAmount'=>$remainingBase,
-                'taxAmount'=>$remainingTax,'taxRate'=>$serverTax['taxRate'],'transactionKind'=>'settlement','sourceEntity'=>'booking','sourceEntityId'=>(string)$booking['id'],
+                'taxAmount'=>$remainingTax,'taxRate'=>$serverTax['taxRate'],
+                'taxRuleId'=>($settlementTaxRule['matched']??false)?(string)$settlementTaxRule['ruleId']:null,
+                'taxRuleName'=>($settlementTaxRule['matched']??false)?(string)$settlementTaxRule['ruleName']:null,
+                'taxSource'=>'live_rule','taxSnapshotStatus'=>'confirmed','transactionKind'=>'settlement','sourceEntity'=>'booking','sourceEntityId'=>(string)$booking['id'],
                 'isSystemGenerated'=>1,'operationId'=>$operationId,'shiftSessionId'=>$checkoutShiftSessionId,'updatedBy'=>(string)$staff['id'],
                 'updatedSource'=>'telegram','version'=>1,
                 'isSplitPayment'=>$splitActive?1:0,'splitCashAmount'=>$splitActive?$splitCashAmount:0,'splitTransferAmount'=>$splitActive?$splitTransferAmount:0,

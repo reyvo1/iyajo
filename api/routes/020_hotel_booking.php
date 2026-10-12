@@ -1720,12 +1720,21 @@ switch ($action) {
                         $exists=$pdo->prepare("SELECT id FROM transactions WHERE operationId=? LIMIT 1 FOR UPDATE");
                         $exists->execute([$postingOperation]);
                         $wasExisting=(bool)$exists->fetchColumn();
+                        // A live booking settlement is covered by
+                        // tamasyaAssertLiveTaxSnapshotIntegrity(), which requires the tax
+                        // contract on booking income. Without it this row becomes a poison
+                        // row that blocks every later posting in the hotel.
+                        $settlementTaxRule=resolveConfiguredTaxRule($pdo,$bookingSource,'settlement',date('Y-m-d'));
                         tamasyaPostFinancialTransaction($pdo,[
                             'id'=>$transactionId,'type'=>'income','category'=>$roomCategoryName,'categorySystemKey'=>'room_rental','subcategory'=>$booking['roomType']??null,
                             'roomNumber'=>$roomNumber,'amount'=>$postingAmount,'date'=>date('Y-m-d'),'description'=>$postingDescription,'createdBy'=>currentStaffLabel($loggedInStaff),
                             'bankAccountId'=>$postingBank,'bookingId'=>$id,'bookingSource'=>$bookingSource,'baseAmount'=>$postingBase,'taxAmount'=>$postingTax,
                             'taxRate'=>$bookingVatRate,'transactionKind'=>'settlement','sourceEntity'=>'booking','sourceEntityId'=>$id,'isSystemGenerated'=>1,
-                            'operationId'=>$postingOperation,'shiftSessionId'=>$checkoutShiftSessionId,'updatedBy'=>$loggedInStaff['id']??null,'updatedSource'=>'web','version'=>1,
+                            'operationId'=>$postingOperation,'shiftSessionId'=>$checkoutShiftSessionId,'updatedBy'=>$loggedInStaff['id']??null,
+                            'taxRuleId'=>($settlementTaxRule['matched']??false)?(string)$settlementTaxRule['ruleId']:null,
+                            'taxRuleName'=>($settlementTaxRule['matched']??false)?(string)$settlementTaxRule['ruleName']:null,
+                            'taxSource'=>'live_rule','taxSnapshotStatus'=>'confirmed',
+                            'updatedSource'=>'web','version'=>1,
                             'isSplitPayment'=>!empty($splitSnapshot['isSplitPayment'])?1:0,
                             'splitCashAmount'=>$splitSnapshot['splitCashAmount']??0,
                             'splitTransferAmount'=>$splitSnapshot['splitTransferAmount']??0,
