@@ -58,8 +58,11 @@ check('audit correction creates an active booking',created_status==200 and creat
 if booking_id:
     # The cashier records the sale as physical cash even though the guest paid by
     # transfer. This is the exact mis-entry the correction has to repair.
+    income_cat=db("SELECT id FROM categories WHERE type='income' AND is_active=1 ORDER BY is_system DESC,id LIMIT 1")
+    category_id=income_cat[0]['id'] if income_cat else None
+    check('audit correction resolves an active income category',bool(category_id),{'category':category_id})
     cash_status,cash_body=request('transactions','POST',{
-        'bookingId':booking_id,'type':'income','category':'Sewa Kamar','subcategory':room_number,
+        'bookingId':booking_id,'type':'income','categoryId':category_id,
         'amount':275000,'date':today.isoformat(),'paymentMethod':'cash',
         'description':'UAT sale entered as cash by mistake','operationId':'acct_cash_'+run,
          'shiftSessionId':shift_id},
@@ -97,7 +100,7 @@ if booking_id:
             'booking':{'roomNumber':room_number,'checkIn':today.isoformat(),'checkOut':tomorrow.isoformat(),
                        'totalAmount':275000,'paymentMethod':'transfer','bankAccountId':bank_id,
                        'isSplitPayment':False,'splitCashAmount':0,'splitTransferAmount':0,'splitTransferBankAccountId':None},
-            'transaction':{'type':'income','category':'Sewa Kamar','amount':275000,'date':today.isoformat(),
+            'transaction':{'type':'income','categoryId':category_id,'amount':275000,'date':today.isoformat(),
                            'description':'UAT corrected to bank transfer','bankAccountId':bank_id,
                            'isSplitPayment':False,'splitCashAmount':0,'splitTransferAmount':0,'splitTransferBankAccountId':None},
         }
