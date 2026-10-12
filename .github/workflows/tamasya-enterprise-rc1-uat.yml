@@ -854,6 +854,7 @@ jobs:
           python3 scenario_salary_correction.py
           python3 scenario_folio_allocation.py
           python3 scenario_po_link_payment.py
+          python3 scenario_destructive_purge.py
 
       - name: Browser desktop and mobile control UAT
         run: |
