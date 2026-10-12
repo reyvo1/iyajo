@@ -33,10 +33,13 @@ if not room:
     print('DESTRUCTIVE-PURGE-UAT 0/1'); raise SystemExit(0)
 room_number=room[0]['number']
 
-def make_booking(tag,status='active'):
+# Each scenario in this job leaves a booking active and rooms do not come back, so a
+# date range is passed explicitly and spaced apart instead of reusing the same nights.
+def make_booking(tag,check_in=None,check_out=None):
     st,body=request('bookings','POST',{
         'guestName':'UAT Purge Fixture '+tag,'roomNumber':room_number,
-        'checkIn':today.isoformat(),'checkOut':tomorrow.isoformat(),'totalAmount':250000,
+        'checkIn':(check_in or today).isoformat(),'checkOut':(check_out or tomorrow).isoformat(),
+        'totalAmount':250000,
         'paymentStatus':'unpaid','bookingSource':'Direct','broadcast':False},tag)
     return st,(body or {}).get('bookingId'),body
 
@@ -86,11 +89,9 @@ if booking_id:
           {'status':preview_st,'canPurge':(pv or {}).get('canPurge')})
 
 # ------------------------------------------------------------------- data-cleanup-execute
-# A second booking on the same room and dates would be refused as a period clash.
-room2=db("SELECT number FROM rooms WHERE status='available' AND number<>? ORDER BY CAST(number AS UNSIGNED) LIMIT 1",[room_number])
-if room2:
-    room_number=room2[0]['number']
-st2,booking2,body2=make_booking('p2_'+run)
+# Far enough out that no other suite in this job has claimed those nights.
+st2,booking2,body2=make_booking('p2_'+run,
+                                today+datetime.timedelta(days=90),today+datetime.timedelta(days=91))
 check('second purge fixture booking is created',st2==200 and bool(booking2),{'status':st2,'body':body2})
 
 if booking2:
