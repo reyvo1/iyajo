@@ -1943,11 +1943,18 @@ function createCanonicalBookingWorkflow(PDO $pdo, array $actor, array $payload, 
         $txIds=[];$category=getRoomRentalCategoryName($pdo);
         $insertTx=function(array $tx)use($pdo,$actor,$bookingId,$bookingSource,$shiftSessionId,$source,&$txIds):void{
             $ledgerBeforeReceipt=bookingLedgerTotals($pdo,$bookingId);
+            // Guarded live booking income needs the tax snapshot contract; see
+            // tamasyaAssertLiveTaxSnapshotIntegrity(). Omitting it writes a poison row
+            // that blocks every later live posting in the hotel.
+            $receiptTaxRule=resolveConfiguredTaxRule($pdo,$bookingSource,(string)($tx['transactionKind']??'booking_charge'),(string)($tx['date']??date('Y-m-d')));
             tamasyaPostFinancialTransaction($pdo,[
                 'id'=>$tx['id'],'type'=>'income','category'=>$tx['category'],'categorySystemKey'=>'room_rental','subcategory'=>$tx['subcategory'],
                 'roomNumber'=>$tx['roomNumber'],'amount'=>$tx['amount'],'date'=>$tx['date'],'description'=>$tx['description'],
                 'createdBy'=>currentStaffLabel($actor),'bankAccountId'=>$tx['bankAccountId']?:null,'bookingId'=>$bookingId,'bookingSource'=>$bookingSource,
                 'baseAmount'=>$tx['baseAmount'],'taxAmount'=>$tx['taxAmount'],'taxRate'=>$tx['taxRate'],'transactionKind'=>$tx['transactionKind'],
+                'taxRuleId'=>($receiptTaxRule['matched']??false)?(string)$receiptTaxRule['ruleId']:null,
+                'taxRuleName'=>($receiptTaxRule['matched']??false)?(string)$receiptTaxRule['ruleName']:null,
+                'taxSource'=>'live_rule','taxSnapshotStatus'=>'confirmed',
                 'sourceEntity'=>'booking','sourceEntityId'=>$bookingId,'isSystemGenerated'=>1,'operationId'=>$tx['operationId'],
                 'shiftSessionId'=>$shiftSessionId,'updatedBy'=>$actor['id']??null,'updatedSource'=>$source,'version'=>1,
                 'isSplitPayment'=>!empty($tx['isSplitPayment'])?1:0,

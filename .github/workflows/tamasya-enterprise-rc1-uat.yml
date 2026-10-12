@@ -152,6 +152,7 @@ jobs:
           python3 tests/prd-schema-authority-regression.py
           node tests/prd-pos-business-date-regression.mjs
           php tests/device-contract-regression.php
+          php tests/live-tax-snapshot-contract-regression.php
           php tests/database-tls-regression.php
 
       - name: Security and RC1 identity invariants
