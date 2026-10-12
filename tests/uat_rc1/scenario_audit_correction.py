@@ -136,7 +136,8 @@ if booking_id:
             replay_status,replay_body=request('booking-audit-correction','POST',payload,'acct_fix_'+run)
             check('replayed correction is idempotent',
                   replay_status==200 and (replay_body or {}).get('success') is True
-                  and not db("SELECT id FROM transactions WHERE bookingId=? AND type='income' AND operationId LIKE 'audit_booking_op%' GROUP BY amount HAVING COUNT(*)>1",[booking_id]),
+                  and not db("SELECT MIN(id) AS id FROM transactions WHERE bookingId=? AND type='income' "
+                             "AND operationId LIKE 'audit_booking_op%' GROUP BY amount HAVING COUNT(*)>1",[booking_id]),
                   {'status':replay_status,'body':replay_body})
 
             # Net revenue must be unchanged: reversal plus replacement cancel out.
