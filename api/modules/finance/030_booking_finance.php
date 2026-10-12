@@ -371,6 +371,13 @@ function recordBookingDeposit(PDO $pdo, array $actor, string $bookingId, array $
     $label=$method==='qris'?'QRIS':($method==='transfer'?'Transfer':'Tunai');
     $transactionKind=$isFinancialClosurePayment?'settlement':'down_payment';
     $description=($isFinancialClosurePayment?'Pelunasan Piutang Checkout Kamar ':'Panjar Kamar ').(string)$booking['roomNumber'].' - '.(string)$booking['guestName'].' ('.$label.')'.($notes!==''?' - '.$notes:'');
+    // A live booking receipt must carry the full tax snapshot contract that
+    // tamasyaAssertLiveTaxSnapshotIntegrity() enforces: taxSource, taxRuleId and
+    // taxSnapshotStatus. This path only ever sent baseAmount/taxAmount/taxRate, so
+    // every deposit it wrote failed that integrity gate on the next posting. The
+    // resulting poison row then blocked unrelated live postings as well, which is
+    // how an audit correction on a closed shift could never be saved.
+    $depositTaxRule=resolveConfiguredTaxRule($pdo,$bookingSource,$transactionKind,$date);
     tamasyaPostFinancialTransaction($pdo,[
         'id'=>$txId,'type'=>'income','category'=>getRoomRentalCategoryName($pdo),'categorySystemKey'=>'room_rental',
         'subcategory'=>(string)($booking['roomType']??''),'roomNumber'=>(string)$booking['roomNumber'],'amount'=>$amount,'date'=>$date,
@@ -378,6 +385,8 @@ function recordBookingDeposit(PDO $pdo, array $actor, string $bookingId, array $
         'bookingId'=>$bookingId,'bookingSource'=>$bookingSource,'baseAmount'=>(float)$tax['baseAmount'],'taxAmount'=>(float)$tax['taxAmount'],
         'taxRate'=>$tax['taxRate'],'transactionKind'=>$transactionKind,'sourceEntity'=>'booking','sourceEntityId'=>$bookingId,
         'isSystemGenerated'=>1,'operationId'=>$operationId,'shiftSessionId'=>$shiftSessionId,'updatedBy'=>$actor['id']??null,
+        'taxRuleId'=>($depositTaxRule['matched']??false)?(string)$depositTaxRule['ruleId']:null,
+        'taxSource'=>'live_rule','taxSnapshotStatus'=>'confirmed',
         'updatedSource'=>$source,'version'=>1
     ],$actor,'booking',['lockCatalog'=>true,'source'=>$source]);
     tamasyaAttachBookingReceiptRevenueAllocations($pdo,$booking,$txId,$amount,(float)$ledgerBefore['net'],$operationId,$actor,$source,$date);

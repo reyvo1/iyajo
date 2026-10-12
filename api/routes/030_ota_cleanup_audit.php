@@ -955,6 +955,8 @@ switch ($action) {
                         'description'=>$reverseDescription,'createdBy'=>currentStaffLabel($loggedInStaff),'bankAccountId'=>$oldTx['bankAccountId']??null,
                         'bookingId'=>$bookingId,'bookingSource'=>$oldTx['bookingSource']??$newBookingSource,
                         'baseAmount'=>$oldTx['baseAmount']??null,'taxAmount'=>$oldTx['taxAmount']??null,'taxRate'=>$oldTx['taxRate']??null,
+                        'taxRuleId'=>$oldTx['taxRuleId']??null,'taxRuleName'=>$oldTx['taxRuleName']??null,
+                        'taxSource'=>$oldTx['taxSource']??'live_rule','taxSnapshotStatus'=>$oldTx['taxSnapshotStatus']??'confirmed',
                         'transactionKind'=>$reverseKind,'sourceEntity'=>'booking','sourceEntityId'=>$bookingId,'isSystemGenerated'=>1,
                         'operationId'=>$reverseOperation,'recordOrigin'=>$historicalSource?'historical_import':'live_operation','shiftExempt'=>1,
                         'shiftExemptionReason'=>'Jurnal pembalik koreksi audit tanpa pergerakan kas','importBatchId'=>$historicalSource?($oldTx['importBatchId']??null):null,
@@ -976,6 +978,12 @@ switch ($action) {
                         'roomNumber'=>$newRoomNumber,'amount'=>$targetAmount,'date'=>$targetDate,'description'=>$replacementDescription,
                         'createdBy'=>currentStaffLabel($loggedInStaff),'bankAccountId'=>$targetBank,'bookingId'=>$bookingId,'bookingSource'=>$newBookingSource,
                         'baseAmount'=>$tax['baseAmount'],'taxAmount'=>$tax['taxAmount'],'taxRate'=>$tax['taxRate'],'transactionKind'=>$targetKind,
+                        // The replacement is a live booking receipt and must carry the same
+                        // tax snapshot contract as the original, otherwise it fails
+                        // tamasyaAssertLiveTaxSnapshotIntegrity() and becomes a poison row
+                        // that blocks every later posting.
+                        'taxRuleId'=>$tax['taxRuleId']??null,'taxRuleName'=>$tax['taxRuleName']??null,
+                        'taxSource'=>$tax['taxSource']??'live_rule','taxSnapshotStatus'=>$tax['taxSnapshotStatus']??'confirmed',
                         'sourceEntity'=>'booking','sourceEntityId'=>$bookingId,'isSystemGenerated'=>1,'operationId'=>$replacementOperation,
                         'recordOrigin'=>$historicalSource?'historical_import':'live_operation','shiftExempt'=>1,
                         'shiftExemptionReason'=>'Jurnal pengganti koreksi audit tanpa pergerakan kas','importBatchId'=>$historicalSource?($oldTx['importBatchId']??null):null,
