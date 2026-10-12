@@ -887,8 +887,13 @@ switch ($action) {
                     'subcategoryId'=>$transactionPatch['subcategoryId'] ?? ($oldTx['subcategoryId'] ?? null),
                     'subcategory'=>$targetSubcategory,
                 ]);
-                $targetCategory=(string)$targetCatalog['category'];
-                $targetSubcategory=$targetCatalog['subcategory'];
+                // tamasyaResolveFinanceCatalogSelection() returns 'category' and
+                // 'subcategory' as the resolved master rows, not their labels.
+                // Casting a row to string raised "Array to string conversion",
+                // which surfaced as a 500 on every audit correction that targeted
+                // a transaction. The label fields are categoryName/subcategoryName.
+                $targetCategory=(string)($targetCatalog['categoryName'] ?? '');
+                $targetSubcategory=$targetCatalog['subcategoryName'] ?? null;
 
                 $historicalSource=tamasyaTransactionIsHistorical($oldTx);
                 if($historicalSource){
