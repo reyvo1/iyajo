@@ -89,7 +89,11 @@ if booking_id:
 
     if tx_id:
         before=db('SELECT id,amount,bankAccountId,version FROM transactions WHERE id=?',[tx_id])[0]
-        bank=db("SELECT id FROM bank_accounts WHERE isActive=1 AND id<>'cash' AND (LOWER(id)<>'cash') ORDER BY id LIMIT 1")
+        # A transfer correction must name a real bank account. Picking any active
+        # row picked up non-transfer accounts, which the route correctly rejects
+        # with 'metode Transfer wajib memakai rekening bank'.
+        bank=db("SELECT id FROM bank_accounts WHERE isActive=1 AND type IN ('bank','qris') "
+                "AND LOWER(id) NOT IN ('cash','ota_receivable') ORDER BY type,id LIMIT 1")
         bank_id=bank[0]['id'] if bank else None
 
         payload={
