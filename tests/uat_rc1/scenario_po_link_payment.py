@@ -49,7 +49,10 @@ check('purchase order is created',po_st==200 and bool(po_id),{'status':po_st,'po
 
 # The route refuses payments against a draft PO; make it payable first.
 if po_id:
-    ast,ab=request('growth-suite','POST',{'command':'po-status','poId':po_id,'status':'approved','operationId':'po_a_'+run},'po_a_'+run)
+    # PO status is a state machine: draft -> submitted -> approved. approved cannot be
+    # reached directly, so the PO would stay draft and every payment would be refused.
+    for target in ('submitted','approved'):
+        request('growth-suite','POST',{'command':'po-status','id':po_id,'status':target,'operationId':'po_'+target[:3]+'_'+run},'po_'+target[:3]+'_'+run)
     st=db('SELECT status,total_amount FROM growth_purchase_orders WHERE id=?',[po_id])
     check('purchase order leaves draft',bool(st) and st[0]['status']!='draft',{'status':ast,'row':st})
 
@@ -57,9 +60,11 @@ if not po_id:
     print('PO-LINK-PAYMENT-UAT',sum(1 for x in results if x['pass']),'/',len(results)); raise SystemExit(0)
 
 # A payment must be an expense. Income must never settle a purchase order.
+# Manual entries need a real expense category; the endpoint rejects a bare type+amount.
+exp_cat=db("SELECT id FROM categories WHERE type='expense' AND is_active=1 ORDER BY is_system DESC,id LIMIT 1")
 exp_st,exp=request('transactions','POST',{
-    'type':'expense','amount':po_total,'date':today.isoformat(),
-    'description':'UAT supplier payment','recordOrigin':'historical_import',
+    'type':'expense','categoryId':exp_cat[0]['id'] if exp_cat else None,'amount':po_total,
+    'date':today.isoformat(),'description':'UAT supplier payment','recordOrigin':'historical_import',
     'historicalImportReason':'UAT purchase order settlement fixture',
     'operationId':'po_exp_'+run},'po_exp_'+run)
 exp_tx=None
@@ -70,8 +75,9 @@ if not exp_tx:
     exp_tx=row[0]['id'] if row else None
 check('supplier expense is recorded',exp_st==200 and bool(exp_tx),{'status':exp_st,'tx':exp_tx,'body':exp})
 
+inc_cat=db("SELECT id FROM categories WHERE type='income' AND is_active=1 ORDER BY is_system DESC,id LIMIT 1")
 inc_st,inc=request('transactions','POST',{
-    'type':'income','amount':1000,'date':today.isoformat(),
+    'type':'income','categoryId':inc_cat[0]['id'] if inc_cat else None,'amount':1000,'date':today.isoformat(),
     'description':'UAT income must not settle a PO','recordOrigin':'historical_import',
     'historicalImportReason':'UAT negative control fixture','operationId':'po_inc_'+run},'po_inc_'+run)
 inc_tx=None
