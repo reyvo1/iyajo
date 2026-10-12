@@ -58,18 +58,17 @@ check('audit correction creates an active booking',created_status==200 and creat
 if booking_id:
     # The cashier records the sale as physical cash even though the guest paid by
     # transfer. This is the exact mis-entry the correction has to repair.
-    income_cat=db("SELECT id FROM categories WHERE type='income' AND is_active=1 ORDER BY is_system DESC,id LIMIT 1")
-    category_id=income_cat[0]['id'] if income_cat else None
-    check('audit correction resolves an active income category',bool(category_id),{'category':category_id})
-    cash_status,cash_body=request('transactions','POST',{
-        'bookingId':booking_id,'type':'income','categoryId':category_id,
-        'amount':275000,'date':today.isoformat(),'paymentMethod':'cash',
-        'description':'UAT sale entered as cash by mistake','operationId':'acct_cash_'+run,
-         'shiftSessionId':shift_id},
-        'acct_cash_'+run)
-    cash_tx=(cash_body or {}).get('transactionId') or (cash_body or {}).get('id')
+    # A cashier records a booking payment through the canonical payment endpoint.
+    # Posting a manual 'transactions' row against a booking is refused on purpose:
+    # booking-linked categories must keep folio, tax, cash/bank and journal in sync.
+    cash_status,cash_body=request('booking-payments','POST',{
+        'bookingId':booking_id,'amount':275000,'paymentMethod':'cash',
+        'operationId':'acct_cash_'+run},'acct_cash_'+run)
+    check('mis-entered cash payment is accepted by the canonical payment endpoint',
+          cash_status==200 and isinstance(cash_body,dict) and cash_body.get('success') is True,
+          {'status':cash_status,'response':cash_body})
     if not db("SELECT id FROM transactions WHERE bookingId=? AND type='income' AND shiftSessionId=?",[booking_id,shift_id]):
-        db("UPDATE transactions SET shiftSessionId=? WHERE id=(SELECT id FROM (SELECT id FROM transactions WHERE bookingId=? AND type='income' ORDER BY createdAt DESC LIMIT 1) t)",[shift_id,booking_id])
+        db("UPDATE transactions SET shiftSessionId=? WHERE bookingId=? AND type='income' AND shiftSessionId IS NULL",[shift_id,booking_id])
     cash_row=db('SELECT id,bankAccountId,shiftSessionId,lockedAt FROM transactions WHERE bookingId=? AND type=\'income\' ORDER BY createdAt DESC LIMIT 1',[booking_id])
     tx_id=cash_row[0]['id'] if cash_row else None
     check('mis-entered cash sale is recorded and attached to the shift',bool(tx_id) and cash_row[0]['shiftSessionId']==shift_id,
@@ -101,7 +100,7 @@ if booking_id:
             'booking':{'roomNumber':room_number,'checkIn':today.isoformat(),'checkOut':tomorrow.isoformat(),
                        'totalAmount':275000,'paymentMethod':'transfer','bankAccountId':bank_id,
                        'isSplitPayment':False,'splitCashAmount':0,'splitTransferAmount':0,'splitTransferBankAccountId':None},
-            'transaction':{'type':'income','categoryId':category_id,'amount':275000,'date':today.isoformat(),
+            'transaction':{'type':'income','amount':275000,'date':today.isoformat(),
                            'description':'UAT corrected to bank transfer','bankAccountId':bank_id,
                            'isSplitPayment':False,'splitCashAmount':0,'splitTransferAmount':0,'splitTransferBankAccountId':None},
         }
