@@ -80,11 +80,16 @@ if booking_id:
 
     # 5. A preview must state whether the purge is allowed, before anything is deleted.
     preview_st,preview=request('data-cleanup-preview','POST',{'bookingIds':[booking_id]},'p_prev_'+run)
+    pv=preview.get('preview') if isinstance(preview,dict) else None
     check('cleanup preview reports whether purging is possible',
-          preview_st==200 and isinstance(preview.get('canPurge'),bool),
-          {'status':preview_st,'canPurge':preview.get('canPurge')})
+          preview_st==200 and isinstance((pv or {}).get('canPurge'),bool),
+          {'status':preview_st,'canPurge':(pv or {}).get('canPurge')})
 
 # ------------------------------------------------------------------- data-cleanup-execute
+# A second booking on the same room and dates would be refused as a period clash.
+room2=db("SELECT number FROM rooms WHERE status='available' AND number<>? ORDER BY CAST(number AS UNSIGNED) LIMIT 1",[room_number])
+if room2:
+    room_number=room2[0]['number']
 st2,booking2,body2=make_booking('p2_'+run)
 check('second purge fixture booking is created',st2==200 and bool(booking2),{'status':st2,'body':body2})
 
