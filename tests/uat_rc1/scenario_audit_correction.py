@@ -72,7 +72,8 @@ if booking_id:
         db("UPDATE transactions SET shiftSessionId=? WHERE id=(SELECT id FROM (SELECT id FROM transactions WHERE bookingId=? AND type='income' ORDER BY createdAt DESC LIMIT 1) t)",[shift_id,booking_id])
     cash_row=db('SELECT id,bankAccountId,shiftSessionId,lockedAt FROM transactions WHERE bookingId=? AND type=\'income\' ORDER BY createdAt DESC LIMIT 1',[booking_id])
     tx_id=cash_row[0]['id'] if cash_row else None
-    check('mis-entered cash sale is recorded and attached to the shift',bool(tx_id) and cash_row[0]['shiftSessionId']==shift_id,{'tx':cash_row})
+    check('mis-entered cash sale is recorded and attached to the shift',bool(tx_id) and cash_row[0]['shiftSessionId']==shift_id,
+          {'tx':cash_row,'status':cash_status,'response':cash_body})
 
     # Close the shift: this locks the transaction and forces the correction
     # through the reversal-and-replacement path.
@@ -130,6 +131,16 @@ if booking_id:
             # Net revenue must be unchanged: reversal plus replacement cancel out.
             net=db("SELECT COALESCE(SUM(CASE WHEN type='income' THEN amount ELSE -amount END),0) n FROM transactions WHERE bookingId=?",[booking_id])
             check('correction does not change net booking revenue',abs(float(net[0]['n'])-275000)<0.01,{'net':net})
+
+# Test isolation: this scenario closes a shift that later suites depend on being
+# open. Open a replacement so the next suite is not failed by our side effects.
+if closed_status==200 and closed_body.get('success') is True:
+    reopen_status,reopen_body=request('operations-center','POST',{
+        'command':'shift-open','openingCash':0,'shiftTime':open_shifts[0].get('shift_time') or 'siang',
+        'notes':'UAT replacement shift opened by audit-correction scenario'},'acct_shift_reopen_'+run)
+    check('audit correction leaves an open shift for later suites',
+          reopen_status==200 and reopen_body.get('success') is True,
+          {'status':reopen_status,'body':reopen_body})
 
 # Restore the night-audit policy this scenario lifted.
 if is_night_shift:
