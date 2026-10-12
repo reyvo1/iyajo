@@ -29,10 +29,16 @@ staff_id=staff[0]['id']
 
 def make_slip(period,basic,tag,status='draft'):
     # The create response returns only the scoped hotel projection, not the slip id,
-    # so the row is read back by its unique notes tag.
-    st,body=request('salary-slips','POST',{
-        'staffId':staff_id,'period':period,'basicSalary':basic,'bonus':0,
-        'notes':tag,'status':status},tag)
+    # so the row is read back by its unique notes tag. A paid slip must also carry a
+    # valid payment method, which the route rejects with 422 otherwise.
+    payload={'staffId':staff_id,'period':period,'basicSalary':basic,'bonus':0,
+             'notes':tag,'status':status}
+    if status=='paid':
+        bank=db("SELECT id FROM bank_accounts WHERE isActive=1 AND type IN ('bank','qris') "
+                "AND LOWER(id) NOT IN ('cash','ota_receivable') ORDER BY type,id LIMIT 1")
+        payload['paymentMethod']='cash'
+        if bank: payload['bankAccountId']=bank[0]['id']
+    st,body=request('salary-slips','POST',payload,tag)
     row=db('SELECT id,status FROM salary_slips WHERE notes=? ORDER BY created_at DESC LIMIT 1',[tag])
     return st,(row[0]['id'] if row else None),body
 
