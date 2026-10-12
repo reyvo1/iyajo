@@ -21,7 +21,7 @@ def journal_ok(tx_id):
     leg=db('SELECT COALESCE(SUM(debit),0) d,COALESCE(SUM(credit),0) c FROM journal_lines WHERE journal_entry_id=?',[rows[0]['id']])[0]
     return (abs(float(leg['d'])-float(leg['c']))<0.005,'debit=%s credit=%s'%(float(leg['d']),float(leg['c'])))
 
-staff=db("SELECT id FROM staff WHERE isActive=1 ORDER BY id LIMIT 1")
+staff=db("SELECT id FROM staff WHERE status='active' ORDER BY id LIMIT 1")
 if not staff:
     check('salary correction has an active staff member',False,{'reason':'no active staff'})
     print('SALARY-CORRECTION-UAT 0/1'); raise SystemExit(0)
