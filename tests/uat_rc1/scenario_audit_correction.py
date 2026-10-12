@@ -110,9 +110,12 @@ if booking_id:
         # this the log cannot say which line threw.
         diag=[]
         if fix_status>=400:
-            diag=db("SELECT error_reference,error_class,source_file,source_line,safe_message,sql_state "
-                    "FROM runtime_request_events WHERE action='booking-audit-correction' "
-                    "AND error_reference IS NOT NULL ORDER BY id DESC LIMIT 1")
+            diag=db("SELECT id,request_id,action,stage,failed_stage,http_status,outcome,"
+                    "error_reference,error_class,source_file,source_line,sql_state,safe_message "
+                    "FROM runtime_request_events ORDER BY id DESC LIMIT 3")
+            diag+=[{'note':'unmatched-action-scan',
+                    'action_rows':db("SELECT action,http_status,error_reference,source_file,source_line,safe_message "
+                                     "FROM runtime_request_events WHERE http_status>=500 ORDER BY id DESC LIMIT 3")}]
             print('THROWN',json.dumps(diag,ensure_ascii=False,default=str)[:1200],flush=True)
         check('audit correction saves after the shift is closed',
               fix_status==200 and isinstance(fix_body,dict) and fix_body.get('success') is True,
