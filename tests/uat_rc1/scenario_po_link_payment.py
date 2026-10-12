@@ -69,7 +69,7 @@ exp_cat=db("SELECT id FROM categories WHERE type='expense' AND is_active=1 ORDER
 exp_st,exp=request('transactions','POST',{
     'type':'expense','categoryId':exp_cat[0]['id'] if exp_cat else None,'amount':po_total,
     'date':today.isoformat(),'description':'UAT supplier payment','recordOrigin':'historical_import',
-    'historicalImportReason':'UAT purchase order settlement fixture',
+    'shiftExemptionReason':'UAT purchase order settlement fixture',
     'operationId':'po_exp_'+run},'po_exp_'+run)
 exp_tx=None
 if isinstance(exp_body:=exp,dict):
@@ -83,7 +83,7 @@ inc_cat=db("SELECT id FROM categories WHERE type='income' AND is_active=1 ORDER 
 inc_st,inc=request('transactions','POST',{
     'type':'income','categoryId':inc_cat[0]['id'] if inc_cat else None,'amount':1000,'date':today.isoformat(),
     'description':'UAT income must not settle a PO','recordOrigin':'historical_import',
-    'historicalImportReason':'UAT negative control fixture','operationId':'po_inc_'+run},'po_inc_'+run)
+    'shiftExemptionReason':'UAT negative control fixture','operationId':'po_inc_'+run},'po_inc_'+run)
 inc_tx=None
 if isinstance(inc,dict):
     inc_tx=(inc.get('result') or {}).get('transactionId') or inc.get('transactionId')
