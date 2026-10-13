@@ -870,6 +870,7 @@ jobs:
           python3 scenario_catalog_download.py
           python3 scenario_booking_surfaces.py
           python3 scenario_operations_centre.py
+          python3 scenario_final_surfaces.py
 
       - name: Browser desktop and mobile control UAT
         run: |
