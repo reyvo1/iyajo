@@ -858,6 +858,7 @@ jobs:
           python3 scenario_security_access.py
           python3 scenario_catalog_tax_key.py
           python3 scenario_cleanup_reconciliation.py
+          python3 scenario_lost_found.py
 
       - name: Browser desktop and mobile control UAT
         run: |
