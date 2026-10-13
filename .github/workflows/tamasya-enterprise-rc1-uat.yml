@@ -154,6 +154,7 @@ jobs:
           php tests/device-contract-regression.php
           php tests/live-tax-snapshot-contract-regression.php
           php tests/financial-mutation-lock-regression.php
+          php tests/money-precision-regression.php
           php tests/database-tls-regression.php
 
       - name: Security and RC1 identity invariants

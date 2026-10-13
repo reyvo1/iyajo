@@ -57,5 +57,6 @@ node tests/prd-pos-business-date-regression.mjs
 php tests/device-contract-regression.php
 php tests/live-tax-snapshot-contract-regression.php
 php tests/financial-mutation-lock-regression.php
+php tests/money-precision-regression.php
 php tests/database-tls-regression.php
 printf "All source checks and 41 regression suites passed.\n"
