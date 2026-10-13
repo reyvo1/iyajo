@@ -1,5 +1,6 @@
 from client import *
 from scenario_core import db
+from scenario_fixtures import ensure_bank_account
 import datetime, json
 
 # The property timezone, not the runner's. A run near UTC midnight made 'today'
@@ -39,18 +40,17 @@ def make_slip(period,basic,tag,status='draft'):
     payload={'staffId':staff_id,'period':period,'basicSalary':basic,'bonus':0,
              'notes':tag,'status':status}
     if status=='paid':
-        bank=db("SELECT id FROM bank_accounts WHERE isActive=1 AND type IN ('bank','qris') "
-                "AND LOWER(id) NOT IN ('cash','ota_receivable') ORDER BY type,id LIMIT 1")
         # Paid by transfer, not cash: a cash payroll leg is refused unless the open
         # shift actually holds that much, which is a control worth keeping but would
         # make this scenario depend on the drawer's balance.
         payload['paymentMethod']='transfer'
-        if bank: payload['bankAccountId']=bank[0]['id']
+        account=ensure_bank_account('sal_bank_'+run)
+        if account: payload['bankAccountId']=account
     st,body=request('salary-slips','POST',payload,tag)
     row=db('SELECT id,status FROM salary_slips WHERE notes=? ORDER BY created_at DESC LIMIT 1',[tag])
     return st,(row[0]['id'] if row else None),body
 
-period=datetime.date.today().strftime('%Y-%m')
+period=today_hotel().strftime('%Y-%m')
 net=3500000.0
 
 # 1. A draft slip must not be correctable: only a paid slip has money to reverse.

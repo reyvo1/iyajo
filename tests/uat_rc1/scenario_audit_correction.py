@@ -1,6 +1,6 @@
 from client import *
 from scenario_core import db
-from scenario_fixtures import ensure_open_shift
+from scenario_fixtures import ensure_open_shift, ensure_bank_account
 import datetime, json
 
 # The property timezone, not the runner's. A run near UTC midnight made 'today'
@@ -98,9 +98,7 @@ if booking_id:
         # A transfer correction must name a real bank account. Picking any active
         # row picked up non-transfer accounts, which the route correctly rejects
         # with 'metode Transfer wajib memakai rekening bank'.
-        bank=db("SELECT id FROM bank_accounts WHERE isActive=1 AND type IN ('bank','qris') "
-                "AND LOWER(id) NOT IN ('cash','ota_receivable') ORDER BY type,id LIMIT 1")
-        bank_id=bank[0]['id'] if bank else None
+        bank_id=ensure_bank_account('acct_bank_'+run)
 
         payload={
             'bookingId':booking_id,'transactionId':tx_id,

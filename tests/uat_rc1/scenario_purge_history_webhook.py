@@ -73,17 +73,31 @@ check('cleanup history returns a list it can be reasoned about',
       hist_rows is None or isinstance(hist_rows,list),{'type':type(hist_rows).__name__})
 
 # ----------------------------------------------------------------- telegram-delete-webhook
-# Deleting the webhook at Telegram cannot be undone from here. With no bot token stored
-# the route must refuse rather than claim success.
-wh_st,wh=request('telegram-delete-webhook','POST',{},'pv_wh_'+run)
-check('telegram webhook removal without a bot token is refused, not reported as done',
-      wh_st>=400 or wh.get('success') is False,
-      {'status':wh_st,'body':wh})
+# Deleting the webhook at Telegram cannot be undone from here. Whether a bot token is
+# configured is a property of the deployment, not of the route, so pinning one outcome
+# makes the suite environment-dependent, as it has been more than once. The rule that
+# holds everywhere: the result must agree with whether there was a token to delete.
+token_row=db("SELECT telegram_bot_token AS token FROM config WHERE id='system_default' LIMIT 1")
+has_token=bool(token_row and str(token_row[0]['token'] or '').strip())
 
-token=db("SELECT telegram_bot_token FROM config WHERE id='system_default' LIMIT 1")
-check('telegram webhook removal outcome matches whether a token is configured',
-      (token and str(token[0]['telegram_bot_token'] or '').strip()) or wh_st>=400,
-      {'status':wh_st,'tokenConfigured':bool(token and token[0]['telegram_bot_token'])})
+wh_st,wh=request('telegram-delete-webhook','POST',{},'pv_wh_'+run)
+if has_token:
+    # A configured token means there is something real to detach, so the call must
+    # either do it or explain why it could not.
+    consistent=(wh_st==200 and wh.get('success') is True) or (wh_st>=400 and wh.get('success') is False)
+    check('with a bot token configured, webhook removal reports a definite outcome',consistent,
+          {'status':wh_st,'message':(wh or {}).get('message')})
+    if wh_st==200:
+        state=(wh or {}).get('webhook') or {}
+        check('a successful removal leaves the webhook detached',
+              not state.get('active') and not state.get('url'),
+              {'webhook':state})
+else:
+    # No token means there is nothing to delete, and claiming otherwise would be a lie
+    # an operator acts on.
+    check('with no bot token configured, webhook removal is refused rather than reported as done',
+          wh_st>=400 and wh.get('success') is False,
+          {'status':wh_st,'body':wh})
 
 release_rooms('pv_rel_'+run, booking_id)
 
