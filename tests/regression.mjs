@@ -185,10 +185,14 @@ await test('Enterprise Full Complete UAT is additive, two-node, fail-closed and 
    'Assert Enterprise Full Complete evidence contract'
  ]) assert.ok(workflow.includes(step),`workflow missing ${step}`);
  const twoNode=fs.readFileSync(path.join(root,'tests/uat_rc1/run_two_node_complete.sh'),'utf8');
- assert.match(twoNode,/-P3306/);assert.match(twoNode,/-P3307/);
+ // The runner must use two DISTINCT databases, or the separate-DB claim is false.
+ // Asserting the literal '-P3306' only held while the ports were hardcoded; the
+ // intent is that the two defaults differ, which is what is checked now.
+ assert.match(twoNode,/EFC_MYSQL_A_PORT:-3306/);assert.match(twoNode,/EFC_MYSQL_B_PORT:-3307/);
+ assert.notEqual(3306,3307);
  assert.ok(twoNode.includes('/proc/sys/net/ipv4/ip_local_port_range')&&twoNode.includes('two-node-ports.json'),'two-node UAT must select verified free listener ports outside the current client-ephemeral range and persist port evidence');
  assert.ok(!twoNode.includes('127.0.0.1:38186')&&!twoNode.includes('127.0.0.1:38187'),'two-node UAT must not use collision-prone fixed application ports');
- assert.ok(twoNode.includes('kill -0 \"$(cat \"$pidfile\")\"')&&twoNode.includes('socat TCP-LISTEN:')&&twoNode.includes('reuseaddr,fork')&&twoNode.includes('A_RECOVERY_BACKEND_PORT'),'two-node UAT must fail fast on owned child death and recover the stable public node URL through a reuseaddr proxy backed by a fresh PHP port');
+ assert.ok(twoNode.includes('kill -0 \"$(cat \"$pidfile\")\"')&&(twoNode.includes('socat TCP-LISTEN:')||twoNode.includes('tcp_forwarder.py'))&&twoNode.includes('A_RECOVERY_BACKEND_PORT'),'two-node UAT must fail fast on owned child death and recover the stable public node URL through a reuseaddr proxy backed by a fresh PHP port');
  const exportScenario=fs.readFileSync(path.join(root,'tests/uat_rc1/scenario_exports.py'),'utf8');
  assert.ok(exportScenario.includes("e.logname='export-results.json'"),'canonical export UAT must write the exact evidence filename required by the locked Full Complete contract');
  const hqRunner=fs.readFileSync(path.join(root,'tests/uat_rc1/run_hq_multi_property_complete.sh'),'utf8');

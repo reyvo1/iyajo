@@ -65,7 +65,7 @@ cleanup(){
 reset_trust(){ "${MYSQL_A_ROOT[@]}" -e "SET GLOBAL log_bin_trust_function_creators=0" >/dev/null 2>&1 || true; "${MYSQL_B_ROOT[@]}" -e "SET GLOBAL log_bin_trust_function_creators=0" >/dev/null 2>&1 || true; }
 trap 'reset_trust; cleanup' EXIT
 
-mysqldump --protocol=TCP -h127.0.0.1 -P3306 -uroot -proot_ci_only --single-transaction --routines --triggers --no-tablespaces --set-gtid-purged=OFF tamasya_rc1_uat > "$DUMP"
+mysqldump --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_A_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}" --single-transaction --routines --triggers --no-tablespaces --set-gtid-purged=OFF tamasya_rc1_uat > "$DUMP"
 "${MYSQL_A_ROOT[@]}" -e "DROP DATABASE IF EXISTS $A_DB; CREATE DATABASE $A_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; GRANT ALL PRIVILEGES ON $A_DB.* TO 'tamasya_ci'@'%'; FLUSH PRIVILEGES; SET GLOBAL log_bin_trust_function_creators=1;"
 "${MYSQL_B_ROOT[@]}" -e "DROP DATABASE IF EXISTS $B_DB; CREATE DATABASE $B_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; GRANT ALL PRIVILEGES ON $B_DB.* TO 'tamasya_ci'@'%'; FLUSH PRIVILEGES; SET GLOBAL log_bin_trust_function_creators=1;"
 "${MYSQL_A_ROOT[@]}" "$A_DB" < "$DUMP"
@@ -80,11 +80,11 @@ for spec in "A:$A_DB" "B:$B_DB"; do
 done
 cat >"$A_CFG" <<PHP
 <?php
-\$db_host='127.0.0.1'; \$db_port=3306; \$db_name='$A_DB'; \$db_user='tamasya_ci'; \$db_pass='tamasya_ci_only';
+\$db_host='127.0.0.1'; \$db_port=$EFC_MYSQL_A_PORT; \$db_name='$A_DB'; \$db_user='tamasya_ci'; \$db_pass='tamasya_ci_only';
 PHP
 cat >"$B_CFG" <<PHP
 <?php
-\$db_host='127.0.0.1'; \$db_port=3307; \$db_name='$B_DB'; \$db_user='tamasya_ci'; \$db_pass='tamasya_ci_only';
+\$db_host='127.0.0.1'; \$db_port=$EFC_MYSQL_B_PORT; \$db_name='$B_DB'; \$db_user='tamasya_ci'; \$db_pass='tamasya_ci_only';
 PHP
 chmod 600 "$A_CFG" "$B_CFG"
 

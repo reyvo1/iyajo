@@ -50,7 +50,7 @@ cleanup(){
 reset_trust(){ "${MYSQL_ROOT[@]}" -e "SET GLOBAL log_bin_trust_function_creators=0" >/dev/null 2>&1 || true; }
 trap 'reset_trust; cleanup' EXIT
 
-mysqldump --protocol=TCP -h127.0.0.1 -P3306 -uroot -proot_ci_only --single-transaction --routines --triggers --no-tablespaces --set-gtid-purged=OFF tamasya_rc1_uat > "$DUMP"
+mysqldump --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_A_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}"y --single-transaction --routines --triggers --no-tablespaces --set-gtid-purged=OFF tamasya_rc1_uat > "$DUMP"
 "${MYSQL_ROOT[@]}" -e "DROP DATABASE IF EXISTS $P1_DB; DROP DATABASE IF EXISTS $P2_DB; DROP DATABASE IF EXISTS $HQ_DB; CREATE DATABASE $P1_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; CREATE DATABASE $P2_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; CREATE DATABASE $HQ_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; GRANT ALL PRIVILEGES ON $P1_DB.* TO 'tamasya_ci'@'%'; GRANT ALL PRIVILEGES ON $P2_DB.* TO 'tamasya_ci'@'%'; GRANT ALL PRIVILEGES ON $HQ_DB.* TO 'tamasya_ci'@'%'; FLUSH PRIVILEGES; SET GLOBAL log_bin_trust_function_creators=1;"
 "${MYSQL_ROOT[@]}" "$P1_DB" < "$DUMP"; "${MYSQL_ROOT[@]}" "$P2_DB" < "$DUMP"
 "${MYSQL_ROOT[@]}" -e "SET GLOBAL log_bin_trust_function_creators=0"
@@ -60,17 +60,17 @@ for spec in "$P1_DB:$P1_ID:HQ01:TAMASYA HQ PROPERTY 1" "$P2_DB:$P2_ID:HQ02:TAMAS
 done
 cat >"$P1_CFG" <<PHP
 <?php
-\$db_host='127.0.0.1'; \$db_port=3306; \$db_name='$P1_DB'; \$db_user='tamasya_ci'; \$db_pass='tamasya_ci_only';
+\$db_host='127.0.0.1'; \$db_port=$EFC_MYSQL_A_PORT; \$db_name='$P1_DB'; \$db_user='tamasya_ci'; \$db_pass='tamasya_ci_only';
 PHP
 cat >"$P2_CFG" <<PHP
 <?php
-\$db_host='127.0.0.1'; \$db_port=3306; \$db_name='$P2_DB'; \$db_user='tamasya_ci'; \$db_pass='tamasya_ci_only';
+\$db_host='127.0.0.1'; \$db_port=$EFC_MYSQL_A_PORT; \$db_name='$P2_DB'; \$db_user='tamasya_ci'; \$db_pass='tamasya_ci_only';
 PHP
 chmod 600 "$P1_CFG" "$P2_CFG"
 VIEWER_HASH="$(printf %s "$VIEWER" | sha256sum | awk '{print $1}')"
 cat >"$HQ_CFG" <<JSON
 {
-  "dsn":"mysql:host=127.0.0.1;port=3306;dbname=$HQ_DB;charset=utf8mb4",
+  "dsn":"mysql:host=127.0.0.1;port=$EFC_MYSQL_A_PORT;dbname=$HQ_DB;charset=utf8mb4",
   "username":"tamasya_ci",
   "password":"tamasya_ci_only",
   "properties":{"$COMPANY":{"$P1_ID":{"enabled":true,"secret":"$SECRET"},"$P2_ID":{"enabled":true,"secret":"$SECRET"}}},
