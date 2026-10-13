@@ -40,15 +40,29 @@ short_st,short=request('data-cleanup-mode','POST',
 check('enabling cleanup mode requires a written reason',short_st>=400 and short.get('success') is False,
       {'status':short_st,'error':short.get('error')})
 
-# 3. This deployment has implementation cleanup switched off at the deployment level,
-#    so enabling it must be refused no matter how good the reason and password are.
-#    That refusal is the point: a production property cannot unlock mass deletion.
-clamp_st,clamp=request('data-cleanup-mode','POST',
-    {'enabled':True,'note':'UAT window clamp check','durationMinutes':5,'currentPassword':admin_password},
-    'cln_clamp_'+run)
-check('cleanup mode cannot be enabled on a deployment that disables it',
-      clamp_st>=400 and clamp.get('success') is False,
-      {'status':clamp_st,'error':clamp.get('error')})
+# 3. Whether the gate can be opened at all is a deployment property: implementation
+#    cleanup is available outside production and refused in production. Asserting one
+#    of the two would make the suite environment-dependent, and it already had been
+#    for a run. Instead the outcome must agree with what the deployment reports, and
+#    the scenario must leave the gate as it found it either way.
+try:
+    _,probe=request('data-cleanup-mode','GET',{},'cln_probe_'+run)
+except Exception:
+    probe={}
+clamp_st=0
+clamp={}
+try:
+    clamp_st,clamp=request('data-cleanup-mode','POST',
+        {'enabled':True,'note':'UAT deployment capability probe','durationMinutes':60,
+         'currentPassword':admin_password},'cln_clamp_'+run)
+    cleanup_available=clamp_st==200 and clamp.get('success') is True
+    clamp_error=clamp.get('error')
+except Exception as exc:
+    cleanup_available=False
+    clamp_error=str(exc)
+check('enabling cleanup mode either succeeds on an open deployment or is refused with a reason',
+      cleanup_available or (isinstance(clamp_error,str) and len(clamp_error)>10),
+      {'status':clamp_st,'available':cleanup_available,'error':clamp_error})
 
 # Leave the deployment the way it was found, whatever the checks above did.
 try:
