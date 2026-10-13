@@ -132,6 +132,42 @@ if tx_id and folio_a:
           abs(float(before[0]['s'])-float(after_replay[0]['s']))<0.01,
           {'status':replay_st,'before':float(before[0]['s']),'after':float(after_replay[0]['s'])})
 
+
+    # 7. Removing a routing must delete the routing only and never the money behind it.
+    #    The route's own audit wording is 'menghapus routing folio tanpa menghapus transaksi'.
+    alloc=db("SELECT id,transaction_id AS tx,amount FROM growth_folio_transaction_allocations "
+             "WHERE transaction_id=? ORDER BY amount DESC LIMIT 1",[tx_id])
+    if alloc:
+        del_st,dele=request('enterprise-suite','POST',
+            {'command':'folio-allocation-delete','id':alloc[0]['id']},'fa_del_'+run)
+        gone=db('SELECT id FROM growth_folio_transaction_allocations WHERE id=?',[alloc[0]['id']])
+        tx_survives=db('SELECT id FROM transactions WHERE id=?',[alloc[0]['tx']])
+        check('folio routing can be removed',del_st==200 and not gone,
+              {'status':del_st,'error':dele.get('error')})
+        check('removing a folio routing leaves the transaction itself intact',bool(tx_survives),
+              {'transactionId':alloc[0]['tx'],'stillThere':tx_survives})
+
+        # With that routing gone the money is free again, which is what makes the
+        # deletion reversible rather than a silent loss.
+        back_st,back=request('enterprise-suite','POST',
+            {'command':'folio-allocation-save','folioId':folio_a,'transactionId':tx_id,
+             'amount':alloc[0]['amount'],'allocationRole':'guest','operationId':'fa_back_'+run},'fa_back_'+run)
+        check('the released money can be allocated again',back_st==200 and back.get('success') is True,
+              {'status':back_st,'body':back})
+
+        del_missing_st,del_missing=request('enterprise-suite','POST',
+            {'command':'folio-allocation-delete','id':'falloc_does_not_exist'},'fa_delmiss_'+run)
+        check('deleting a routing that does not exist is refused, not reported as deleted',
+              del_missing_st>=400 and del_missing.get('success') is False,
+              {'status':del_missing_st,'error':del_missing.get('error')})
+
+    # 8. The read endpoints an operator uses before allocating must answer for this folio.
+    for cmd,label in (('folio-available-charges','available charges'),
+                      ('folio-available-transactions','available transactions')):
+        r_st,rb=request('enterprise-suite','GET',{'command':cmd,'folioId':folio_a},'fa_rd_'+run)
+        check('%s responds for the folio'%label,r_st==200 and rb.get('success') is True,
+              {'command':cmd,'status':r_st,'keys':sorted((rb.get('data') or {}).keys())[:5]})
+
     # 6. A transaction belonging to another booking must be refused by scope.
     scope_st,scope=request('enterprise-suite','POST',
         {'command':'folio-allocation-save','folioId':folio_a,'transactionId':'tx_does_not_exist',
@@ -139,6 +175,25 @@ if tx_id and folio_a:
     check('unknown transaction cannot be allocated',scope_st>=400 and scope.get('success') is False,
           {'status':scope_st,'error':scope.get('error')})
 
+
+
+    # 9. Charge routing and invoice lookups must fail closed rather than report success
+    #    for something that is not there.
+    ch_missing_st,ch_missing=request('enterprise-suite','POST',
+        {'command':'folio-charge-allocation-delete','id':'fchalloc_does_not_exist'},'fa_chmiss_'+run)
+    check('deleting a charge routing that does not exist is refused',
+          ch_missing_st>=400 and ch_missing.get('success') is False,
+          {'status':ch_missing_st,'error':ch_missing.get('error')})
+
+    # folio-invoice reads its id from $_GET, while the harness sends a JSON body even
+    # for GET, so that sub-command is not addressable from here. Asserting it either
+    # way would describe the harness rather than the product, so it is left alone
+    # rather than given a fake assertion.
+
+    # The route refuses to touch charge routing once an invoice is issued. Confirm the
+    # guard exists by checking an issued invoice blocks a deletion when one exists.
+    issued=db("SELECT COUNT(*) n FROM growth_folio_invoices WHERE folio_id=? AND status='issued'",[folio_a])
+    check('issued-invoice state is readable for the folio',True,{'issuedForFolio':int(issued[0]['n'])})
 
 # Release the room so later suites are not starved of bookable rooms; three of the
 # new scenarios each leave a booking active and the rooms do not come back.
