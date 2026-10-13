@@ -68,17 +68,18 @@ checkObserved(
     ['total'=>$bookingTotal,'net'=>$ledgerNet,'due'=>$extensionMaster]
 );
 
-$plan=tamasyaNegotiatedPricePlan($booking,$components,$paid,$ledgerNet,$negotiated);
+$targetTotal=round($negotiated+$ledgerNet,2);
+$plan=tamasyaNegotiatedPricePlan($booking,$components,$paid,$ledgerNet,$targetTotal);
 
 checkObserved(
-    abs($plan['totalAmount']-$negotiated)<0.01,
-    'Negotiated figure REPLACES the whole booking total',
+    abs($plan['totalAmount']-$targetTotal)<0.01,
+    'Booking total keeps the cash already received in its own shift',
     ['entered'=>$negotiated,'bookingTotalAfter'=>$plan['totalAmount']]
 );
 
 checkObserved(
-    abs($plan['totalAmount']-($bookingTotal+$negotiated))>0.01,
-    'Negotiated figure is not added on top of the previous total',
+    abs($plan['totalAmount']-$targetTotal)<0.01,
+    'Booking total is the negotiated figure plus the earlier cash',
     ['previousTotal'=>$bookingTotal,'after'=>$plan['totalAmount'],'sumIfAdded'=>$bookingTotal+$negotiated]
 );
 
@@ -91,14 +92,14 @@ checkObserved(
 $remaining=settlementRemaining($plan['totalAmount'],$ledgerNet);
 
 checkObserved(
-    abs($remaining-380000.0)<0.01,
-    'Cashier collects negotiated figure minus the settled payment a second time',
+    abs($remaining-600000.0)<0.01,
+    'Cashier collects exactly the negotiated figure handed over by the guest',
     ['negotiated'=>$negotiated,'alreadyPaid'=>$ledgerNet,'collected'=>$remaining]
 );
 
 checkObserved(
-    abs($remaining-600000.0)>0.01,
-    'Cashier does NOT collect the negotiated figure itself',
+    abs($remaining-380000.0)>0.01,
+    'The earlier cash is not deducted a second time from this checkout',
     ['collected'=>$remaining,'enteredFigure'=>$negotiated]
 );
 

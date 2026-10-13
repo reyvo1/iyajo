@@ -4688,12 +4688,16 @@ Peran akun Anda tidak lagi berhak melanjutkan proses Telegram ini. State lama te
                         if(!is_array($ctx)||($ctx['flow']??'')!=='checkout_negotiation'||($ctx['expiresAt']??0)<time())throw new RuntimeException('Draft harga nego kedaluwarsa. Buka kembali checkout.');
                         if($currentState==='waiting_for_checkout_nego_amount'){
                             $amount=tamasyaTelegramParseMoney((string)$command);
-                            if($amount===null||$amount<=0||$amount<$ctx['quote']['minimumTotal']||$amount>=$ctx['quote']['totalAmount'])throw new InvalidArgumentException('Total final harus lebih rendah dari tagihan lama dan tidak di bawah total minimum.');
+                            // The figure is what the guest hands over now, so the booking
+                            // bounds apply to that figure plus the cash already received.
+                            $negoFloor=max(0.0,round((float)$ctx['quote']['minimumTotal']-(float)$ctx['quote']['amountPaid'],2));
+                            $negoCeiling=max(0.0,round((float)$ctx['quote']['totalAmount']-(float)$ctx['quote']['amountPaid'],2));
+                            if($amount===null||$amount<=0||$amount<$negoFloor||$amount>$negoCeiling)throw new InvalidArgumentException('Total final harus lebih rendah dari tagihan lama dan tidak di bawah total minimum.');
                             $q=$pdo->prepare('SELECT * FROM bookings WHERE id=? LIMIT 1');$q->execute([$ctx['quote']['bookingId']]);$booking=$q->fetch(PDO::FETCH_ASSOC);
                             if(!$booking)throw new RuntimeException('Booking tidak ditemukan.');
                             $fresh=tamasyaBookingNegotiationQuote($pdo,$booking);
                             if(!hash_equals($fresh['quoteToken'],$ctx['quote']['quoteToken']))throw new RuntimeException('Tagihan berubah. Buka ulang checkout.');
-                            $plan=tamasyaNegotiatedPricePlan($booking,$fresh['components'],$fresh['paid'],$fresh['amountPaid'],$amount);
+                            $plan=tamasyaNegotiatedPricePlan($booking,$fresh['components'],$fresh['paid'],$fresh['amountPaid'],round($amount+(float)$fresh['amountPaid'],2));
                             $ctx['finalVatAmount']=$plan['vatAmount'];$ctx['finalTotal']=$amount;
                             $pdo->prepare("UPDATE staff SET telegram_state='waiting_for_checkout_nego_reason',telegram_context=? WHERE id=?")->execute([json_encode($ctx,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$loggedInStaff['id']]);
                             $replyText='📝 Ketik alasan/kesepakatan nego minimal 5 karakter. Harga baru belum disimpan.';
@@ -4732,10 +4736,14 @@ Peran akun Anda tidak lagi berhak melanjutkan proses Telegram ini. State lama te
                             if ($actualTotal + 1.0 < $ledger['net']) {
                                 throw new InvalidArgumentException('Total aktual tidak boleh lebih kecil dari penerimaan/DP yang sudah tercatat.');
                             }
+                            // Stated figure is what the guest hands over now; cash received
+                            // earlier stays closed in its own shift and is added back.
+                            $collectedNow=round((float)$actualTotal,2);
+                            $actualTotal=round($collectedNow+(float)$ledger['net'],2);
                             $tax = resolveBookingAggregateTaxSnapshot(
                                 $pdo,array_merge($booking,['bookingSource'=>$booking['bookingSource']??'Direct']),$actualTotal,date('Y-m-d')
                             );
-                            $remaining = max(0.0,round($actualTotal-$ledger['net'],2));
+                            $remaining = max(0.0,round($collectedNow,2));
                             $paymentStatus = $remaining > 0 ? 'partial' : 'paid';
                             $pdo->prepare("UPDATE bookings SET totalAmount=?,checkOut=?,vatRate=?,vatAmount=?,extras=?,isOpenEnded=0,paymentStatus=?,version=version+1,updatedBy=?,updatedSource='telegram' WHERE id=?")
                                 ->execute([

@@ -51,7 +51,10 @@ switch ($action) {
                 $quote=tamasyaBookingNegotiationQuote($pdo,$booking);$preview=null;
                 if(isset($_GET['finalTotal'])){
                     if(!is_numeric($_GET['finalTotal']))throw new InvalidArgumentException('Harga final tidak valid.');
-                    $plan=tamasyaNegotiatedPricePlan($booking,$quote['components'],$quote['paid'],$quote['amountPaid'],(float)$_GET['finalTotal']);
+                    // Same reading as the save path: the figure is what the guest hands
+                    // over now, so cash already received is added back for the preview.
+                    $previewTarget=round((float)$_GET['finalTotal']+(float)$quote['amountPaid'],2);
+                    $plan=tamasyaNegotiatedPricePlan($booking,$quote['components'],$quote['paid'],$quote['amountPaid'],$previewTarget);
                     $preview=array_intersect_key($plan,array_flip(['totalAmount','vatAmount','discountAmount','taxReduction']));
                 }
                 unset($quote['components'],$quote['paid']);
