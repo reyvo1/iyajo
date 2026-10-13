@@ -856,6 +856,8 @@ jobs:
           python3 scenario_po_link_payment.py
           python3 scenario_destructive_purge.py
           python3 scenario_security_access.py
+          python3 scenario_catalog_tax_key.py
+          python3 scenario_cleanup_reconciliation.py
 
       - name: Browser desktop and mobile control UAT
         run: |
