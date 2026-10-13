@@ -1,5 +1,6 @@
 from client import *
 from scenario_core import db
+from scenario_fixtures import ensure_open_shift
 import datetime, json
 
 # The property timezone, not the runner's. A run near UTC midnight made 'today'
@@ -30,6 +31,7 @@ if not room:
     print('SECURITY-DEPOSIT-UAT 0/1'); raise SystemExit(0)
 room_number=room[0]['number']
 
+ensure_open_shift('dep_shift_'+run)
 st,created=request('bookings','POST',{
     'guestName':'UAT Security Deposit Guest','roomNumber':room_number,
     'checkIn':today.isoformat(),'checkOut':tomorrow.isoformat(),'totalAmount':400000,

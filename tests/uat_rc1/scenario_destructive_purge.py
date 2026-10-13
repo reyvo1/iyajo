@@ -136,8 +136,11 @@ if booking2:
 # rooms, so a scenario that holds its booking starves the ones queued behind it. This
 # is the fix; adding rooms would only move the failure further down the queue.
 try:
-    if booking_id:
-        request('bookings-status','POST',{'id':booking_id,'status':'cancelled'},'rel_'+run)
+    # This scenario books twice; releasing only the first leaked the second and
+    # starved whatever ran next.
+    for held in (booking_id, booking2):
+        if held:
+            request('bookings-status','POST',{'id':held,'status':'cancelled'},'rel_'+run)
 except Exception:
     pass
 

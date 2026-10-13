@@ -1,5 +1,6 @@
 from client import *
 from scenario_core import db
+from scenario_fixtures import ensure_open_shift
 import datetime, json
 
 # The property timezone, not the runner's. A run near UTC midnight made 'today'
@@ -34,9 +35,9 @@ tomorrow=today+datetime.timedelta(days=1)
 # Reuse the open shift that earlier scenarios already established, the same way the
 # other suites do. Opening a new one fails because the acting account is already bound
 # to a shift.
-open_shifts=db("SELECT id,shift_time FROM shift_sessions WHERE status='open' ORDER BY opened_at DESC,id DESC")
-check('audit correction sees an open shift to work against',len(open_shifts)>=1,open_shifts)
-shift_id=open_shifts[0]['id'] if open_shifts else None
+shift_id=ensure_open_shift('acct_shift_open_'+run)
+open_shifts=db("SELECT id,shift_time FROM shift_sessions WHERE status='open' ORDER BY opened_at DESC,id DESC") if shift_id else []
+check('audit correction has an open shift to work against',bool(shift_id),open_shifts)
 is_night_shift=shift_time_is_night=open_shifts and str(open_shifts[0].get('shift_time','')).lower() in ('malam','all')
 
 # A night shift cannot be closed until the night audit is finished. The correction

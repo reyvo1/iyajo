@@ -13,7 +13,11 @@ for key,typ in [('room_rental','income'),('extra_service','income'),('pos_revenu
  b=step('category_'+key,'categories',{'name':'SIM '+key,'type':typ});state[key]=b['categoryId']
  step('binding_'+key,'categories-semantic-bind',{'categoryId':state[key],'systemKey':key})
 step('roomtype','subcategories',{'categoryId':state['room_rental'],'subcategoryName':'SIM Deluxe'})
-for number in [str(n) for n in range(101,111)]:
+# Twenty rooms, not ten. The job runs close to thirty booking scenarios and several of
+# them keep their booking for the rest of the run, so a fixture of ten leaves later
+# suites with nothing to book and they fail on 'no available room' rather than on
+# anything about the product. Ten rooms was never a deliberate limit.
+for number in [str(n) for n in range(101,121)]:
  step('room_'+number,'rooms',{'number':number,'type':'SIM Deluxe','price':200000,'floor':1})
 for n in [1,2,3,4]:
  b=step('product_'+str(n),'pos-product-save',{'sku':'SIM-0'+str(n),'name':'SIM Product '+str(n),'costPrice':0.25,'salePrice':1,'initialStock':100,'taxKind':'extra'})
