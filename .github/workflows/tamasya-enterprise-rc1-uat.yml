@@ -862,6 +862,7 @@ jobs:
           python3 scenario_purge_history_webhook.py
           python3 scenario_website_cms_delete.py
           python3 scenario_cluster_reconcile.py
+          python3 scenario_cluster_admin.py
 
       - name: Browser desktop and mobile control UAT
         run: |
