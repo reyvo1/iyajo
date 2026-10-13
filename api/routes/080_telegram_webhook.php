@@ -4688,7 +4688,12 @@ Peran akun Anda tidak lagi berhak melanjutkan proses Telegram ini. State lama te
                         if(!is_array($ctx)||($ctx['flow']??'')!=='checkout_negotiation'||($ctx['expiresAt']??0)<time())throw new RuntimeException('Draft harga nego kedaluwarsa. Buka kembali checkout.');
                         if($currentState==='waiting_for_checkout_nego_amount'){
                             $amount=tamasyaTelegramParseMoney((string)$command);
-                            if($amount===null||$amount<=0||$amount<$ctx['quote']['minimumTotal']||$amount>=$ctx['quote']['totalAmount'])throw new InvalidArgumentException('Total final harus lebih rendah dari tagihan lama dan tidak di bawah total minimum.');
+                            // The figure is what the guest hands over now. The floors and
+                            // ceilings of the booking total therefore apply to that figure
+                            // plus the cash already received, not to the figure alone.
+                            $negoFloor=max(0.0,round((float)$ctx['quote']['minimumTotal']-(float)$ctx['quote']['amountPaid'],2));
+                            $negoCeiling=max(0.0,round((float)$ctx['quote']['totalAmount']-(float)$ctx['quote']['amountPaid'],2));
+                            if($amount===null||$amount<=0||$amount<$negoFloor||$amount>$negoCeiling)throw new InvalidArgumentException('Total final harus lebih rendah dari tagihan lama dan tidak di bawah total minimum.');
                             $q=$pdo->prepare('SELECT * FROM bookings WHERE id=? LIMIT 1');$q->execute([$ctx['quote']['bookingId']]);$booking=$q->fetch(PDO::FETCH_ASSOC);
                             if(!$booking)throw new RuntimeException('Booking tidak ditemukan.');
                             $fresh=tamasyaBookingNegotiationQuote($pdo,$booking);
