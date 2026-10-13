@@ -9,6 +9,7 @@ EFC_MYSQL_A_PORT="${EFC_MYSQL_A_PORT:-3306}"
 EFC_MYSQL_B_PORT="${EFC_MYSQL_B_PORT:-3307}"
 EFC_MYSQL_ROOT_USER="${EFC_MYSQL_ROOT_USER:-root}"
 EFC_MYSQL_ROOT_PASSWORD="${EFC_MYSQL_ROOT_PASSWORD:-root_ci_only}"
+EFC_MYSQL_SEED_DB="${EFC_MYSQL_SEED_DB:-tamasya_rc1_uat}"
 MYSQL_A_ROOT=(mysql --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_A_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}")
 MYSQL_B_ROOT=(mysql --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_B_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}")
 DUMP=/tmp/tamasya-efc-node-seed.sql
@@ -62,12 +63,21 @@ cleanup(){
     if [[ -s "$p" ]]; then kill "$(cat "$p")" 2>/dev/null || true; fi
   done
 }
+# Only relevant when the seed database is reused from an already-exercised environment.
+# CI starts from empty databases, so this stays off there and the tested path is unchanged.
+reset_reused_seed_state(){
+  [ "${EFC_MYSQL_SEED_DB:-tamasya_rc1_uat}" = "tamasya_rc1_uat" ] && return 0
+  "${MYSQL_A_ROOT[@]}" -e "TRUNCATE TABLE $A_DB.rate_limits" >/dev/null 2>&1 || true
+  "${MYSQL_B_ROOT[@]}" -e "TRUNCATE TABLE $B_DB.rate_limits" >/dev/null 2>&1 || true
+}
+
 reset_trust(){ "${MYSQL_A_ROOT[@]}" -e "SET GLOBAL log_bin_trust_function_creators=0" >/dev/null 2>&1 || true; "${MYSQL_B_ROOT[@]}" -e "SET GLOBAL log_bin_trust_function_creators=0" >/dev/null 2>&1 || true; }
 trap 'reset_trust; cleanup' EXIT
 
-mysqldump --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_A_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}" --single-transaction --routines --triggers --no-tablespaces --set-gtid-purged=OFF tamasya_rc1_uat > "$DUMP"
+mysqldump --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_A_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}" --single-transaction --routines --triggers --no-tablespaces --set-gtid-purged=OFF "$EFC_MYSQL_SEED_DB" > "$DUMP"
 "${MYSQL_A_ROOT[@]}" -e "DROP DATABASE IF EXISTS $A_DB; CREATE DATABASE $A_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; GRANT ALL PRIVILEGES ON $A_DB.* TO 'tamasya_ci'@'%'; FLUSH PRIVILEGES; SET GLOBAL log_bin_trust_function_creators=1;"
 "${MYSQL_B_ROOT[@]}" -e "DROP DATABASE IF EXISTS $B_DB; CREATE DATABASE $B_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; GRANT ALL PRIVILEGES ON $B_DB.* TO 'tamasya_ci'@'%'; FLUSH PRIVILEGES; SET GLOBAL log_bin_trust_function_creators=1;"
+reset_reused_seed_state
 "${MYSQL_A_ROOT[@]}" "$A_DB" < "$DUMP"
 "${MYSQL_B_ROOT[@]}" "$B_DB" < "$DUMP"
 "${MYSQL_A_ROOT[@]}" -e "SET GLOBAL log_bin_trust_function_creators=0"
