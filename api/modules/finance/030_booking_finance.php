@@ -2343,7 +2343,12 @@ function tamasyaApplyBookingNegotiatedPrice(PDO $pdo,array $actor,string $bookin
         if(!$booking)throw new RuntimeException('Booking tidak ditemukan.');
         $quote=tamasyaBookingNegotiationQuote($pdo,$booking);
         if(!hash_equals($quote['quoteToken'],(string)($input['quoteToken']??'')))throw new DomainException('Tagihan/pembayaran berubah sejak harga ditampilkan. Buka kembali checkout sebelum nego.',409);
-        $plan=tamasyaNegotiatedPricePlan($booking,$quote['components'],$quote['paid'],$quote['amountPaid'],(float)$input['finalTotal']);
+        // The receptionist states what the guest hands over at this checkout. Money
+        // received earlier is closed in its own shift and must not be netted off a
+        // second time, so it is added back to reach the new booking total.
+        $collectedNow=round((float)$input['finalTotal'],2);
+        $targetTotal=round($collectedNow+(float)$quote['amountPaid'],2);
+        $plan=tamasyaNegotiatedPricePlan($booking,$quote['components'],$quote['paid'],$quote['amountPaid'],$targetTotal);
         $status=$plan['totalAmount']<=$quote['amountPaid']+0.001?'paid':($quote['amountPaid']>0?'partial':'unpaid');
         $pdo->prepare("UPDATE bookings SET totalAmount=?,vatAmount=?,vatRate=?,extras=?,paymentStatus=?,version=version+1,updatedBy=?,updatedSource=? WHERE id=?")
             ->execute([$plan['totalAmount'],$plan['vatAmount'],$plan['vatRate'],json_encode($plan['extras'],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$status,$actor['id'],$source,$bookingId]);

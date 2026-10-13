@@ -4735,7 +4735,12 @@ Peran akun Anda tidak lagi berhak melanjutkan proses Telegram ini. State lama te
                             $tax = resolveBookingAggregateTaxSnapshot(
                                 $pdo,array_merge($booking,['bookingSource'=>$booking['bookingSource']??'Direct']),$actualTotal,date('Y-m-d')
                             );
-                            $remaining = max(0.0,round($actualTotal-$ledger['net'],2));
+                            // The stated figure is what the guest hands over now. Cash
+                            // received earlier sits closed in its own shift, so it is
+                            // added back rather than deducted from the new total.
+                            $collectedNow=$actualTotal;
+                            $actualTotal=round($actualTotal+$ledger['net'],2);
+                            $remaining = max(0.0,round($collectedNow,2));
                             $paymentStatus = $remaining > 0 ? 'partial' : 'paid';
                             $pdo->prepare("UPDATE bookings SET totalAmount=?,checkOut=?,vatRate=?,vatAmount=?,extras=?,isOpenEnded=0,paymentStatus=?,version=version+1,updatedBy=?,updatedSource='telegram' WHERE id=?")
                                 ->execute([
