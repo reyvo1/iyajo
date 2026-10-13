@@ -65,15 +65,14 @@ if ap_id:
           {'status':missing_st,'error':missing.get('error')})
 
 # --------------------------------------------------------------------- alert ack
-alert=db("SELECT id,alert_type FROM system_alerts ORDER BY created_at DESC LIMIT 1")
+alert=db("SELECT id,source FROM system_alerts ORDER BY created_at DESC LIMIT 1")
 ack_empty_st,ack_empty=request('operations-center','POST',{'command':'alert-ack','id':''},'ops_ackempty_'+run)
 check('acknowledging an alert without an id is refused',ack_empty_st>=400 and ack_empty.get('success') is False,
       {'status':ack_empty_st,'error':ack_empty.get('error')})
 
 # A lost and found item has its own custody lifecycle. Closing it through the generic
 # "mark done" button would bypass that chain, so the route refuses it.
-lost=db("SELECT id FROM system_alerts WHERE alert_type='lost_found' OR id LIKE 'alert_lf%' LIMIT 1") \
-    or db("SELECT id FROM system_alerts WHERE alert_type LIKE '%lost%' LIMIT 1")
+lost=db("SELECT id FROM system_alerts WHERE source LIKE 'lost-found%' LIMIT 1")
 if lost:
     lf_st,lf=request('operations-center','POST',{'command':'alert-ack','id':lost[0]['id']},'ops_acklost_'+run)
     check('a lost and found alert cannot be closed through the generic alert button',
@@ -83,7 +82,7 @@ else:
     check('a lost and found alert cannot be closed through the generic alert button',True,
           {'note':'no lost and found alert in this fixture'})
 
-generic=db("SELECT id FROM system_alerts WHERE alert_type NOT LIKE '%lost%' ORDER BY created_at DESC LIMIT 1")
+generic=db("SELECT id FROM system_alerts WHERE source NOT LIKE 'lost-found%' ORDER BY created_at DESC LIMIT 1")
 if generic:
     ack_st,ack=request('operations-center','POST',{'command':'alert-ack','id':generic[0]['id']},'ops_ack_'+run)
     row=db('SELECT acknowledged_at FROM system_alerts WHERE id=?',[generic[0]['id']])
