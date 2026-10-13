@@ -105,12 +105,29 @@ check('renaming a category that does not exist is refused',
       up_missing_st>=400 and up_missing.get('success') is False,
       {'status':up_missing_st,'error':up_missing.get('message') or up_missing.get('error')})
 
+# The first subcategory is the room type every later suite books against, so it is
+# renamed and then put back. Renaming it and leaving it renamed made the browser UAT
+# fail to create rooms, because a room type must be an active revenue subcategory.
 sub=db("SELECT id,name FROM subcategories ORDER BY id LIMIT 1")
-sub_up_st,sub_up=request('subcategories-update','POST',
-    {'subcategoryId':sub[0]['id'] if sub else 'sub_does_not_exist','name':'UAT Sub '+run},'dl_sub_'+run)
-check('a subcategory can be renamed or the request is refused',
-      sub_up_st in (200,404) and (sub_up_st!=200 or isinstance(sub_up.get('success'),(bool,type(None)))),
-      {'status':sub_up_st,'error':sub_up.get('message') or sub_up.get('error')})
+if sub:
+    sub_original=sub[0]['name']
+    sub_up_st,sub_up=request('subcategories-update','POST',
+        {'subcategoryId':sub[0]['id'],'name':'UAT Sub '+run},'dl_sub_'+run)
+    renamed=db('SELECT name FROM subcategories WHERE id=?',[sub[0]['id']])
+    check('a subcategory can be renamed',
+          sub_up_st==200 and renamed and renamed[0]['name']=='UAT Sub '+run,
+          {'status':sub_up_st,'name':renamed[0]['name'] if renamed else None})
+
+    request('subcategories-update','POST',
+        {'subcategoryId':sub[0]['id'],'name':sub_original},'dl_subback_'+run)
+    restored_sub=db('SELECT name FROM subcategories WHERE id=?',[sub[0]['id']])
+    check('renaming a subcategory back restores the room type later suites book against',
+          bool(restored_sub) and restored_sub[0]['name']==sub_original,
+          {'expected':sub_original,'name':restored_sub[0]['name'] if restored_sub else None})
+else:
+    check('a subcategory can be renamed',True,{'note':'no subcategory in fixture'})
+    check('renaming a subcategory back restores the room type later suites book against',True,
+          {'note':'nothing renamed'})
 
 sub_missing_st,sub_missing=request('subcategories-update','POST',
     {'subcategoryId':'sub_does_not_exist','name':'UAT Sub'},'dl_submiss_'+run)
