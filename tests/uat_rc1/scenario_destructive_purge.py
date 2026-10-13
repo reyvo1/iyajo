@@ -27,7 +27,11 @@ def check(name,ok,details=None):
 today=datetime.datetime.now(HOTEL_TZ).date()
 tomorrow=today+datetime.timedelta(days=1)
 
-room=db("SELECT number FROM rooms WHERE status='available' ORDER BY CAST(number AS UNSIGNED) LIMIT 1")
+# Earlier scenarios in the same run leave active bookings behind, so pick a room with
+# no stay at all rather than any available room.
+room=db("SELECT number FROM rooms r WHERE r.status='available' AND NOT EXISTS ("
+        "SELECT 1 FROM bookings b WHERE b.roomNumber=r.number AND b.status IN ('reserved','active')) "
+        "ORDER BY CAST(number AS UNSIGNED) LIMIT 1")
 if not room:
     check('purge scenario has a room',False,{'reason':'no available room'})
     print('DESTRUCTIVE-PURGE-UAT 0/1'); raise SystemExit(0)
@@ -90,6 +94,11 @@ if booking_id:
 
 # ------------------------------------------------------------------- data-cleanup-execute
 # Far enough out that no other suite in this job has claimed those nights.
+room2=db("SELECT number FROM rooms r WHERE r.status='available' AND r.number<>? AND NOT EXISTS ("
+         "SELECT 1 FROM bookings b WHERE b.roomNumber=r.number AND b.status IN ('reserved','active')) "
+         "ORDER BY CAST(number AS UNSIGNED) LIMIT 1",[room_number])
+if room2:
+    room_number=room2[0]['number']
 st2,booking2,body2=make_booking('p2_'+run,
                                 today+datetime.timedelta(days=90),today+datetime.timedelta(days=91))
 check('second purge fixture booking is created',st2==200 and bool(booking2),{'status':st2,'body':body2})

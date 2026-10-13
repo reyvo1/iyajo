@@ -24,15 +24,16 @@ def check(name,ok,details=None):
 today=today_hotel()
 po_total=750000.0
 
-# Vendors live in the optional growth suite, and their status column is `status`.
+# Vendors live in the optional growth suite and are keyed on status, not isActive.
 vendor=db("SELECT id FROM growth_vendors WHERE status='active' ORDER BY id LIMIT 1")
 if not vendor:
-    vs,vb=request('growth-suite','POST',{
-        'command':'vendor-save','name':'UAT PO Vendor '+run,'operationId':'po_v_'+run},'po_v_'+run)
-    row=db("SELECT id FROM growth_vendors WHERE name=? ORDER BY created_at DESC LIMIT 1",['UAT PO Vendor '+run])
+    request('growth-suite','POST',{'command':'vendor-save','name':'UAT PO Vendor',
+        'code':'UATVEN1','paymentTermsDays':30,'operationId':'po_v_'+run},'po_v_'+run)
+    row=db("SELECT id FROM growth_vendors WHERE code='UATVEN1' ORDER BY created_at DESC LIMIT 1")
     vendor_id=row[0]['id'] if row else None
 else:
     vendor_id=vendor[0]['id']
+check('purchase order vendor is available',bool(vendor_id),{'vendor':vendor_id})
 
 po_st,po_body=request('growth-suite','POST',{
     'command':'po-save','vendorId':vendor_id,'orderDate':today.isoformat(),

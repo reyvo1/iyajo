@@ -31,7 +31,11 @@ amount=600000
 # Later scenarios in this job leave bookings active, so requiring a strictly free
 # room fails once enough suites have run. Any available room works here because the
 # booking is cancelled again at the end of the scenario.
-room=db("SELECT number FROM rooms WHERE status='available' ORDER BY CAST(number AS UNSIGNED) LIMIT 1")
+# Scenarios in this job run in sequence against one database and rooms do not come
+# back, so pick a room that has no stay at all for these nights rather than any room.
+room=db("SELECT number FROM rooms r WHERE r.status='available' AND NOT EXISTS ("
+        "SELECT 1 FROM bookings b WHERE b.roomNumber=r.number AND b.status IN ('reserved','active')) "
+        "ORDER BY CAST(number AS UNSIGNED) LIMIT 1")
 if not room:
     check('folio allocation has a bookable room',False,{'reason':'no available room'})
     print('FOLIO-ALLOCATION-UAT 0/1'); raise SystemExit(0)
