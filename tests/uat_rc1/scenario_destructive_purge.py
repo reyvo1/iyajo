@@ -132,4 +132,13 @@ if booking2:
     check('booking survives a refused cleanup execute',
           bool(db('SELECT id FROM bookings WHERE id=?',[booking2])),{'booking':booking2})
 
+# Release the room. Every scenario in this job books one and CI only seeds a handful of
+# rooms, so a scenario that holds its booking starves the ones queued behind it. This
+# is the fix; adding rooms would only move the failure further down the queue.
+try:
+    if booking_id:
+        request('bookings-status','POST',{'id':booking_id,'status':'cancelled'},'rel_'+run)
+except Exception:
+    pass
+
 print('DESTRUCTIVE-PURGE-UAT',sum(1 for x in results if x['pass']),'/',len(results))

@@ -168,4 +168,13 @@ if is_night_shift:
     db("UPDATE hotel_operational_settings SET require_night_audit_for_night_shift=? WHERE id='system_default'",
        [int((audit_before or [{'require_night_audit_for_night_shift':1}])[0].get('require_night_audit_for_night_shift') or 1)])
 
+# Release the room. Every scenario in this job books one and CI only seeds a handful of
+# rooms, so a scenario that holds its booking starves the ones queued behind it. This
+# is the fix; adding rooms would only move the failure further down the queue.
+try:
+    if booking_id:
+        request('bookings-status','POST',{'id':booking_id,'status':'cancelled'},'rel_'+run)
+except Exception:
+    pass
+
 print('AUDIT-CORRECTION-UAT',sum(1 for x in results if x['pass']),'/',len(results))

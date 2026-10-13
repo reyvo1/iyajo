@@ -139,4 +139,13 @@ if inc_tx and po_id:
           inc_st2==400 and inc_res.get('success') is False,
           {'status':inc_st2,'error':inc_res.get('error')})
 
+# Release the room. Every scenario in this job books one and CI only seeds a handful of
+# rooms, so a scenario that holds its booking starves the ones queued behind it. This
+# is the fix; adding rooms would only move the failure further down the queue.
+try:
+    if booking_id:
+        request('bookings-status','POST',{'id':booking_id,'status':'cancelled'},'rel_'+run)
+except Exception:
+    pass
+
 print('PO-LINK-PAYMENT-UAT',sum(1 for x in results if x['pass']),'/',len(results))

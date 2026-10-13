@@ -112,4 +112,13 @@ net=db('SELECT COALESCE(SUM(CASE WHEN type=\'income\' THEN amount ELSE -amount E
        'FROM transactions WHERE bookingId=? AND transactionKind LIKE \'security_deposit%\'',[booking_id])
 check('refunded security deposit nets to zero',abs(float(net[0]['n']))<0.01,{'net':float(net[0]['n'])})
 
+# Release the room. Every scenario in this job books one and CI only seeds a handful of
+# rooms, so a scenario that holds its booking starves the ones queued behind it. This
+# is the fix; adding rooms would only move the failure further down the queue.
+try:
+    if booking_id:
+        request('bookings-status','POST',{'id':booking_id,'status':'cancelled'},'rel_'+run)
+except Exception:
+    pass
+
 print('SECURITY-DEPOSIT-UAT',sum(1 for x in results if x['pass']),'/',len(results))
