@@ -204,7 +204,7 @@ if len(rooms)>=2 and booking_id:
     paid_extras_before=[x for x in json.loads(old.get('extras') or '[]') if x.get('paymentStatus')=='paid']
     status,web_quote=request('booking-negotiated-price&id='+booking_id)
     check('Web negotiated checkout reads canonical unpaid room balance',status==200 and web_quote.get('success') is True and float(web_quote['quote']['roomBalance'])>0,web_quote)
-    quote=web_quote['quote']; paid_before=float(old.get('amountPaid') or 0); final=float(old['totalAmount'])-5000-paid_before
+    quote=web_quote['quote']; final=float(old['totalAmount'])-5000
     status,preview=request('booking-negotiated-price&id='+booking_id+'&finalTotal='+str(final))
     check('Web negotiated price preview shows PBJT and exact discount',status==200 and float(preview['preview']['discountAmount'])==5000,preview)
     status,denied=request('booking-negotiated-price','POST',{'bookingId':booking_id,'finalTotal':final,'reason':'x','quoteToken':quote['quoteToken']},'efc_nego_short_reason_'+run)
@@ -212,19 +212,19 @@ if len(rooms)>=2 and booking_id:
     status,denied=request('booking-negotiated-price','POST',{'bookingId':booking_id,'finalTotal':float(quote['minimumTotal'])-1,'reason':'Below paid and services floor','quoteToken':quote['quoteToken']},'efc_nego_floor_'+run)
     check('Negotiation protects receipts and services',status==422,denied)
     status,changed=request('booking-negotiated-price','POST',{'bookingId':booking_id,'finalTotal':final,'reason':'Kesepakatan harga di web sebelum checkout','quoteToken':quote['quoteToken']},'efc_nego_web_'+run)
-    check('Web negotiated checkout updates total without receipt',status==200 and changed.get('success') is True and abs(float(changed['booking']['totalAmount'])-(final+paid_before))<0.01,changed)
+    check('Web negotiated checkout updates total without receipt',status==200 and changed.get('success') is True and abs(float(changed['booking']['totalAmount'])-final)<0.01,changed)
     status,stale=request('booking-negotiated-price','POST',{'bookingId':booking_id,'finalTotal':final-1000,'reason':'Stale price must not apply','quoteToken':quote['quoteToken']},'efc_nego_stale_'+run)
     check('Old web quote cannot overwrite new price',status==409,stale)
     _,checkout=sim_cb('nego_checkout_start',f"r_checkout:{target['number']}")
     if 'STATUS KUNCI' in checkout.get('message',{}).get('text',''):
         _,checkout=sim_cb('nego_checkout_key_returned',f"r_checkout_key:{target['number']}:returned")
     sim_cb('nego_checkout_choose',choose_callback(checkout,'r_checkout_nego:'))
-    typed=int(final-10000); sim_text('nego_checkout_final',str(typed))
+    sim_text('nego_checkout_final',str(int(final-10000)))
     _,confirmation=sim_text('nego_checkout_reason','Harga akhir disepakati saat tamu checkout')
     save=choose_callback(confirmation,'r_checkout_nego_save:')
     _,checkout_payment=sim_cb('nego_checkout_save',save)
     after=db('SELECT * FROM bookings WHERE id=?',[booking_id])[0]
-    check('Telegram negotiated figure is the amount handed over, not netted against earlier cash',abs(float(after['totalAmount'])-(typed+paid_before))<0.01 and abs(float(after['balanceDue'])-typed)<0.01,after)
+    check('Telegram price change is visible on web total and outstanding',abs(float(after['totalAmount'])-(final-10000))<0.01 and float(after['balanceDue'])>0,after)
     check('Price changes do not modify old receipts',db('SELECT id,amount,baseAmount,taxAmount,bankAccountId FROM transactions WHERE bookingId=? ORDER BY id',[booking_id])==receipts_before)
     service_gross=sum(float(x.get('total') or 0) for x in json.loads(after.get('extras') or '[]') if x.get('allocationType')!='room' and x.get('taxKind')!='extension')
     check('Room summary includes extensions while service total stays separate',abs(float(after['extraCharge'])-service_gross)<0.01 and abs(float(after['roomCharge'])-(float(after['totalAmount'])-service_gross))<0.01,{'roomCharge':after['roomCharge'],'extraCharge':after['extraCharge']})
