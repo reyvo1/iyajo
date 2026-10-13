@@ -865,6 +865,7 @@ jobs:
           python3 scenario_cluster_reconcile.py
           python3 scenario_cluster_admin.py
           python3 scenario_enterprise_loyalty.py
+          python3 scenario_communication_channels.py
 
       - name: Browser desktop and mobile control UAT
         run: |
