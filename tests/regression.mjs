@@ -185,17 +185,28 @@ await test('Enterprise Full Complete UAT is additive, two-node, fail-closed and 
    'Assert Enterprise Full Complete evidence contract'
  ]) assert.ok(workflow.includes(step),`workflow missing ${step}`);
  const twoNode=fs.readFileSync(path.join(root,'tests/uat_rc1/run_two_node_complete.sh'),'utf8');
+ const hqRunner=fs.readFileSync(path.join(root,'tests/uat_rc1/run_hq_multi_property_complete.sh'),'utf8');
  // The runner must use two DISTINCT databases, or the separate-DB claim is false.
  // Asserting the literal '-P3306' only held while the ports were hardcoded; the
  // intent is that the two defaults differ, which is what is checked now.
  assert.match(twoNode,/EFC_MYSQL_A_PORT:-3306/);assert.match(twoNode,/EFC_MYSQL_B_PORT:-3307/);
+ // A stray character right after a closing quote silently concatenates into the value:
+ // "-p${EFC_MYSQL_ROOT_PASSWORD}"y sent 'root_ci_onlyy' and failed with 1045 Access denied.
+ // bash -n accepts that, so the source gate alone cannot see it.
+ for (const [name,body] of [['two-node',twoNode],['HQ',hqRunner]]){
+   for (const m of body.matchAll(/"\$\{[A-Z_]+\}"[A-Za-z0-9]/g)){
+     assert.fail(`${name} runner: stray text after an expanded variable: ${m[0]}`);
+   }
+   for (const m of body.matchAll(/"-[pu]\$\{[A-Z_]+\}"[A-Za-z0-9]/g)){
+     assert.fail(`${name} runner: credentials argument is corrupted: ${m[0]}`);
+   }
+ }
  assert.notEqual(3306,3307);
  assert.ok(twoNode.includes('/proc/sys/net/ipv4/ip_local_port_range')&&twoNode.includes('two-node-ports.json'),'two-node UAT must select verified free listener ports outside the current client-ephemeral range and persist port evidence');
  assert.ok(!twoNode.includes('127.0.0.1:38186')&&!twoNode.includes('127.0.0.1:38187'),'two-node UAT must not use collision-prone fixed application ports');
  assert.ok(twoNode.includes('kill -0 \"$(cat \"$pidfile\")\"')&&(twoNode.includes('socat TCP-LISTEN:')||twoNode.includes('tcp_forwarder.py'))&&twoNode.includes('A_RECOVERY_BACKEND_PORT'),'two-node UAT must fail fast on owned child death and recover the stable public node URL through a reuseaddr proxy backed by a fresh PHP port');
  const exportScenario=fs.readFileSync(path.join(root,'tests/uat_rc1/scenario_exports.py'),'utf8');
  assert.ok(exportScenario.includes("e.logname='export-results.json'"),'canonical export UAT must write the exact evidence filename required by the locked Full Complete contract');
- const hqRunner=fs.readFileSync(path.join(root,'tests/uat_rc1/run_hq_multi_property_complete.sh'),'utf8');
  assert.ok(hqRunner.includes('/proc/sys/net/ipv4/ip_local_port_range')&&hqRunner.includes('hq-ports.json'),'HQ Full Complete runner must select verified free listener ports and persist exact port evidence');
  for(const fixed of ['38188','38189','38190','38191']) assert.ok(!hqRunner.includes(fixed),`HQ runner must not use fixed application port ${fixed}`);
  assert.ok(hqRunner.includes('wait_http_child')&&hqRunner.includes('kill -0 "$(cat /tmp/tamasya-efc-hq-tls.pid)"'),'HQ runner must fail fast when an owned PHP/TLS child dies instead of waiting on an unrelated port');

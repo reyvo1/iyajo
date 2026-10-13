@@ -50,7 +50,7 @@ cleanup(){
 reset_trust(){ "${MYSQL_ROOT[@]}" -e "SET GLOBAL log_bin_trust_function_creators=0" >/dev/null 2>&1 || true; }
 trap 'reset_trust; cleanup' EXIT
 
-mysqldump --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_A_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}"y --single-transaction --routines --triggers --no-tablespaces --set-gtid-purged=OFF tamasya_rc1_uat > "$DUMP"
+mysqldump --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_A_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}" --single-transaction --routines --triggers --no-tablespaces --set-gtid-purged=OFF tamasya_rc1_uat > "$DUMP"
 "${MYSQL_ROOT[@]}" -e "DROP DATABASE IF EXISTS $P1_DB; DROP DATABASE IF EXISTS $P2_DB; DROP DATABASE IF EXISTS $HQ_DB; CREATE DATABASE $P1_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; CREATE DATABASE $P2_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; CREATE DATABASE $HQ_DB CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci; GRANT ALL PRIVILEGES ON $P1_DB.* TO 'tamasya_ci'@'%'; GRANT ALL PRIVILEGES ON $P2_DB.* TO 'tamasya_ci'@'%'; GRANT ALL PRIVILEGES ON $HQ_DB.* TO 'tamasya_ci'@'%'; FLUSH PRIVILEGES; SET GLOBAL log_bin_trust_function_creators=1;"
 "${MYSQL_ROOT[@]}" "$P1_DB" < "$DUMP"; "${MYSQL_ROOT[@]}" "$P2_DB" < "$DUMP"
 "${MYSQL_ROOT[@]}" -e "SET GLOBAL log_bin_trust_function_creators=0"
