@@ -21,6 +21,13 @@ def request(action, method='GET', data=None, operation=None, port=None):
         from urllib.parse import urlsplit, urlunsplit
         u=urlsplit(base_url); base_url=urlunsplit((u.scheme,f'{u.hostname}:{port}',u.path,u.query,u.fragment)).rstrip('/')
     query = action if action.startswith('action=') else 'action='+action
+    # A GET sub-command is read from the query string by the route, not from the
+    # request body. Without this the harness cannot address any GET sub-command at
+    # all and silently receives the default payload instead, which looks like a
+    # passing response and asserts nothing.
+    if method.upper() == 'GET' and isinstance(data, dict) and data:
+        from urllib.parse import urlencode
+        query += '&'+urlencode(data)
     url = base_url+'/api.php?'+query
     body=None
     headers={'Accept':'application/json','X-Device-ID':DEVICE_ID,'Origin':ORIGIN}

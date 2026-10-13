@@ -166,9 +166,10 @@ if tx_id and folio_a:
     # 8. The read endpoints an operator uses before allocating must answer for this folio.
     for cmd,label in (('folio-available-charges','available charges'),
                       ('folio-available-transactions','available transactions')):
-        r_st,rb=request('enterprise-suite','GET',{'command':cmd,'folioId':folio_a},'fa_rd_'+run)
+        # The route reads its folio id from $_GET['id'], not 'folioId'.
+        r_st,rb=request('enterprise-suite','GET',{'command':cmd,'id':folio_a},'fa_rd_'+run)
         check('%s responds for the folio'%label,r_st==200 and rb.get('success') is True,
-              {'command':cmd,'status':r_st,'keys':sorted((rb.get('data') or {}).keys())[:5]})
+              {'command':cmd,'status':r_st,'shape':type(rb.get('data')).__name__,'data':str(rb.get('data'))[:120]})
 
     # 6. A transaction belonging to another booking must be refused by scope.
     scope_st,scope=request('enterprise-suite','POST',
@@ -187,10 +188,12 @@ if tx_id and folio_a:
           ch_missing_st>=400 and ch_missing.get('success') is False,
           {'status':ch_missing_st,'error':ch_missing.get('error')})
 
-    # folio-invoice reads its id from $_GET, while the harness sends a JSON body even
-    # for GET, so that sub-command is not addressable from here. Asserting it either
-    # way would describe the harness rather than the product, so it is left alone
-    # rather than given a fake assertion.
+    # folio-invoice reads its id from $_GET too, so it is addressable now.
+    inv_missing_st,inv_missing=request('enterprise-suite','GET',
+        {'command':'folio-invoice','id':'finv_does_not_exist'},'fa_invmiss_'+run)
+    check('invoice lookup for a missing invoice is refused',
+          inv_missing_st>=400 and inv_missing.get('success') is False,
+          {'status':inv_missing_st,'error':inv_missing.get('error')})
 
     # The route refuses to touch charge routing once an invoice is issued. Confirm the
     # guard exists by checking an issued invoice blocks a deletion when one exists.
