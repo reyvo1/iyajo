@@ -262,9 +262,13 @@ switch ($action) {
                     if($remaining<=0)throw new RuntimeException('Sisa pencairan OTA tidak valid saat cleanup.');
                     if(tamasyaTableExists($pdo,'reconciliation_items')){$pairIds=array_values(array_filter([$sourceTx,$destTx]));if($pairIds){$pph=cleanupPlaceholders($pairIds);$pdo->prepare("DELETE FROM reconciliation_items WHERE transaction_id IN ($pph)")->execute($pairIds);}}
                     $pdo->prepare("UPDATE ota_disbursements SET amount=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$remaining,$disbursementId]);
+                    // The rows are reduced and then their journal is deleted, so they must
+                    // be locked first. Reading them without a row lock left a window where
+                    // a concurrent posting could read a journal that this transaction
+                    // goes on to delete, or have its amount overwritten by this reduction.
                     tamasyaMutateFinancialTransactions($pdo,array_values(array_filter([$sourceTx,$destTx])),[
                         'amount'=>$remaining,'baseAmount'=>$remaining,'reconciliationStatus'=>'disputed','reconciliationReference'=>$batchId,
-                    ],$loggedInStaff,'ota_cleanup','ota_cleanup_adjust',['source'=>'data-cleanup']);
+                    ],$loggedInStaff,'ota_cleanup','ota_cleanup_adjust',['source'=>'data-cleanup','lockRows'=>true]);
                 }
             }
 
