@@ -2,7 +2,12 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LOG="$ROOT/tests/uat_rc1/logs"; mkdir -p "$LOG"
-MYSQL_ROOT=(mysql --protocol=TCP -h127.0.0.1 -P3306 -uroot -proot_ci_only)
+# Connection details are overridable so the same runner works against a local stack.
+# The defaults are the CI values, so CI behaviour is unchanged.
+EFC_MYSQL_A_PORT="${EFC_MYSQL_A_PORT:-3306}"
+EFC_MYSQL_ROOT_USER="${EFC_MYSQL_ROOT_USER:-root}"
+EFC_MYSQL_ROOT_PASSWORD="${EFC_MYSQL_ROOT_PASSWORD:-root_ci_only}"
+MYSQL_ROOT=(mysql --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_A_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}")
 DUMP=/tmp/tamasya-efc-hq-property-seed.sql
 P1_DB=tamasya_rc1_hq_prop1; P2_DB=tamasya_rc1_hq_prop2; HQ_DB=tamasya_rc1_hq
 P1_CFG=/tmp/tamasya-efc-hq-p1-db.php; P2_CFG=/tmp/tamasya-efc-hq-p2-db.php; HQ_CFG=/tmp/tamasya-efc-hq-config.json

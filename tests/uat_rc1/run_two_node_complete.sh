@@ -3,8 +3,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 LOG="$ROOT/tests/uat_rc1/logs"
 mkdir -p "$LOG"
-MYSQL_A_ROOT=(mysql --protocol=TCP -h127.0.0.1 -P3306 -uroot -proot_ci_only)
-MYSQL_B_ROOT=(mysql --protocol=TCP -h127.0.0.1 -P3307 -uroot -proot_ci_only)
+# Connection details are overridable so the same runner works against a local stack.
+# The defaults are the CI values, so CI behaviour is unchanged.
+EFC_MYSQL_A_PORT="${EFC_MYSQL_A_PORT:-3306}"
+EFC_MYSQL_B_PORT="${EFC_MYSQL_B_PORT:-3307}"
+EFC_MYSQL_ROOT_USER="${EFC_MYSQL_ROOT_USER:-root}"
+EFC_MYSQL_ROOT_PASSWORD="${EFC_MYSQL_ROOT_PASSWORD:-root_ci_only}"
+MYSQL_A_ROOT=(mysql --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_A_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}")
+MYSQL_B_ROOT=(mysql --protocol=TCP -h127.0.0.1 "-P${EFC_MYSQL_B_PORT}" "-u${EFC_MYSQL_ROOT_USER}" "-p${EFC_MYSQL_ROOT_PASSWORD}")
 DUMP=/tmp/tamasya-efc-node-seed.sql
 A_DB=tamasya_rc1_node_a
 B_DB=tamasya_rc1_node_b
@@ -21,7 +27,7 @@ except Exception:
 
 # Public node listeners and one-shot PHP backend listeners come from verified
 # free ports below the runner's current client-ephemeral range. Public URLs stay
-# stable through outage/recovery by using a socat reuseaddr TCP proxy, while the
+# stable through outage/recovery by using a reuseaddr TCP proxy, while the
 # recovered PHP process gets a fresh backend port and never fights TIME_WAIT.
 start = 12000
 stop = min(30000, low - 1)
@@ -90,7 +96,13 @@ start_node(){
     NODE_SYNC_FORWARD_WHEN_ONLINE=1 NODE_SYNC_ALLOW_HTTP_LOCAL=1 NODE_SYNC_SHARED_SECRET="$SECRET" TAMASYA_ALLOWED_NODE_IDS="$peer_id" NODE_CLUSTER_LEASE_TTL_SECONDS=300 NODE_CLUSTER_LEASE_RENEW_WINDOW_SECONDS=90 \
     php -S "127.0.0.1:$backend_port" -t "$ROOT" >"$log" 2>&1 &
   echo $! > "$pid"
-  socat TCP-LISTEN:"$public_port",reuseaddr,fork TCP:127.0.0.1:"$backend_port" >"$proxy_log" 2>&1 &
+  # socat when it is installed, otherwise the bundled forwarder, which does the same
+  # job so the runner needs no extra system package.
+  if command -v socat >/dev/null 2>&1; then
+    socat TCP-LISTEN:"$public_port",reuseaddr,fork TCP:127.0.0.1:"$backend_port" >"$proxy_log" 2>&1 &
+  else
+    python3 "$ROOT/tests/uat_rc1/tcp_forwarder.py" "$public_port" "$backend_port" --log "$proxy_log" >/dev/null 2>&1 &
+  fi
   echo $! > "$proxy_pid"
 }
 wait_node(){
