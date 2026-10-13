@@ -129,6 +129,18 @@ if len(rooms)>=2:
             receipts=db("SELECT id,amount,bankAccountId,shiftSessionId,baseAmount,taxAmount FROM transactions WHERE bookingId=? AND operationId=?",[booking_id,'tg_charge_'+__import__('hashlib').sha256((admin['id']+'|'+draft['nonce']).encode()).hexdigest()])
             extras=json.loads(db('SELECT extras FROM bookings WHERE id=?',[booking_id])[0]['extras'] or '[]')
             component=next((x for x in extras if x.get('paymentOperationId')=='tg_charge_'+__import__('hashlib').sha256((admin['id']+'|'+draft['nonce']).encode()).hexdigest()),None)
+            # The posted receipt must equal the amount the staff actually confirmed in
+            # the draft. For a negotiated run that draft amount is the negotiated figure,
+            # so this is what catches a stale or recomputed amount.
+            quoted_amount=float((component or {}).get('price') or (component or {}).get('total') or 0)
+            receipt_amount=float(receipts[0].get('amount') or 0) if receipts else None
+            receipt_base=float(receipts[0].get('baseAmount') or 0) if receipts else None
+            receipt_tax=float(receipts[0].get('taxAmount') or 0) if receipts else None
+            check('Telegram paid extension posts exactly the quoted amount '+method,
+                receipts and quoted_amount>0 and abs(receipt_amount-quoted_amount)<0.01
+                and receipt_base is not None and receipt_tax is not None
+                and abs((receipt_base+receipt_tax)-receipt_amount)<0.01,
+                {'quoted':quoted_amount,'amount':receipt_amount,'base':receipt_base,'tax':receipt_tax,'priceMode':(component or {}).get('priceMode')})
             check('Telegram paid extension persists '+method+' in receipt, folio and shift',after['checkOut']>old['checkOut'] and len(receipts)==1 and (receipts[0].get('bankAccountId') or None)==account_id and bool(receipts[0].get('shiftSessionId')) and component and component.get('paymentMethod')==method and abs(float(receipts[0]['amount'])-float(receipts[0]['baseAmount'])-float(receipts[0]['taxAmount']))<0.01,{'after':after,'receipts':receipts,'component':component})
             sim_cb('paid_extension_replay_'+method,save,message_id='paid-save-retry-'+method+'-'+run)
             check('Replay cannot duplicate paid extension '+method,db('SELECT checkOut,totalAmount,balanceDue FROM bookings WHERE id=?',[booking_id])[0]==after and int(db('SELECT COUNT(*) n FROM transactions WHERE bookingId=?',[booking_id])[0]['n'])==receipts_before+1)
