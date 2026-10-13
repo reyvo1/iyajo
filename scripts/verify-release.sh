@@ -29,6 +29,7 @@ php tests/room-inclusive-pricing-regression.php
 node tests/room-inclusive-pricing-regression.mjs
 node tests/finance-cash-tax-regression.mjs
 php tests/booking-negotiation-regression.php
+php tests/negotiation-settlement-characterisation.php
 php tests/growth-kpi-regression.php
 php tests/multi-room-regression.php
 php tests/receipt-projection-regression.php
