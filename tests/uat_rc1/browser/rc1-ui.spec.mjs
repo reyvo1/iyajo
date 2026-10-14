@@ -671,7 +671,7 @@ test('Negotiated checkout web form previews PBJT and changes unpaid price withou
   const room=page.getByRole('button',{name:new RegExp('^'+fixture.number+' Terisi ')});await expect(room).toBeVisible();await room.click();
   await page.locator('#btn-checkout-guest').click();
   await page.getByRole('button',{name:'Tetapkan Harga Nego Sebelum Bayar',exact:true}).click();
-  await page.getByLabel('Total tagihan final seluruh booking, termasuk PBJT (Rp)').fill('190000');
+  await page.getByLabel('Uang yang dibayar tamu sekarang, termasuk PBJT (Rp)').fill('190000');
   await expect(page.getByRole('button',{name:'Periksa Harga Final',exact:true})).toBeDisabled();
   await page.getByLabel('Alasan / kesepakatan harga nego').fill('Harga akhir disepakati dengan tamu di web');
   await page.getByRole('button',{name:'Periksa Harga Final',exact:true}).click();
@@ -685,6 +685,55 @@ test('Negotiated checkout web form previews PBJT and changes unpaid price withou
   await expectNoPageHorizontalOverflow(page);expect(errors).toEqual([]);
   await page.screenshot({path:path.join(LOGDIR,`browser-negotiated-checkout-${info.project.name}.png`),fullPage:true});
   writeEvidence('negotiated-checkout',info,{fixture,result,errors});
+  await page.evaluate(async id=>{const r=await fetch('./api.php?action=bookings-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:'cancelled'})});const b=await r.json();if(r.status!==200||b.success!==true)throw new Error(JSON.stringify(b));},fixture.id);
+});
+
+// The negotiated figure is the money handed over NOW. A booking whose first night is
+// already settled and closed in an earlier shift must not have that cash netted off a
+// second time: typing the collected figure keeps it intact through settlement.
+test('Negotiated checkout on a partially paid booking adds the earlier cash back instead of deducting it twice',async({page},info)=>{
+  const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.goto('/index.html');await expect(page.locator('#tab-dashboard')).toBeVisible();
+  await ensureBrowserOpenShift(page);
+  const fixture=await page.evaluate(async project=>{
+    async function api(action,method='GET',body=null){
+      const response=await fetch('./api.php?action='+action,{method,headers:{'Content-Type':'application/json'},...(body?{body:JSON.stringify(body)}:{})});
+      const data=await response.json();if(response.status!==200||data.success===false)throw new Error(action+': '+JSON.stringify(data));return data;
+    }
+    const ping=await api('ping'),today=String(ping.timestamp).slice(0,10);
+    const end=new Date(today+'T12:00:00Z');end.setUTCDate(end.getUTCDate()+1);
+    const hotel=await api('hotel-data');
+    const number=String(8900000+Math.floor(Math.random()*100000)),guest='Browser Nego Paid '+project+' '+Date.now();
+    await api('rooms','POST',{number,type:hotel.rooms[0].type,price:200000,floor:1});
+    const booking=await api('bookings','POST',{guestName:guest,roomNumber:number,checkIn:today,checkOut:end.toISOString().slice(0,10),totalAmount:880000,paymentStatus:'unpaid',bookingSource:'Direct',lifecycleIntent:'check_in_now',broadcast:false});
+    // A deposit already received and closed in its own shift.
+    await api('booking-payments','POST',{bookingId:booking.bookingId,amount:220000,paymentMethod:'cash',operationId:'browser_nego_dp_'+Date.now()});
+    return {id:booking.bookingId,guest,number};
+  },info.project.name);
+  await page.reload();await expect(page.locator('#domain-frontoffice')).toBeVisible();
+  await page.locator('#domain-frontoffice').click();await page.locator('[role="menu"] [data-route="rooms"]').click();
+  await page.getByPlaceholder('Cari kamar...').fill(fixture.number);
+  const room=page.getByRole('button',{name:new RegExp('^'+fixture.number+' Terisi ')});await expect(room).toBeVisible();await room.click();
+  await page.locator('#btn-checkout-guest').click();
+  await page.getByRole('button',{name:'Tetapkan Harga Nego Sebelum Bayar',exact:true}).click();
+  // The figure is what the guest hands over now: 600000, not the whole-booking total.
+  await page.getByLabel('Uang yang dibayar tamu sekarang, termasuk PBJT (Rp)').fill('600000');
+  await page.getByLabel('Alasan / kesepakatan harga nego').fill('Tamu menyerahkan 600rb sekarang, 220rb lunas di shift lalu');
+  const preview=page.waitForResponse(r=>r.url().includes('action=booking-negotiated-price')&&r.request().method()==='GET');
+  await page.getByRole('button',{name:'Periksa Harga Final',exact:true}).click();
+  await preview;
+  await expect(page.getByText(/Sisa dibayar Rp 600\.000/)).toBeVisible();
+  const saved=page.waitForResponse(r=>r.url().includes('action=booking-negotiated-price')&&r.request().method()==='POST');
+  await page.getByRole('button',{name:'Konfirmasi & Simpan Harga Nego',exact:true}).click();
+  const response=await saved;expect(response.status()).toBe(200);const result=await response.json();
+  // New booking total is the handed-over figure plus the earlier cash; the earlier cash
+  // is not deducted a second time, so what remains matches what the guest hands over.
+  expect(result.booking.totalAmount).toBe(820000);
+  expect(result.booking.amountPaid).toBe(220000);
+  expect(result.booking.balanceDue).toBe(600000);
+  await expectNoPageHorizontalOverflow(page);expect(errors).toEqual([]);
+  await page.screenshot({path:path.join(LOGDIR,`browser-negotiated-checkout-paid-${info.project.name}.png`),fullPage:true});
+  writeEvidence('negotiated-checkout-paid',info,{fixture,result,errors});
   await page.evaluate(async id=>{const r=await fetch('./api.php?action=bookings-status',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id,status:'cancelled'})});const b=await r.json();if(r.status!==200||b.success!==true)throw new Error(JSON.stringify(b));},fixture.id);
 });
 
