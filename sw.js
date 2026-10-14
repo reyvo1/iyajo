@@ -26,7 +26,7 @@ const ASSETS_TO_CACHE = [
   "./assets/canonical-business-policy.js?v=20261008-r15",
   "./assets/finance-category-usage-picker.js?v=20260817-r7-setup-finance-mapping-ux-fix20",
   "./assets/runtime-addon-loader.js?v=20261009-r164-receipt-health",
-  "./assets/app-core.js?v=20261009-r164-night-audit",
+  "./assets/app-core.js?v=20261014-nego-core1",
   "./assets/sw-register.js?v=20261008-r15",
   "./assets/navigation-registry.js?v=20261008-r15",
   "./assets/chunks/vendor-react.js?v=20261008-r15",
@@ -34,8 +34,8 @@ const ASSETS_TO_CACHE = [
   "./assets/chunks/app-shell.js?v=20261008-r15",
   "./assets/chunks/feature-shared.js?v=20261008-r15",
   "./assets/chunks/dashboard.js?v=20261008-r15",
-  "./assets/chunks/rooms.js?v=20261008-r15",
-  "./assets/chunks/booking-negotiation.js?v=20261008-r15",
+  "./assets/chunks/rooms.js?v=20261014-nego-collected-now1",
+  "./assets/chunks/booking-negotiation.js?v=20261014-nego-collected-now1",
   // PERF(offline-ops-1): chunk modul jarang-dipakai tidak lagi diprecache saat
   // install (menghemat ~410 KB pada first load). Semua chunk tetap di-cache saat
   // pertama kali dibuka lewat runtime cache di bawah sehingga offline tetap bekerja.

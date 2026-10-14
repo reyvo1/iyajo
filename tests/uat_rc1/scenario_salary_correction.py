@@ -115,13 +115,4 @@ rev2=db("SELECT COUNT(*) n FROM transactions WHERE transactionKind='salary_rever
 check('repeated cancel does not post a second reversal',
       int(rev2[0]['n'])<=1,{'againStatus':again_st,'reversals':rev2})
 
-# Release the room. Every scenario in this job books one and CI only seeds a handful of
-# rooms, so a scenario that holds its booking starves the ones queued behind it. This
-# is the fix; adding rooms would only move the failure further down the queue.
-try:
-    if booking_id:
-        request('bookings-status','POST',{'id':booking_id,'status':'cancelled'},'rel_'+run)
-except Exception:
-    pass
-
 print('SALARY-CORRECTION-UAT',sum(1 for x in results if x['pass']),'/',len(results))
