@@ -85,6 +85,7 @@ checkPaymentConnector($route !== false && strpos($route, 'Secret webhook provide
 checkPaymentConnector($route !== false && strpos($route, "CHAR_LENGTH(COALESCE(webhook_secret_encrypted,'')) AS secret_length") !== false, 'provider readout exposes only a length, never the secret');
 checkPaymentConnector($route !== false && strpos($route, "case 'payment-provider-save':") !== false && strpos($route, "requireRoles(\$loggedInStaff,['admin']);\$code=strtolower") !== false, 'provider save stays admin-only');
 checkPaymentConnector($route !== false && strpos($route, "'payment-provider-list'=>['rooms','finance','config']") !== false, 'provider list is gated to real tabs');
+checkPaymentConnector($route !== false && strpos($route, 'tamasyaGrowthModuleEnabled(\'payment\')&&$canPaymentRead){$data[\'paymentProviders\']') !== false, 'provider rows follow the same payment read gate as intents, so Finance sees them too');
 
 // --- UI documents the authenticated contract
 $suite = file_get_contents($root . '/growth-suite.html');
