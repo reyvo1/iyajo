@@ -52,6 +52,11 @@ check('fixture has an internal room type and a free room',bool(internal_type) an
 
 s,b=request('growth-suite','POST',{'command':'channel-mapping-save','channelCode':CHANNEL,'externalRoomType':'DELUXE KING','internalRoomType':internal_type,'externalRatePlan':'','active':1},'cc_map_'+run)
 check('channel mapping for the vendor room type is saved',s==200 and b.get('success') is True,{'status':s,'body':str(b)[:200]})
+s,b=request('growth-suite','GET',{'command':'channel-provider-list'},'cc_list_'+run)
+listed={p['code']:p for p in (b.get('providers') or [])} if s==200 else {}
+check('channel provider list shows the registry without leaking secrets',s==200 and CHANNEL in listed and listed[CHANNEL].get('hasSecret') in (1,True,'1') and 'webhook_secret_encrypted' not in listed[CHANNEL],{'status':s,'providers':list(listed)})
+s,b=request('growth-suite','POST',{'command':'channel-event-register','channelCode':CHANNEL,'eventType':'reservation_created','externalId':'cc_manual_'+run,'payload':{'note':'manual entry'}},'cc_manualreg_'+run)
+check('manual channel event registration still records without acting',s==200 and b.get('success') is True and b.get('autoMutation') is False,{'status':s,'body':str(b)[:200]})
 mappings=db("SELECT id FROM growth_channel_mappings WHERE channel_code=? AND external_room_type='DELUXE KING'",[CHANNEL])
 check('exactly one mapping exists for the vendor room type',len(mappings)==1,{'mappings':mappings})
 

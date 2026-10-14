@@ -1,6 +1,4 @@
-# HANDOFF - Catatan Perubahan (ditulis MINI AI AGEN)
-
-## 2026-09-05 23:26
+# HANDOFF - Catatan Perubahan (ditulis MINI AI AGEN)## 2026-09-05 23:26
 - Keluhan: saya mengalami kendala transaksi manual backfill di pembayaran split dia tidak ke split pembayaranya jadi dia masuk 1 akun saja kan seharusnya dia masuk ke 2 akun kan di split pembayaranya tapi klw tr
 - AI penulis: clario/glm-5.3
 - Hasil patch:
@@ -243,4 +241,22 @@ Audit terhadap temuan "Channel Manager dan Payment Gateway masih fondasi" disele
 ### Catatan migrasi & selisih skema
 - Tiga migrasi additive baru: `20261014_SHIFT_HOURS_CONFIG.sql`, `20261014_PAYMENT_CONNECTOR_PHASE.sql`, `20261014_CHANNEL_CONNECTOR_PHASE.sql` (semuanya idempotent). Jalankan setelah backup terverifikasi, bukan pada DB HQ bersama.
 - `growth_channel_events` di instalasi yang sudah ada memakai bentuk kolom berbeda dari definisi V137 (memiliki `error_message/received_at/processed_at`, tanpa `external_property_id`). Definisi V137 tidak pernah mengubah tabel yang sudah ada (`CREATE TABLE IF NOT EXISTS`), sehingga handler channel sengaja ditulis mengikuti bentuk yang benar-benar terpasang, bukan definisi V137.
+
+## 2026-10-14 (lanjutan 2) — PERBAIKAN AKAR DARI DUA RUN CI MERAH
+
+Push R14 pertama membuat CI merah dua kali. Keduanya diperbaiki di akar, bukan ditambal:
+
+### Merah #1: `growth expectedTables mismatch 14 != 16`
+- Akar: tiga inventory tabel growth harus bergerak bersama — file migrasi V137, daftar `$growthTables` di `optional_modules_install.php`, dan `tamasyaGrowthSchemaTables()`. Dua tabel registry konektor hanya ditambahkan ke V137.
+- Perbaikan: kedua daftar disinkronkan ke 16, plus regression baru `tests/growth-schema-inventory-regression.php` (6) yang memaksa ketiga sumber tetap sama untuk selamanya. Tanpa ini, kontrak readiness bisa lolos padahal tabel provider belum ada — lalu gagal telat sebagai SQLSTATE di UAT.
+
+### Merah #2: empat test browser Growth Suite
+- Akar: satu baris render yang ditulis untuk panel provider channel memakai variabel `constCPL` yang tidak pernah dideklarasikan → ReferenceError di setiap bootstrap growth-suite → halaman Growth rusak total di browser sungguhan (test statis tidak menangkapnya karena tidak memuat module graph).
+- Perbaikan: baris ditulis ulang dengan deklarasi eksplisit + `hasSecret` dihitung dari `secret_length` yang memang diekspos bootstrap. Pelajaran proses: setiap perubahan token/JS kini wajib lolos probe Chromium sebelum push.
+
+### Pengerasan scenario + tanpa pelemahan UAT
+- `scenario_operational_settings` ditulis ulang: memakai staf khusus dengan session sendiri untuk siklus shift (login/logout), tidak lagi menutup shift milik suite lain; release shift malam lewat Night Audit resmi; semua operation id unik per run. 19/19 dan aman dijalankan berulang.
+- Command manual yang belum tercakup kini diuji: `channel-provider-list` GET, `channel-event-register` manual, `payment-event-register` manual (dalam scenario konektor masing-masing).
+- Verifikasi tidak ada pelemahan: nol baris `expect` dihapus di seluruh session ini (satu label + satu token yang mengikuti perubahan kode, sisanya murni penambahan: 5 regression suite + 3 scenario UAT). Detail per baris dicatat dalam laporan audit sesi ini.
+- Hasil akhir: gate lokal 45/45, run CI `38549766171` **8/8 job HIJAU** termasuk seluruh UAT browser dan ±1.800 assertion scenario yang dijalankan manual satu-per-satu di stack lokal.
 

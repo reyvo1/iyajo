@@ -109,6 +109,10 @@ check('a second distinct paid event cannot move a settled intent',s>=400 and b.g
 s,b=webhook({'intentId':intent_id,'providerEventId':'evt_'+run+'_refund','status':'refunded','amount':500000},provider='uat_gateway')
 check('a settled intent can be refunded by a verified event',s==200 and db("SELECT status FROM growth_payment_intents WHERE id=?",[intent_id])[0]['status']=='refunded',{'status':s,'body':str(b)[:200]})
 
+s,b=request('growth-suite','POST',{'command':'payment-event-register','intentId':intent_id,'status':'paid','amount':500000,'providerEventId':'evt_'+run+'_manual','payload':{'manual':True}},'pc_manualreg_'+run)
+check('manual payment event registration records unverified without posting money',s==200 and b.get('success') is True and b.get('financialMutation') is False and b.get('signatureVerification')=='not_implemented',{'status':s,'body':str(b)[:220]})
+check('manual registration amount is auditable as an event row',len(db("SELECT id FROM growth_payment_events WHERE intent_id=? AND provider_event_id=?",[intent_id,'evt_'+run+'_manual']))==1)
+
 # ---------------------------------------------------------------- inactive provider fails closed
 s,b=request('growth-suite','POST',{'command':'payment-provider-save','code':'uat_gateway','name':'UAT Gateway','webhookSecret':SECRET,'active':0},'pc_disable_'+run)
 check('provider can be deactivated by admin',s==200 and b.get('success') is True,{'status':s})

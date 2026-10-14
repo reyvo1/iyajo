@@ -1,6 +1,6 @@
 {
-  "base_release": "20261014-r14-shift-hours-connectors",
-  "base_codex_commit": "42a9649",
+  "base_release": "20261014-r14-final",
+  "base_codex_commit": "19b9dbe",
   "destination": "reyvo1/testamasya ONLY",
   "package_kind": "complete source + UAT for staging; NOT production hosting release",
   "patch_changes": [
@@ -17,19 +17,22 @@
     "api/routes/090_operations_communications.php",
     "api/routes/110_growth_suite.php",
     "api/modules/growth_enterprise_locked/105_growth_suite.php",
+    "optional_modules_install.php",
     "assets/chunks/operations.js",
     "assets/growth-suite.js",
     "growth-suite.html",
     "tests/shift-hours-config-regression.php",
     "tests/payment-connector-webhook-regression.php",
     "tests/channel-connector-webhook-regression.php",
+    "tests/growth-schema-inventory-regression.php",
     "tests/uat_rc1/scenario_operational_settings.py",
     "tests/uat_rc1/scenario_payment_connector.py",
     "tests/uat_rc1/scenario_channel_connector.py",
+    "tests/uat_rc1/browser/rc1-ui.spec.mjs",
     "FILE_CHECKSUMS.sha256"
   ],
-  "source_test_suite_local": "44/44 source suites PASS under PHP 8.5.4; new connector guards 38+42+30 checks",
+  "source_test_suite_local": "45/45 source suites PASS under PHP 8.5.4; connector guards 38+42+30+6 checks; 52/52 browser spec",
   "production_db_mutated": false,
-  "github_umat_after_new_fix": "PENDING - this R14 build awaits its CI run; run the three new migrations after a verified backup",
+  "github_umat_after_new_fix": "GREEN - run 38549766171, 8/8 jobs on 2026-10-14; run the three new migrations after a verified backup",
   "staging_server_deployment": "PENDING"
 }
