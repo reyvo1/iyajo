@@ -121,12 +121,22 @@ CREATE TABLE IF NOT EXISTS growth_channel_mappings (
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS growth_channel_events (
-        id VARCHAR(100) PRIMARY KEY, channel_code VARCHAR(50) NOT NULL, event_type VARCHAR(80) NOT NULL,
+        id VARCHAR(100) PRIMARY KEY, channel_code VARCHAR(50) NOT NULL, event_type VARCHAR(60) NOT NULL,
         external_id VARCHAR(190) NULL, operation_id VARCHAR(100) NULL, status VARCHAR(30) NOT NULL DEFAULT 'registered',
-        payload_hash CHAR(64) NOT NULL, error_message VARCHAR(500) NULL, received_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        processed_at DATETIME NULL, created_by VARCHAR(50) NULL,
-        UNIQUE KEY uq_growth_channel_operation(operation_id), INDEX idx_growth_channel_event(channel_code,status,received_at),
-        INDEX idx_growth_channel_external(channel_code,external_id)
+        payload_hash CHAR(64) NOT NULL, external_property_id VARCHAR(100) NULL, created_by VARCHAR(50) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_growth_channel_operation(operation_id), INDEX idx_growth_channel_external(channel_code,external_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- R14.3 channel connector phase: provider registry with an encrypted webhook secret.
+-- The secret is only ever decrypted to verify an inbound HMAC. A provider without a
+-- secret, or an inactive one, can never authenticate a webhook.
+CREATE TABLE IF NOT EXISTS growth_channel_providers (
+        id VARCHAR(100) PRIMARY KEY, code VARCHAR(50) NOT NULL, name VARCHAR(150) NOT NULL,
+        webhook_secret_encrypted TEXT NULL, signature_mode VARCHAR(20) NOT NULL DEFAULT 'hmac_sha256',
+        active TINYINT(1) NOT NULL DEFAULT 1, created_by VARCHAR(50) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_growth_channel_provider_code(code), INDEX idx_growth_channel_provider_active(active)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS growth_payment_intents (
@@ -147,6 +157,17 @@ CREATE TABLE IF NOT EXISTS growth_payment_events (
         UNIQUE KEY uq_growth_payment_provider_event(provider_event_id), INDEX idx_growth_payment_event_intent(intent_id,created_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- R14.2 payment connector phase: provider registry with an encrypted webhook secret.
+-- The secret is only ever decrypted to verify an inbound HMAC. A provider is inactive
+-- until its secret is set, so a row without a secret can never authenticate a webhook.
+CREATE TABLE IF NOT EXISTS growth_payment_providers (
+        id VARCHAR(100) PRIMARY KEY, code VARCHAR(50) NOT NULL, name VARCHAR(150) NOT NULL,
+        webhook_secret_encrypted TEXT NULL, signature_mode VARCHAR(20) NOT NULL DEFAULT 'hmac_sha256',
+        active TINYINT(1) NOT NULL DEFAULT 1, created_by VARCHAR(50) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_growth_payment_provider_code(code), INDEX idx_growth_payment_provider_active(active)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 INSERT INTO schema_migrations(version,description,applied_at) VALUES ('2026.08.10.v137-optional-growth-suite.1','Optional additive Growth Suite tables; core schema and property data unchanged',CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE description=VALUES(description);
 
 -- Jaminan ganda: samakan collation semua tabel modul ini dengan core tables.
@@ -162,5 +183,6 @@ ALTER TABLE `growth_purchase_order_items` CONVERT TO CHARACTER SET utf8mb4 COLLA
 ALTER TABLE `growth_purchase_order_payments` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 ALTER TABLE `growth_channel_mappings` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 ALTER TABLE `growth_channel_events` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
+ALTER TABLE `growth_channel_providers` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 ALTER TABLE `growth_payment_intents` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;
 ALTER TABLE `growth_payment_events` CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci;

@@ -269,8 +269,10 @@ switch ($action) {
                 if(!is_numeric($openingInput)||!is_finite((float)$openingInput)||(float)$openingInput<0)throw new InvalidArgumentException('Kas awal wajib angka valid dan tidak negatif.');
                 $opening=round((float)$openingInput,2);
                 $companionStaffId=trim((string)($input['companionStaffId']??''));
-                $defaultShiftTime=(int)date('G')>=7 && (int)date('G')<15 ? 'pagi' : ((int)date('G')>=15 && (int)date('G')<23 ? 'siang' : 'malam');
-                $shiftTime=trim((string)($input['shiftTime']??$defaultShiftTime));
+                // Slot default mengikuti batas jam shift yang dapat diatur properti
+                // (R14.1); nilai eksplisit dari klien divalidasi seperti biasa.
+                $requestedSlot=trim((string)($input['shiftTime']??''));
+                $shiftTime=$requestedSlot!==''?$requestedSlot:tamasyaDefaultShiftSlotForNow($pdo);
                 if(!in_array($shiftTime,['pagi','siang','malam','all'],true)) throw new InvalidArgumentException('Jadwal shift tidak valid.');
                 $pdo->beginTransaction();
                 $primaryLock=$pdo->prepare("SELECT id FROM staff WHERE id=? LIMIT 1 FOR UPDATE");$primaryLock->execute([(string)$loggedInStaff['id']]);
@@ -1246,6 +1248,17 @@ switch ($action) {
                 };
                 $checkinTime=$timeValue($input,'checkinTime',(string)($before['checkin_time']??'14:00:00'),'Jam check-in');
                 $checkoutTime=$timeValue($input,'checkoutTime',(string)($before['checkout_time']??'12:00:00'),'Jam checkout');
+                // R14.1: batas slot shift harus menutup 24 jam tanpa celah/tumpang
+                // tindih (pagi=day..siang, siang=siang..malam, malam=malam..day).
+                $shiftDayStart=$timeValue($input,'shiftDayStart',(string)($before['shift_day_start']??'07:00:00'),'Jam mulai shift pagi');
+                $shiftSiangStart=$timeValue($input,'shiftSiangStart',(string)($before['shift_siang_start']??'15:00:00'),'Jam mulai shift siang');
+                $shiftMalamStart=$timeValue($input,'shiftMalamStart',(string)($before['shift_malam_start']??'23:00:00'),'Jam mulai shift malam');
+                $boundaries=tamasyaShiftBoundariesMinutes(['shift_day_start'=>$shiftDayStart,'shift_siang_start'=>$shiftSiangStart,'shift_malam_start'=>$shiftMalamStart]);
+                $requestedMinutes=static function(string $hhmmss): int {
+                    preg_match('/^(\d{1,2}):([0-5]\d)/',trim($hhmmss),$m);
+                    return ((int)$m[1])*60+(int)$m[2];
+                };
+                if(!($requestedMinutes($shiftDayStart)<$requestedMinutes($shiftSiangStart) && $requestedMinutes($shiftSiangStart)<$requestedMinutes($shiftMalamStart)))throw new InvalidArgumentException('Urutan jam shift wajib pagi < siang < malam agar menutup 24 jam tanpa celah.');
                 $checkoutReminderMinutes=$intValue($input,'checkoutReminderMinutes',(int)($before['checkout_reminder_minutes']??30),0,180);
                 $lateGraceMinutes=$intValue($input,'lateGraceMinutes',(int)($before['late_grace_minutes']??60),0,360);
                 $allowEarlyCheckin=$boolValue($input,'allowEarlyCheckin',(int)($before['allow_early_checkin']??1));
@@ -1261,8 +1274,8 @@ switch ($action) {
                 $storedToken=$before['smart_lock_bridge_token']??null;
                 if($tokenInput!=='' && $tokenInput!=='[TERSIMPAN]')$storedToken=encryptStoredSecret($tokenInput);
                 $smartLockBridgeTimeout=$intValue($input,'smartLockBridgeTimeout',(int)($before['smart_lock_bridge_timeout']??8),3,30);
-                $pdo->prepare("UPDATE hotel_operational_settings SET checkin_time=?,checkout_time=?,checkout_reminder_minutes=?,late_grace_minutes=?,allow_early_checkin=?,require_open_shift_for_sale=?,require_key_control=?,require_payment_before_key_issue=?,require_night_audit_for_night_shift=?,cash_variance_tolerance=?,smart_lock_bridge_url=?,smart_lock_bridge_token=?,smart_lock_bridge_timeout=?,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE id='system_default'")
-                    ->execute([$checkinTime,$checkoutTime,$checkoutReminderMinutes,$lateGraceMinutes,$allowEarlyCheckin,$requireOpenShiftForSale,$requireKeyControl,$requirePaymentBeforeKeyIssue,$requireNightAuditForNightShift,$cashVarianceTolerance,$bridgeUrl?:null,$storedToken,$smartLockBridgeTimeout,$loggedInStaff['id']]);
+                $pdo->prepare("UPDATE hotel_operational_settings SET checkin_time=?,checkout_time=?,shift_day_start=?,shift_siang_start=?,shift_malam_start=?,checkout_reminder_minutes=?,late_grace_minutes=?,allow_early_checkin=?,require_open_shift_for_sale=?,require_key_control=?,require_payment_before_key_issue=?,require_night_audit_for_night_shift=?,cash_variance_tolerance=?,smart_lock_bridge_url=?,smart_lock_bridge_token=?,smart_lock_bridge_timeout=?,updated_by=?,updated_at=CURRENT_TIMESTAMP WHERE id='system_default'")
+                    ->execute([$checkinTime,$checkoutTime,$shiftDayStart,$shiftSiangStart,$shiftMalamStart,$checkoutReminderMinutes,$lateGraceMinutes,$allowEarlyCheckin,$requireOpenShiftForSale,$requireKeyControl,$requirePaymentBeforeKeyIssue,$requireNightAuditForNightShift,$cashVarianceTolerance,$bridgeUrl?:null,$storedToken,$smartLockBridgeTimeout,$loggedInStaff['id']]);
                 $afterStmt=$pdo->query("SELECT * FROM hotel_operational_settings WHERE id='system_default'");$after=$afterStmt->fetch(PDO::FETCH_ASSOC)?:[];
                 if($before)$before['smart_lock_bridge_token']=empty($before['smart_lock_bridge_token'])?null:'[REDACTED]';
                 if($after)$after['smart_lock_bridge_token']=empty($after['smart_lock_bridge_token'])?null:'[REDACTED]';
@@ -1482,11 +1495,15 @@ switch ($action) {
                 }
                 if(!$openShift && ($loggedInStaff['role']??'')!=='keamanan')$openShift=getOpenShiftForStaff($pdo,(string)$loggedInStaff['id'],true);
                 if(!$openShift){
-                    $q=$pdo->query("SELECT * FROM shift_sessions WHERE status='open' AND (LOWER(COALESCE(shift_time,'')) IN ('malam','all') OR ((shift_time IS NULL OR shift_time='') AND (HOUR(opened_at)>=18 OR HOUR(opened_at)<=5))) ORDER BY opened_at DESC LIMIT 1 FOR UPDATE");
+                    // Baris lama tanpa shift_time diklasifikasikan dengan batas jam
+                    // shift yang dapat diatur properti, bukan pagar 18:00-05:00 mati.
+                    $boundaries=tamasyaShiftBoundariesMinutes(getOperationalSettings($pdo));
+                    $q=$pdo->prepare("SELECT * FROM shift_sessions WHERE status='open' AND (LOWER(COALESCE(shift_time,'')) IN ('malam','all') OR ((shift_time IS NULL OR shift_time='') AND (HOUR(opened_at)*60+MINUTE(opened_at)>=? OR HOUR(opened_at)*60+MINUTE(opened_at)<?))) ORDER BY opened_at DESC LIMIT 1 FOR UPDATE");
+                    $q->execute([$boundaries['malam_start'],$boundaries['day_start']]);
                     $openShift=$q->fetch(PDO::FETCH_ASSOC)?:null;
                 }
                 if(!$openShift)throw new RuntimeException('Tidak ada shift malam terbuka yang dapat dikaitkan dengan Night Audit.');
-                if(!isNightShiftRow($openShift))throw new RuntimeException('Night Audit hanya dapat dikaitkan dengan shift Malam atau Satu Hari Penuh.');
+                if(!isNightShiftRow($openShift,tamasyaShiftBoundariesMinutes(getOperationalSettings($pdo))))throw new RuntimeException('Night Audit hanya dapat dikaitkan dengan shift Malam atau Satu Hari Penuh.');
 
                 $existing=$pdo->prepare("SELECT * FROM night_audit_runs WHERE shift_session_id=? ORDER BY started_at DESC LIMIT 1 FOR UPDATE");
                 $existing->execute([$openShift['id']]);$latest=$existing->fetch(PDO::FETCH_ASSOC)?:null;

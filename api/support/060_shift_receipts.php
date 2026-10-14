@@ -184,7 +184,7 @@ function claimUnassignedLiveTransactionsForShift(PDO $pdo, array $shift): int {
 }
 
 function assertShiftNightAuditReady(PDO $pdo, array $shift, array $settings): void {
-    if(!tamasyaNightAuditIsEnabled($settings) || (int)($settings['require_night_audit_for_night_shift']??1)!==1 || !isNightShiftRow($shift))return;
+    if(!tamasyaNightAuditIsEnabled($settings) || (int)($settings['require_night_audit_for_night_shift']??1)!==1 || !isNightShiftRow($shift,tamasyaShiftBoundariesMinutes($settings)))return;
     $auditStmt=$pdo->prepare("SELECT * FROM night_audit_runs WHERE shift_session_id=? AND status='completed' ORDER BY completed_at DESC LIMIT 1");
     $auditStmt->execute([(string)$shift['id']]);
     $nightAudit=$auditStmt->fetch(PDO::FETCH_ASSOC);
@@ -789,3 +789,42 @@ function renderBookingConfirmation($pdo, $loggedInStaff) {
     ];
 }
 
+
+/**
+ * Batas jam shift yang dapat diatur properti (R14.1).
+ *
+ * Pagi = [day_start, siang_start), siang = [siang_start, malam_start),
+ * malam = [malam_start, day_start) melewati tengah malam. Default mempertahankan
+ * perilaku historis (07:00 / 15:00 / 23:00) sehingga baris shift lama tidak
+ * berubah arti. Nilai rusak/tidak berurutan gagal-amann ke default, bukan ke
+ * slot acak: klasifikasi shift menentukan gerbang Night Audit.
+ */
+function tamasyaShiftBoundariesMinutes(array $settings): array {
+    $parse=static function(string $raw,int $fallback): int {
+        if(!preg_match('/^(\d{1,2}):([0-5]\d)(?::([0-5]\d))?$/',trim($raw),$m))return $fallback;
+        $hour=(int)$m[1];$minute=(int)$m[2];
+        if($hour>23||$minute>59)return $fallback;
+        return $hour*60+$minute;
+    };
+    $day=$parse((string)($settings['shift_day_start']??'07:00:00'),7*60);
+    $siang=$parse((string)($settings['shift_siang_start']??'15:00:00'),15*60);
+    $malam=$parse((string)($settings['shift_malam_start']??'23:00:00'),23*60);
+    if(!($day<$siang && $siang<$malam)){
+        return ['day_start'=>7*60,'siang_start'=>15*60,'malam_start'=>23*60];
+    }
+    return ['day_start'=>$day,'siang_start'=>$siang,'malam_start'=>$malam];
+}
+
+/** Slot shift untuk menit-dalam-hari tertentu menurut batas yang dapat diatur. */
+function tamasyaShiftSlotForMinutes(array $settings,int $minuteOfDay): string {
+    $b=tamasyaShiftBoundariesMinutes($settings);
+    if($minuteOfDay>=$b['malam_start']||$minuteOfDay<$b['day_start'])return 'malam';
+    if($minuteOfDay>=$b['siang_start'])return 'siang';
+    return 'pagi';
+}
+
+/** Slot default menurut jam server properti; dipakai web maupun telegram API. */
+function tamasyaDefaultShiftSlotForNow(PDO $pdo,?int $timestamp=null): string {
+    $timestamp=$timestamp??time();
+    return tamasyaShiftSlotForMinutes(getOperationalSettings($pdo),(int)date('G',(int)$timestamp)*60+(int)date('i',(int)$timestamp));
+}

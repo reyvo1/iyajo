@@ -1,9 +1,199 @@
 <?php
 /** Optional TAMASYA Growth Suite route. Disabled by default. */
 if (!defined('TAMASYA_API_ENTRY')) { http_response_code(404); exit; }
+
+// R14.2 payment connector phase. Verified provider webhooks are public (providers
+// are authenticated by their own HMAC, not a staff session) and never post money:
+// they only move an intent to a provider-reported status and record the event.
+// Everything after that still goes through the canonical settlement flow.
+if ((string)($action ?? '') === 'growth-payment-webhook') {
+    $routeHandled=true;
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') { http_response_code(405); echo tamasyaJsonEncode(['success'=>false,'error'=>'Method Not Allowed']); exit; }
+    try {
+        if(!tamasyaGrowthModuleEnabled('payment')){ http_response_code(404); echo tamasyaJsonEncode(['success'=>false,'error'=>'Modul payment foundation tidak aktif.']); exit; }
+        if(tamasyaGrowthModuleNeedsSchema('payment') && !tamasyaGrowthSchemaReady($pdo)){ http_response_code(404); echo tamasyaJsonEncode(['success'=>false,'error'=>'Schema Growth Suite belum terpasang.']); exit; }
+        $providerCodeHeader=trim((string)($_SERVER['HTTP_X_TAMASYA_PROVIDER']??''));
+        $rateKey='growth-payment-webhook:'.strtolower($providerCodeHeader).':'.(string)($_SERVER['REMOTE_ADDR']??'unknown');
+        if(!enforceRateLimit($pdo,$rateKey,120,60,600)){ http_response_code(429); echo tamasyaJsonEncode(['success'=>false,'error'=>'Terlalu banyak webhook. Coba lagi nanti.']); exit; }
+        // Autentikasi gagal selalu 401, apa pun penyebabnya, agar penyerang tidak
+        // bisa membedakan provider tak dikenal, tanda tangan salah, dan timestamp lama.
+        try{
+            $provider=tamasyaPaymentWebhookAuthenticate($pdo,(string)($rawRequestBody??''));
+        }catch(Throwable $authFailure){
+            http_response_code(401);
+            echo tamasyaJsonEncode(['success'=>false,'error'=>'Webhook pembayaran ditolak.']);
+            exit;
+        }
+        $intentId=trim((string)($input['intentId']??''));
+        $providerEventId=trim((string)($input['providerEventId']??''));
+        $providerStatus=trim((string)($input['status']??''));
+        $amount=round((float)($input['amount']??0),2);
+        $payload=$input['payload']??[];
+        $eventAt=trim((string)($input['eventAt']??''));
+        if($intentId===''||$providerStatus==='')throw new InvalidArgumentException('intentId dan status provider wajib.');
+        if($providerEventId!=='' && !preg_match('/^[A-Za-z0-9._:-]{4,190}$/',$providerEventId))throw new InvalidArgumentException('providerEventId tidak valid.');
+        if($eventAt!=='' && strtotime($eventAt)===false)throw new InvalidArgumentException('eventAt tidak valid.');
+        $intentStatus=tamasyaPaymentProviderStatusMap($providerStatus);
+        if($intentStatus===null)throw new InvalidArgumentException('Status provider tidak dikenal: '.$providerStatus.'.');
+        $pdo->beginTransaction();
+        $intentS=$pdo->prepare("SELECT * FROM growth_payment_intents WHERE id=? LIMIT 1 FOR UPDATE");
+        $intentS->execute([$intentId]);
+        $intent=$intentS->fetch(PDO::FETCH_ASSOC)?:null;
+        if(!$intent)throw new RuntimeException('Payment intent tidak ditemukan.');
+        if(strtolower((string)$intent['provider_code'])!==strtolower((string)$provider['code']))throw new RuntimeException('Provider webhook tidak sesuai dengan intent.');
+        if($providerEventId!==''){
+            $dupS=$pdo->prepare("SELECT * FROM growth_payment_events WHERE provider_event_id=? LIMIT 1 FOR UPDATE");
+            $dupS->execute([$providerEventId]);
+            $existing=$dupS->fetch(PDO::FETCH_ASSOC);
+            if($existing){
+                $freshIntent=$pdo->prepare("SELECT * FROM growth_payment_intents WHERE id=? LIMIT 1");
+                $freshIntent->execute([$intentId]);
+                tamasyaFinancialCommit($pdo);
+                echo tamasyaJsonEncode(['success'=>true,'duplicate'=>true,'data'=>$existing,'intent'=>$freshIntent->fetch(PDO::FETCH_ASSOC)?:null,'financialMutation'=>false]);
+                exit;
+            }
+        }
+        if(!tamasyaPaymentIntentTransitionAllowed((string)$intent['status'],$intentStatus)){
+            throw new DomainException('Intent berstatus '.(string)$intent['status'].' tidak dapat dipindah ke '.$intentStatus.'.');
+        }
+        $eventId=tamasyaGrowthId('pev');
+        $pdo->prepare("INSERT INTO growth_payment_events(id,intent_id,provider_event_id,status,amount,payload_hash,signature_valid,event_at) VALUES (?,?,?,?,?,?,1,?)")
+            ->execute([$eventId,$intentId,$providerEventId!==''?$providerEventId:null,$intentStatus,$amount,hash('sha256',tamasyaJsonEncode($payload)),$eventAt!==''?$eventAt:null]);
+        $pdo->prepare("UPDATE growth_payment_intents SET status=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$intentStatus,$intentId]);
+        $afterIntentS=$pdo->prepare("SELECT * FROM growth_payment_intents WHERE id=? LIMIT 1");
+        $afterIntentS->execute([$intentId]);
+        $afterIntent=$afterIntentS->fetch(PDO::FETCH_ASSOC)?:[];
+        writeRequiredEnterpriseAudit($pdo,['id'=>'provider:'.(string)$provider['code'],'name'=>(string)$provider['name'],'role'=>'system'], 'Webhook pembayaran provider terverifikasi','growth_payment_intent',$intentId,['status'=>(string)$intent['status'],'intent'=>$intent],['status'=>$intentStatus,'intent'=>$afterIntent],'payment-provider');
+        bumpServerRevision($pdo);
+        tamasyaFinancialCommit($pdo);
+        echo tamasyaJsonEncode([
+            'success'=>true,'financialMutation'=>false,'intentId'=>$intentId,'intentStatus'=>$intentStatus,
+            'nextAction'=>'settle_canonical_payment',
+            'note'=>'Uang belum diposting. Lakukan pelunasan melalui alur pembayaran canonical setelah verifikasi laporan provider.',
+        ]);
+    }catch(Throwable $e){
+        if(isset($pdo) && $pdo->inTransaction())$pdo->rollBack();
+        tamasyaApplyExceptionHttpStatus($e,422);
+        echo tamasyaJsonEncode(['success'=>false,'error'=>clientExceptionMessage('Webhook pembayaran ditolak',$e)]);
+    }
+    exit;
+}
+
+// R14.3 channel connector phase. A verified vendor reservation creates a RESERVED
+// draft through the canonical booking workflow. It never posts money, never checks
+// a guest in, and never invents a room: an unmapped room type is recorded for a
+// human instead of being guessed.
+if ((string)($action ?? '') === 'growth-channel-webhook') {
+    $routeHandled=true;
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') { http_response_code(405); echo tamasyaJsonEncode(['success'=>false,'error'=>'Method Not Allowed']); exit; }
+    try {
+        if(!tamasyaGrowthModuleEnabled('channel')){ http_response_code(404); echo tamasyaJsonEncode(['success'=>false,'error'=>'Modul channel foundation tidak aktif.']); exit; }
+        if(tamasyaGrowthModuleNeedsSchema('channel') && !tamasyaGrowthSchemaReady($pdo)){ http_response_code(404); echo tamasyaJsonEncode(['success'=>false,'error'=>'Schema Growth Suite belum terpasang.']); exit; }
+        $channelCodeHeader=trim((string)($_SERVER['HTTP_X_TAMASYA_PROVIDER']??''));
+        $rateKey='growth-channel-webhook:'.strtolower($channelCodeHeader).':'.(string)($_SERVER['REMOTE_ADDR']??'unknown');
+        if(!enforceRateLimit($pdo,$rateKey,120,60,600)){ http_response_code(429); echo tamasyaJsonEncode(['success'=>false,'error'=>'Terlalu banyak webhook. Coba lagi nanti.']); exit; }
+        // Authentication failures are always 401 with one fixed message, so the
+        // endpoint cannot be used to probe which providers exist.
+        try{
+            $provider=tamasyaChannelWebhookAuthenticate($pdo,(string)($rawRequestBody??''));
+        }catch(Throwable $authFailure){
+            http_response_code(401);
+            echo tamasyaJsonEncode(['success'=>false,'error'=>'Webhook channel ditolak.']);
+            exit;
+        }
+        $channelCode=(string)$provider['code'];
+        $webhookFetchAll=static function(PDO $pdo,string $sql,array $args=[]): array {$s=$pdo->prepare($sql);$s->execute($args);return $s->fetchAll(PDO::FETCH_ASSOC)?:[];};
+        $webhookFetchOne=static function(PDO $pdo,string $sql,array $args=[]): ?array {$s=$pdo->prepare($sql);$s->execute($args);return $s->fetch(PDO::FETCH_ASSOC)?:null;};
+        $eventType=trim((string)($input['eventType']??''));
+        $externalId=trim((string)($input['externalId']??''));
+        $externalPropertyId=trim((string)($input['externalPropertyId']??''));
+        $payload=$input['payload']??[];
+        $payloadHash=hash('sha256',tamasyaJsonEncode($payload));
+        if($eventType===''||$externalId==='')throw new InvalidArgumentException('eventType dan externalId wajib.');
+        if(!preg_match('/^[A-Za-z0-9._:-]{4,190}$/',$externalId))throw new InvalidArgumentException('externalId tidak valid.');
+        if(!tamasyaChannelEventTypeSupported($eventType))throw new InvalidArgumentException('Jenis event channel belum didukung: '.$eventType.'.');
+        $pdo->beginTransaction();
+        try{
+            // A vendor retry of the same reservation must never create a second draft.
+            $dupS=$pdo->prepare("SELECT * FROM growth_channel_events WHERE channel_code=? AND external_id=? LIMIT 1 FOR UPDATE");
+            $dupS->execute([$channelCode,$externalId]);
+            $existingEvent=$dupS->fetch(PDO::FETCH_ASSOC);
+            if($existingEvent && (string)$existingEvent['status']==='applied'){
+                $bookingRow=$webhookFetchOne($pdo,"SELECT id,roomNumber,checkIn,checkOut,totalAmount,status FROM bookings WHERE id=? LIMIT 1",[(string)$existingEvent['id']]);
+                tamasyaFinancialCommit($pdo);
+                echo tamasyaJsonEncode(['success'=>true,'duplicate'=>true,'created'=>false,'event'=>$existingEvent,'booking'=>$bookingRow,'financialMutation'=>false]);
+                exit;
+            }
+            $externalRoomType=trim((string)($payload['externalRoomType']??''));
+            $externalRatePlan=trim((string)($payload['externalRatePlan']??''));
+            $mapping=tamasyaChannelReservationMapping($pdo,$channelCode,$externalRoomType,$externalRatePlan,$externalPropertyId);
+            $eventId=tamasyaGrowthId('chev');
+            if(!$mapping){
+                // Recorded for a human: the vendor is answered, nothing is invented.
+                $pdo->prepare("INSERT INTO growth_channel_events(id,channel_code,event_type,external_id,operation_id,status,payload_hash,created_by) VALUES (?,?,?,?,?,'unmapped',?,?)")
+                    ->execute([$eventId,$channelCode,$eventType,$externalId,'chevt_'.$eventId,$payloadHash,(string)$provider['id']]);
+                tamasyaGrowthAudit($pdo,['id'=>'system-channel-'.$channelCode,'name'=>'Channel Manager '.$channelCode,'role'=>'system'],'Event channel tanpa mapping tipe kamar disimpan untuk penanganan staf','growth_channel_event',$eventId,null,['channel'=>$channelCode,'externalId'=>$externalId,'externalRoomType'=>$externalRoomType]);
+                tamasyaFinancialCommit($pdo);
+                echo tamasyaJsonEncode(['success'=>true,'created'=>false,'reason'=>'unmapped','eventId'=>$eventId,'financialMutation'=>false,
+                    'note'=>'Tipe kamar vendor belum dipetakan. Reservation dicatat untuk pembuatan draft oleh staf.']);
+                exit;
+            }
+            $internalRoomType=trim((string)$mapping['internal_room_type']);
+            $ratePlanId=trim((string)($mapping['internal_rate_plan_id']??''));
+            $rooms=$webhookFetchAll($pdo,"SELECT number FROM rooms r WHERE r.type=? AND r.status='available' AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.roomNumber=r.number AND b.status IN ('reserved','active') AND b.checkIn<? AND b.checkOut>?) ORDER BY CAST(r.number AS UNSIGNED),r.number LIMIT 1",
+                [$internalRoomType,(string)($payload['checkIn']??'9999-12-31'),(string)($payload['checkOut']??'0000-01-01')]);
+            $checkIn=trim((string)($payload['checkIn']??''));
+            $checkOut=trim((string)($payload['checkOut']??''));
+            $guestName=trim((string)($payload['guestName']??''));
+            if($checkIn===''||$checkOut===''||$guestName==='')throw new InvalidArgumentException('checkIn, checkOut dan guestName wajib.');
+            if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$checkIn)||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$checkOut)||$checkOut<=$checkIn)throw new InvalidArgumentException('Tanggal reservasi tidak valid.');
+            if(!$rooms)throw new InvalidArgumentException('Tidak ada kamar '+internalRoomType.' yang tersedia untuk tanggal tersebut.');
+            $rateAmount=round((float)($payload['amount']??0),2);
+            if($ratePlanId!==''){
+                $planS=$pdo->prepare("SELECT base_rate,min_rate,max_rate,active FROM growth_rate_plans WHERE id=? LIMIT 1");
+                $planS->execute([$ratePlanId]);
+                $plan=$planS->fetch(PDO::FETCH_ASSOC)?:null;
+                if(!$plan||(int)$plan['active']!==1)throw new InvalidArgumentException('Rate plan mapping tidak aktif.');
+                $nights=max(1,(int)round((strtotime($checkOut)-strtotime($checkIn))/86400));
+                $base=round((float)$plan['base_rate'],2);
+                $minRate=round((float)$plan['min_rate'],2);
+                $maxRate=round((float)$plan['max_rate'],2);
+                $fromRate=$rateAmount>0?$rateAmount:$base;
+                if($fromRate<$minRate-0.01||($maxRate>0&&$fromRate>$maxRate+0.01))throw new InvalidArgumentException('Tarif vendor di luar batas rate plan mapping.');
+                $rateAmount=round($fromRate*$nights,2);
+            }
+            if($rateAmount<=0)throw new InvalidArgumentException('Nominal reservasi vendor wajib positif atau dipetakan dari rate plan.');
+            $bookingSource=in_array(strtolower($channelCode),array_map('strtolower',tamasyaKnownOtaSourceAliases()),true)?$channelCode:'ota-'.$channelCode;
+            $systemActor=['id'=>'system-channel-'.$channelCode,'name'=>'Channel Manager '.$channelCode,'role'=>'system'];
+            $bookingPayload=[
+                'guestName'=>$guestName,'guestEmail'=>trim((string)($payload['guestEmail']??'')),'guestPhone'=>trim((string)($payload['guestPhone']??'')),
+                'roomNumber'=>(string)$rooms[0]['number'],'roomType'=>$internalRoomType,'checkIn'=>$checkIn,'checkOut'=>$checkOut,
+                'totalAmount'=>$rateAmount,'paymentStatus'=>'unpaid','bookingSource'=>$bookingSource,
+                'lifecycleIntent'=>'reserve','broadcast'=>false,
+            ];
+            $bookingResult=createCanonicalBookingWorkflow($pdo,$systemActor,$bookingPayload,'provider','channel_'.hash('sha256',$channelCode.'|'.$externalId),true);
+            $pdo->prepare("INSERT INTO growth_channel_events(id,channel_code,event_type,external_id,operation_id,status,payload_hash,created_by) VALUES (?,?,?,?,?,'applied',?,?)")
+                ->execute([$eventId,$channelCode,$eventType,$externalId,'chevt_'.$eventId,$payloadHash,(string)$provider['id']]);
+            $afterBooking=$webhookFetchOne($pdo,"SELECT id,roomNumber,roomType,checkIn,checkOut,totalAmount,status,paymentStatus,bookingSource FROM bookings WHERE id=? LIMIT 1",[(string)($bookingResult['bookingId']??'')]);
+            tamasyaGrowthAudit($pdo,$systemActor,'Webhook channel terverifikasi membuat draft reservasi','growth_channel_event',$eventId,null,['channel'=>$channelCode,'externalId'=>$externalId,'booking'=>$afterBooking]);
+            bumpServerRevision($pdo);
+            tamasyaFinancialCommit($pdo);
+            echo tamasyaJsonEncode(['success'=>true,'created'=>true,'financialMutation'=>false,'eventId'=>$eventId,'bookingId'=>(string)($bookingResult['bookingId']??''),'booking'=>$afterBooking,
+                'note'=>'Draft RESERVED dibuat. Tidak ada uang masuk dan tamu belum check-in.']);
+        }catch(Throwable $e){
+            if($pdo->inTransaction())$pdo->rollBack();
+            throw $e;
+        }
+    }catch(Throwable $e){
+        if(isset($pdo) && $pdo->inTransaction())$pdo->rollBack();
+        tamasyaApplyExceptionHttpStatus($e,422);
+        echo tamasyaJsonEncode(['success'=>false,'error'=>clientExceptionMessage('Webhook channel ditolak',$e)]);
+    }
+    exit;
+}
+
 if ((string)($action ?? '') !== 'growth-suite') return;
 $routeHandled=true;
-
 $method=strtoupper((string)($_SERVER['REQUEST_METHOD']??'GET'));
 // Keep Owner read-only even when this route is invoked outside the main dispatcher.
 tamasyaEnforceOwnerReadOnly($loggedInStaff, (string)$action);
@@ -43,6 +233,8 @@ $commandTabs=[
     'channel-mapping-save'=>['rooms','operations','config'],
     'channel-event-register'=>['operations','config'],
     'payment-intent-create'=>['rooms','finance'],
+    'payment-provider-list'=>['rooms','finance','config'],
+    'channel-provider-list'=>['rooms','operations','config'],
     'payment-event-register'=>['finance','config'],
     'payment-link-transaction'=>['finance'],
 ];
@@ -77,12 +269,27 @@ try {
                 if(tamasyaGrowthModuleEnabled('procurement')&&$canProcurementRead){$data['vendors']=$fetchAll($pdo,"SELECT id,code,name,payment_terms_days,status,version FROM growth_vendors ORDER BY status,name LIMIT 1000");$data['purchaseOrders']=$fetchAll($pdo,"SELECT po.id,po.po_number,po.vendor_id,po.order_date,po.expected_date,po.status,po.subtotal,po.tax_amount,po.total_amount,po.currency,po.version,v.name AS vendor_name,COALESCE((SELECT SUM(p.amount_applied) FROM growth_purchase_order_payments p WHERE p.po_id=po.id),0) AS paid_amount FROM growth_purchase_orders po JOIN growth_vendors v ON v.id=po.vendor_id ORDER BY po.order_date DESC,po.id DESC LIMIT 1500");}
                 if(tamasyaGrowthModuleEnabled('channel')&&$canChannelRead){$data['channelMappings']=$fetchAll($pdo,"SELECT id,channel_code,external_property_id,external_room_type,internal_room_type,external_rate_plan,internal_rate_plan_id,active,version FROM growth_channel_mappings ORDER BY channel_code,external_room_type LIMIT 2000");}
                 if(tamasyaGrowthModuleEnabled('payment')&&$canPaymentRead){$data['paymentIntents']=$fetchAll($pdo,"SELECT pi.id,pi.booking_id,pi.provider_code,pi.amount,pi.status,pi.external_reference,pi.expires_at,pi.confirmed_transaction_id,pi.created_at,pi.updated_at,b.guestName,b.roomNumber FROM growth_payment_intents pi LEFT JOIN bookings b ON b.id=pi.booking_id ORDER BY pi.created_at DESC LIMIT 500");}
+                if(tamasyaGrowthModuleEnabled('channel')&&$canChannelRead){$data['channelProviders']=$fetchAll($pdo,"SELECT id,code,name,signature_mode,active,created_at,updated_at,CHAR_LENGTH(COALESCE(webhook_secret_encrypted,'')) AS secret_length FROM growth_channel_providers ORDER BY code");}
+                if(tamasyaGrowthModuleEnabled('payment')&&$canChannelRead){$data['paymentProviders']=$fetchAll($pdo,"SELECT id,code,name,signature_mode,active,created_at,updated_at,CHAR_LENGTH(COALESCE(webhook_secret_encrypted,'')) AS secret_length FROM growth_payment_providers ORDER BY code");}
                 echo tamasyaJsonEncode(['success'=>true,'data'=>$data]);break;
+            case 'channel-provider-list':
+                $requireModule('channel');$requireAnyTab(['rooms','operations','config'],'Akses daftar provider channel membutuhkan menu terkait.');
+                $rows=$pdo->query("SELECT id,code,name,signature_mode,active,created_at,updated_at,CHAR_LENGTH(COALESCE(webhook_secret_encrypted,'')) AS secret_length FROM growth_channel_providers ORDER BY code")->fetchAll(PDO::FETCH_ASSOC)?:[];
+                echo tamasyaJsonEncode(['success'=>true,'providers'=>array_map(static function(array $r):array{
+                    $r['hasSecret']=(int)($r['secret_length']??0)>0;unset($r['secret_length']);return $r;
+                },$rows)]);
+                break;
+            case 'payment-provider-list':
+                $requireModule('payment');$requireAnyTab(['rooms','finance','config'],'Akses daftar provider pembayaran membutuhkan menu terkait.');
+                $rows=$pdo->query("SELECT id,code,name,signature_mode,active,created_at,updated_at,CHAR_LENGTH(COALESCE(webhook_secret_encrypted,'')) AS secret_length FROM growth_payment_providers ORDER BY code")->fetchAll(PDO::FETCH_ASSOC)?:[];
+                echo tamasyaJsonEncode(['success'=>true,'providers'=>array_map(static function(array $r):array{
+                    $r['hasSecret']=(int)($r['secret_length']??0)>0;unset($r['secret_length']);return $r;
+                },$rows)]);
+                break;
             case 'kpis':
                 $requireModule('kpi');$requireAnyTab(['report','finance','operations'],'Akses KPI membutuhkan menu Laporan/Keuangan/Operasional.');
                 $from=trim((string)($_GET['from']??date('Y-m-01')));$to=trim((string)($_GET['to']??date('Y-m-d')));
-                echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOperationalKpis($pdo,$from,$to)]);break;
-            case 'folio':
+                echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOperationalKpis($pdo,$from,$to)]);break;            case 'folio':
                 $requireModule('folio');$requireAnyTab(['rooms','finance','report'],'Akses Folio membutuhkan menu Kamar/Keuangan/Laporan.');
                 $bookingId=trim((string)($_GET['bookingId']??''));if($bookingId==='')throw new InvalidArgumentException('bookingId wajib.');
                 echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthBookingFolio($pdo,$bookingId)]);break;
@@ -155,6 +362,70 @@ $pairStmt=$pdo->prepare("SELECT * FROM growth_purchase_order_payments WHERE po_i
             $requireModule('payment');requireRoles($loggedInStaff,['admin','manager','finance']);$bookingId=trim((string)($input['bookingId']??''));$provider=strtolower(trim((string)($input['providerCode']??'')));$amount=tamasyaGrowthMoney($input['amount']??0);if($bookingId===''||$provider===''||$amount<=0)throw new InvalidArgumentException('Booking, provider dan amount wajib.');$pdo->beginTransaction();try{$b=$pdo->prepare("SELECT id,guestName,roomNumber,status,balanceDue FROM bookings WHERE id=? FOR UPDATE");$b->execute([$bookingId]);$booking=$b->fetch(PDO::FETCH_ASSOC)?:null;if(!$booking)throw new InvalidArgumentException('Booking tidak ditemukan.');if(!in_array((string)$booking['status'],['reserved','active','completed'],true))throw new RuntimeException('Status booking tidak menerima payment intent.');if($amount>max(0,(float)$booking['balanceDue'])+0.01)throw new RuntimeException('Payment intent melebihi sisa tagihan booking.');$dup=$pdo->prepare("SELECT * FROM growth_payment_intents WHERE operation_id=? LIMIT 1 FOR UPDATE");$dup->execute([$op]);$existing=$dup->fetch(PDO::FETCH_ASSOC);if($existing){tamasyaFinancialCommit($pdo);echo tamasyaJsonEncode(['success'=>true,'duplicate'=>true,'data'=>$existing]);break;}$id=tamasyaGrowthId('pi');$expires=trim((string)($input['expiresAt']??''));$pdo->prepare("INSERT INTO growth_payment_intents(id,booking_id,provider_code,amount,status,external_reference,operation_id,expires_at,notes,created_by) VALUES (?,?,?,?,'created',?,?,?,?,?)")->execute([$id,$bookingId,$provider,$amount,trim((string)($input['externalReference']??''))?:null,$op,$expires!==''?$expires:null,trim((string)($input['notes']??''))?:null,$loggedInStaff['id']]);$after=$fetchOne($pdo,"SELECT * FROM growth_payment_intents WHERE id=?",[$id]);tamasyaGrowthAudit($pdo,$loggedInStaff,'Membuat payment intent (belum menjadi pembayaran)','growth_payment_intent',$id,null,$after);bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);echo tamasyaJsonEncode(['success'=>true,'data'=>$after,'financialMutation'=>false]);}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}break;
         case 'payment-event-register':
             $requireModule('payment');requireRoles($loggedInStaff,['admin']);$intentId=trim((string)($input['intentId']??''));$status=trim((string)($input['status']??''));$amount=tamasyaGrowthMoney($input['amount']??0);$payload=$input['payload']??[];if($intentId===''||$status==='')throw new InvalidArgumentException('Intent/status event wajib.');$pdo->beginTransaction();try{$intentS=$pdo->prepare("SELECT * FROM growth_payment_intents WHERE id=? FOR UPDATE");$intentS->execute([$intentId]);$intent=$intentS->fetch(PDO::FETCH_ASSOC)?:null;if(!$intent)throw new InvalidArgumentException('Payment intent tidak ditemukan.');$providerEvent=trim((string)($input['providerEventId']??''));if($providerEvent!==''){$d=$pdo->prepare("SELECT * FROM growth_payment_events WHERE provider_event_id=? LIMIT 1 FOR UPDATE");$d->execute([$providerEvent]);$existing=$d->fetch(PDO::FETCH_ASSOC);if($existing){tamasyaFinancialCommit($pdo);echo tamasyaJsonEncode(['success'=>true,'duplicate'=>true,'data'=>$existing]);break;}}$id=tamasyaGrowthId('pev');$pdo->prepare("INSERT INTO growth_payment_events(id,intent_id,provider_event_id,status,amount,payload_hash,signature_valid,event_at) VALUES (?,?,?,?,?,?,?,?)")->execute([$id,$intentId,$providerEvent!==''?$providerEvent:null,$status,$amount,hash('sha256',tamasyaJsonEncode($payload)),0,trim((string)($input['eventAt']??''))?:null]);$after=$fetchOne($pdo,"SELECT * FROM growth_payment_events WHERE id=?",[$id]);tamasyaGrowthAudit($pdo,$loggedInStaff,'Mendaftarkan event payment tanpa posting otomatis / signature belum diverifikasi provider','growth_payment_event',$id,null,['intentId'=>$intentId,'event'=>$after]);bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);echo tamasyaJsonEncode(['success'=>true,'data'=>$after,'financialMutation'=>false,'signatureVerification'=>'not_implemented']);}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}break;
+            case 'channel-provider-save':
+                $requireModule('channel');requireRoles($loggedInStaff,['admin']);$code=strtolower(trim((string)($input['code']??'')));$id=trim((string)($input['id']??''));$name=trim((string)($input['name']??''));
+                if(!preg_match('/^[a-z0-9._-]{2,50}$/',$code))throw new InvalidArgumentException('Kode provider hanya huruf kecil, angka, titik, garis bawah, atau tanda hubung (2-50 karakter).');
+                if($name==='')throw new InvalidArgumentException('Nama provider wajib.');
+                $pdo->beginTransaction();
+                try{
+                    $before=null;
+                    if($id!==''){$s=$pdo->prepare("SELECT * FROM growth_channel_providers WHERE id=? FOR UPDATE");$s->execute([$id]);$before=$s->fetch(PDO::FETCH_ASSOC)?:null;if(!$before)throw new InvalidArgumentException('Provider channel tidak ditemukan.');}
+                    elseif($code!==''){$s=$pdo->prepare("SELECT * FROM growth_channel_providers WHERE code=? FOR UPDATE");$s->execute([$code]);$before=$s->fetch(PDO::FETCH_ASSOC)?:null;}
+                    $secretInput=array_key_exists('webhookSecret',$input)?(string)$input['webhookSecret']:'';
+                    if($before){
+                        $storedSecret=$secretInput!==''?encryptStoredSecret($secretInput):$before['webhook_secret_encrypted'];
+                        $active=array_key_exists('active',$input)?(!empty($input['active'])?1:0):(int)$before['active'];
+                        $pdo->prepare("UPDATE growth_channel_providers SET name=?,webhook_secret_encrypted=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")
+                            ->execute([$name,$storedSecret,$active,(string)$before['id']]);
+                        $providerId=(string)$before['id'];
+                    }else{
+                        // A provider without a secret can never authenticate, so refuse
+                        // to create a silent no-op row.
+                        if($secretInput===''||strlen($secretInput)<32)throw new InvalidArgumentException('Secret webhook provider wajib minimal 32 karakter.');
+                        $providerId=tamasyaGrowthId('chp');
+                        $pdo->prepare("INSERT INTO growth_channel_providers(id,code,name,webhook_secret_encrypted,active,created_by) VALUES (?,?,?,?,?,?)")
+                            ->execute([$providerId,$code,$name,encryptStoredSecret($secretInput),array_key_exists('active',$input)?(!empty($input['active'])?1:0):1,$loggedInStaff['id']]);
+                    }
+                    $after=$fetchOne($pdo,"SELECT * FROM growth_channel_providers WHERE id=?",[$providerId]);
+                    if($after)$after['webhook_secret_encrypted']=empty($after['webhook_secret_encrypted'])?null:'[TERSIMPAN]';
+                    if($before)$before['webhook_secret_encrypted']=empty($before['webhook_secret_encrypted'])?null:'[TERSIMPAN]';
+                    tamasyaGrowthAudit($pdo,$loggedInStaff,'Mengatur provider channel (konektor fase terpisah)','growth_channel_provider',$providerId,$before,$after);
+                    bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
+                    echo tamasyaJsonEncode(['success'=>true,'data'=>$after]);
+                }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();if($isDuplicateKey($e))throw new DomainException('Kode provider channel sudah dipakai provider lain.',0,$e);throw $e;}
+                break;
+        case 'payment-provider-save':
+            $requireModule('payment');requireRoles($loggedInStaff,['admin']);$code=strtolower(trim((string)($input['code']??'')));$id=trim((string)($input['id']??''));$name=trim((string)($input['name']??''));
+            if(!preg_match('/^[a-z0-9._-]{2,50}$/',$code))throw new InvalidArgumentException('Kode provider hanya huruf kecil, angka, titik, garis bawah, atau tanda hubung (2-50 karakter).');
+            if($name==='')throw new InvalidArgumentException('Nama provider wajib.');
+            $pdo->beginTransaction();
+            try{
+                $before=null;
+                if($id!==''){$s=$pdo->prepare("SELECT * FROM growth_payment_providers WHERE id=? FOR UPDATE");$s->execute([$id]);$before=$s->fetch(PDO::FETCH_ASSOC)?:null;if(!$before)throw new InvalidArgumentException('Provider tidak ditemukan.');}
+                elseif($code!==''){$s=$pdo->prepare("SELECT * FROM growth_payment_providers WHERE code=? FOR UPDATE");$s->execute([$code]);$before=$s->fetch(PDO::FETCH_ASSOC)?:null;}
+                $secretInput=array_key_exists('webhookSecret',$input)?(string)$input['webhookSecret']:'';
+                if($before){
+                    $storedSecret=$secretInput!==''?encryptStoredSecret($secretInput):$before['webhook_secret_encrypted'];
+                    $active=array_key_exists('active',$input)?(!empty($input['active'])?1:0):(int)$before['active'];
+                    $pdo->prepare("UPDATE growth_payment_providers SET name=?,webhook_secret_encrypted=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")
+                        ->execute([$name,$storedSecret,$active,(string)$before['id']]);
+                    $providerId=(string)$before['id'];
+                }else{
+                    // A provider without a secret can never authenticate a webhook,
+                    // so refuse to create one instead of shipping a silent no-op row.
+                    if($secretInput===''||strlen($secretInput)<32)throw new InvalidArgumentException('Secret webhook provider wajib minimal 32 karakter.');
+                    $providerId=tamasyaGrowthId('pvp');$providerCode=$code;
+                    $pdo->prepare("INSERT INTO growth_payment_providers(id,code,name,webhook_secret_encrypted,active,created_by) VALUES (?,?,?,?,?,?)")
+                        ->execute([$providerId,$providerCode,$name,encryptStoredSecret($secretInput),array_key_exists('active',$input)?(!empty($input['active'])?1:0):1,$loggedInStaff['id']]);
+                }
+                $after=$fetchOne($pdo,"SELECT * FROM growth_payment_providers WHERE id=?",[$providerId]);
+                if($after){$after['webhook_secret_encrypted']=empty($after['webhook_secret_encrypted'])?null:'[TERSIMPAN]';}
+                if($before && array_key_exists('webhook_secret_encrypted',$before))$before['webhook_secret_encrypted']=empty($before['webhook_secret_encrypted'])?null:'[TERSIMPAN]';
+                tamasyaGrowthAudit($pdo,$loggedInStaff,'Mengatur provider pembayaran (konektor fase terpisah)','growth_payment_provider',$providerId,$before,$after);
+                bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
+                echo tamasyaJsonEncode(['success'=>true,'data'=>$after]);
+            }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();if($isDuplicateKey($e))throw new DomainException('Kode provider pembayaran sudah dipakai provider lain.',0,$e);throw $e;}
+            break;
         case 'payment-link-transaction':
             $requireModule('payment');requireRoles($loggedInStaff,['admin','manager','finance']);$intentId=trim((string)($input['intentId']??''));$txId=trim((string)($input['transactionId']??''));if($intentId===''||$txId==='')throw new InvalidArgumentException('Intent dan transactionId wajib.');$pdo->beginTransaction();try{$s=$pdo->prepare("SELECT * FROM growth_payment_intents WHERE id=? FOR UPDATE");$s->execute([$intentId]);$before=$s->fetch(PDO::FETCH_ASSOC)?:null;if(!$before)throw new InvalidArgumentException('Payment intent tidak ditemukan.');$t=$pdo->prepare("SELECT id,bookingId,type,amount,transactionKind,operationId FROM transactions WHERE id=? FOR UPDATE");$t->execute([$txId]);$tx=$t->fetch(PDO::FETCH_ASSOC)?:null;if(!$tx||strtolower((string)$tx['type'])!=='income'||(string)$tx['bookingId']!==(string)$before['booking_id'])throw new InvalidArgumentException('Transaksi harus pemasukan canonical milik booking yang sama.');if(!moneyMatches((float)$tx['amount'],(float)$before['amount'],0.01))throw new RuntimeException('Nominal transaksi berbeda dari payment intent.');$pdo->prepare("UPDATE growth_payment_intents SET status='confirmed',confirmed_transaction_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$txId,$intentId]);$after=$fetchOne($pdo,"SELECT * FROM growth_payment_intents WHERE id=?",[$intentId]);tamasyaGrowthAudit($pdo,$loggedInStaff,'Menautkan canonical booking payment ke payment intent','growth_payment_intent',$intentId,$before,['intent'=>$after,'transaction'=>$tx]);bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);echo tamasyaJsonEncode(['success'=>true,'data'=>$after,'sourceOfTruth'=>'transactions']);}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}break;
         default: throw new InvalidArgumentException('Command Growth Suite POST tidak dikenal.');

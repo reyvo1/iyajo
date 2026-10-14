@@ -306,6 +306,7 @@ function tamasyaGrowthOverview(PDO $pdo,array $actor): array {
         if(tamasyaGrowthModuleEnabled('procurement')&&in_array($role,['admin','manager','finance','owner'],true)){$tables['vendors']='growth_vendors';$tables['purchaseOrders']='growth_purchase_orders';}
         if(tamasyaGrowthModuleEnabled('channel')&&in_array($role,['admin','owner'],true))$tables['channelMappings']='growth_channel_mappings';
         if(tamasyaGrowthModuleEnabled('payment')&&in_array($role,['admin','manager','finance','owner'],true))$tables['paymentIntents']='growth_payment_intents';
+        if(tamasyaGrowthModuleEnabled('payment')&&in_array($role,['admin','owner'],true))$tables['paymentProviders']='growth_payment_providers';
         foreach($tables as $key=>$table){try{$data['counts'][$key]=(int)$pdo->query("SELECT COUNT(*) FROM `$table`")->fetchColumn();}catch(Throwable $e){$data['counts'][$key]=null;}}
     }
     try{$data['health']['openSyncConflicts']=(int)$pdo->query("SELECT COUNT(*) FROM node_sync_conflicts WHERE status='open'")->fetchColumn();}catch(Throwable $e){$data['health']['openSyncConflicts']=null;}

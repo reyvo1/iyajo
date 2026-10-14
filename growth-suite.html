@@ -192,11 +192,19 @@
         <div id="channel-panel" class="panel"><h2>Channel Mapping</h2>
           <form id="channel-form" class="form-grid"><label>Channel<input id="channel-code" placeholder="booking.com" /></label><label>External room type<input id="channel-external-room" /></label><label>Internal room type<select id="channel-internal-room"></select></label><label>External rate plan<input id="channel-external-rate" /></label><label>Internal rate plan<select id="channel-internal-rate"><option value="">Tidak dipetakan</option></select></label><button class="btn" type="submit">Simpan Mapping</button></form>
           <div id="channel-list" class="table-wrap"></div>
+          <h3>Provider Channel (konektor fase terpisah)</h3>
+          <p class="hint">Webhook channel: <code id="channel-webhook-url">/api.php?action=growth-channel-webhook</code> dengan header <code>X-Tamasya-Provider</code>, <code>X-Tamasya-Timestamp</code>, <code>X-Tamasya-Signature</code> (HMAC-SHA256 atas <code>timestamp.body</code>). Event <code>reservation_created</code> yang terverifikasi dan sudah dipetakan membuat draft RESERVED; tidak ada uang masuk, tidak ada check-in otomatis, dan tipe kamar yang belum dipetakan dicatat untuk staf.</p>
+          <form id="channel-provider-form" class="form-grid"><label>Kode provider<input id="channel-provider-code" placeholder="traveloka" /></label><label>Nama<input id="channel-provider-name" /></label><label>Secret webhook (min 32 karakter; kosongkan untuk mempertahankan)<input id="channel-provider-secret" type="password" /></label><label>Aktif<input id="channel-provider-active" type="checkbox" checked /></label><button class="btn" type="submit">Simpan Provider</button></form>
+          <div id="channel-provider-list" class="table-wrap"></div>
         </div>
         <div id="payment-panel" class="panel"><h2>Payment Intent</h2>
           <form id="payment-intent-form" class="form-grid"><label>Booking ID<input id="payment-booking" /></label><label>Provider<input id="payment-provider" placeholder="midtrans/xendit/other" /></label><label>Nominal<input id="payment-amount" type="number" min="0" /></label><button class="btn" type="submit">Buat Intent</button></form>
           <p class="hint">Payment intent bukan pembayaran. Uang baru dianggap masuk setelah transaksi canonical booking tercatat di sistem lalu ditautkan oleh Finance.</p>
           <div id="payment-list" class="table-wrap"></div>
+          <h3>Provider Pembayaran (konektor fase terpisah)</h3>
+          <p class="hint">Webhook provider: <code id="payment-webhook-url">/api.php?action=growth-payment-webhook</code>. Provider mengirim header <code>X-Tamasya-Provider</code>, <code>X-Tamasya-Timestamp</code>, dan <code>X-Tamasya-Signature</code> (HMAC-SHA256 atas <code>timestamp.body</code>). Webhook terverifikasi hanya memindahkan status intent dan mencatat event; uang tidak pernah diposting otomatis.</p>
+          <form id="payment-provider-form" class="form-grid"><label>Kode provider<input id="provider-code" placeholder="midtrans" /></label><label>Nama<input id="provider-name" /></label><label>Secret webhook (min 32 karakter; kosongkan untuk mempertahankan)<input id="provider-secret" type="password" /></label><label>Aktif<input id="provider-active" type="checkbox" checked /></label><button class="btn" type="submit">Simpan Provider</button></form>
+          <div id="provider-list" class="table-wrap"></div>
         </div>
       </div>
     </section>

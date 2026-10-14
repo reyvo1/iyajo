@@ -81,6 +81,8 @@ $__f = tamasyaResolveDomainSupportFile('050_integrations_telegram_mail.php'); if
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '055_public_support_chat.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '057_website_cms_schema.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '060_shift_receipts.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '070_payment_connector.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '071_channel_connector.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '070_data_projection_scope.php';
 $__f = tamasyaResolveDomainSupportFile('075_flexible_historical_backfill.php'); if ($__f) { require_once $__f; } unset($__f);
 $__f = tamasyaResolveDomainSupportFile('085_pos_minibar.php'); if ($__f) { require_once $__f; } unset($__f);
@@ -1115,7 +1117,7 @@ if (defined('TAMASYA_SERVICE_BOOTSTRAP') && TAMASYA_SERVICE_BOOTSTRAP===true && 
 }
 
 // 4. ROUTING ENDPOINT API
-$public_actions = ['', 'status', 'ping', 'login', 'verify-2fa', 'refresh-session', 'telegram-webhook', 'node-sync-snapshot', 'node-cluster-peer-status', 'node-cluster-control', 'node-cluster-telegram-webhook', 'node-cluster-telegram-delivery', 'communication-webhook', 'node-cluster-channel-webhook', 'public-site-config', 'public-bootstrap', 'public-room-types', 'public-room-availability', 'public-promotions', 'public-reservation-request', 'public-contact', 'public-help-chat', 'public-help-chat-sync', 'biometric-device-webhook'];
+$public_actions = ['', 'status', 'ping', 'login', 'verify-2fa', 'refresh-session', 'telegram-webhook', 'node-sync-snapshot', 'node-cluster-peer-status', 'node-cluster-control', 'node-cluster-telegram-webhook', 'node-cluster-telegram-delivery', 'communication-webhook', 'node-cluster-channel-webhook', 'growth-payment-webhook', 'growth-channel-webhook', 'public-site-config', 'public-bootstrap', 'public-room-types', 'public-room-availability', 'public-promotions', 'public-reservation-request', 'public-contact', 'public-help-chat', 'public-help-chat-sync', 'biometric-device-webhook'];
 
 // Public endpoints (terutama Telegram webhook) tidak memiliki sesi browser.
 // Inisialisasi eksplisit mencegah warning undefined variable berubah menjadi
@@ -1545,7 +1547,7 @@ if (!tamasyaNodeReplayActive()) {
 // lets web clients follow changes from Telegram and other devices without relying
 // on the development-only SSE server. Explicit bumps inside handlers are harmless;
 // a revision is a monotonic change signal, not a transaction sequence number.
-$revisionExcludedActions = ['', 'status', 'ping', 'login', 'verify-2fa', 'refresh-session', 'telegram-webhook', 'server-revision', 'download-backup', 'download-json-backup', 'transaction-proof', 'chat-messages', 'node-sync-snapshot', 'node-sync-status', 'node-sync-conflict-resolve', 'consistency-guard-maintenance', 'node-cluster-peer-status', 'node-cluster-control', 'node-cluster-status', 'node-cluster-switch-primary', 'node-cluster-emergency-promote', 'node-cluster-recover-expired-primary', 'node-cluster-reconcile', 'node-cluster-telegram-webhook', 'node-cluster-telegram-delivery', 'communication-webhook', 'node-cluster-channel-webhook', 'public-help-chat-sync', 'biometric-device-webhook'];
+$revisionExcludedActions = ['', 'status', 'ping', 'login', 'verify-2fa', 'refresh-session', 'telegram-webhook', 'server-revision', 'download-backup', 'download-json-backup', 'transaction-proof', 'chat-messages', 'node-sync-snapshot', 'node-sync-status', 'node-sync-conflict-resolve', 'consistency-guard-maintenance', 'node-cluster-peer-status', 'node-cluster-control', 'node-cluster-status', 'node-cluster-switch-primary', 'node-cluster-emergency-promote', 'node-cluster-recover-expired-primary', 'node-cluster-reconcile', 'node-cluster-telegram-webhook', 'node-cluster-telegram-delivery', 'communication-webhook', 'node-cluster-channel-webhook', 'growth-payment-webhook', 'growth-channel-webhook', 'public-help-chat-sync', 'biometric-device-webhook'];
 $isLocalOnlyNodeMutation = $pdo && tamasyaNodeRole()==='local_backup' && tamasyaLocalOnlyMutationAllowed((string)$action,$input,(string)($_SERVER['REQUEST_METHOD']??'GET'));
 // Heartbeat hanya telemetry perangkat. Ia tidak boleh mengambil global mutation
 // lock, membuat durable receipt, menaikkan server revision, atau masuk node outbox

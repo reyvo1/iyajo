@@ -218,3 +218,29 @@
 - **Bersih-bersih**: dead code copy-paste (blok `if booking_id:` yang tidak pernah terdefinisi) dihapus dari `scenario_po_link_payment.py` dan `scenario_salary_correction.py`; `scenario_cluster_admin.py` dan `tcp_forwarder.py` yang terlewat kini masuk `FILE_CHECKSUMS.sha256`.
 - **Packaging**: build id `20261014-nego-collected-now1`, ZIP `tamasya-production-prod-20261014-<HHMM>.zip`, diverifikasi dari ekstraksi segar sesuai aturan release (lihat laporan audit).
 
+## 2026-10-14 (lanjutan) — R14: JAM SHIFT KONFIGURABEL + KONEKTOR PAYMENT/CHANNEL
+
+Audit terhadap temuan "Channel Manager dan Payment Gateway masih fondasi" diselesaikan dalam tiga bagian. Semua menambah gate baru (44 suite sumber) dan dua scenario UAT live; tidak ada jalur yang boleh memposting uang secara otomatis.
+
+### R14.1 — Jam shift dapat diatur (tidak lagi hardcoded 2x)
+-êmpat akar: batas slot `pagi/siang/malam` di-hardcode dua kali dan tidak sama — web 07:00–15:00–23:00 (`operations.js`) vs pagar malam server 18:00–05:00 (`090_operations_communications.php`). Shift 20:00 bisa diklasifikasi "siang" di form tapi "malam" di server, sehingga gerbang Night Audit berbeda.
+- **Perbaikan**: tiga kolom `shift_day_start` / `shift_siang_start` / `shift_malam_start` (default 07:00/15:00/23:00 = perilaku historis, tidak mengubah arti baris lama) + helper `tamasyaShiftBoundariesMinutes` / `tamasyaShiftSlotForMinutes` / `tamasyaDefaultShiftSlotForNow` di `060_shift_receipts.php`. Pembaca gagal-aman ke default bila nilai rusak/tidak berurutan, karena slot menentukan gerbang Night Audit.
+- Web, server shift-open, klasifikasi malam legacy, dan `isNightShiftRow` kini membaca sumber yang sama. Simpan settings menolak urutan di luar (pagi < siang < malam) tanpa menyentuh baris tersimpan. UI menambah tiga prompt jam shift.
+- Bukti: `tests/shift-hours-config-regression.php` (38) + `tests/uat_rc1/scenario_operational_settings.py` (16).
+
+### R14.2 — Payment Gateway: fase konektor (tidak pernah auto-posting uang)
+- Ditambah registry provider (`growth_payment_providers`, secret terenkripsi) dan endpoint publik `api.php?action=growth-payment-webhook` dengan HMAC-SHA256 atas `timestamp.body`, toleransi skew 5 menit, `hash_equals`, rate limit per provider+alamat, dan dedupe `provider_event_id`.
+- Kegagalan autentikasi selalu 401 dengan pesan tunggal yang sama (tidak bisa dipakai untuk menebak provider mana yang ada). Status provider yang tidak dikenal DITOLAK, transisi intent satu arah (`created→provider_paid→refunded`; `failed/expired` tidak bisa dibayar lagi).
+- Webhook hanya memindahkan status intent + mencatat event `signature_valid=1`, mengembalikan `financialMutation=false` dan `nextAction=settle_canonical_payment`. Uang tetap masuk lewat alur canonical — persis prinsip "tidak memposting uang otomatis" yang Anda temukan, sekarang dengan konektor nyata.
+- Bukti: `tests/payment-connector-webhook-regression.php` (42) + `tests/uat_rc1/scenario_payment_connector.py` (21).
+
+### R14.3 — Channel Manager: fase konektor (booking DRAFT, bukan otomatis)
+- Registry `growth_channel_providers` + endpoint publik `api.php?action=growth-channel-webhook` dengan keamanan HMAC yang sama.
+- Event `reservation_created` yang terverifikasi dan sudah dipetakan membuat **draft RESERVED** lewat `createCanonicalBookingWorkflow` (kode kanal `provider`): tanpa uang, tanpa check-in, `bookingSource` = alias OTA dikenal atau `ota-<kode>`, tarif divalidasi terhadap rate plan mapping, kamar dipilih dari tipe internal hasil mapping.
+- Tipe kamar vendor yang belum dipetakan dicatat sebagai `unmapped` untuk staf, bukan ditebak. `externalId` yang sama tidak akan pernah membuat draft kedua. Event lain (perubahan/pembatalan) ditolak pada fase ini.
+- Bukti: `tests/channel-connector-webhook-regression.php` (30) + `tests/uat_rc1/scenario_channel_connector.py` (19).
+
+### Catatan migrasi & selisih skema
+- Tiga migrasi additive baru: `20261014_SHIFT_HOURS_CONFIG.sql`, `20261014_PAYMENT_CONNECTOR_PHASE.sql`, `20261014_CHANNEL_CONNECTOR_PHASE.sql` (semuanya idempotent). Jalankan setelah backup terverifikasi, bukan pada DB HQ bersama.
+- `growth_channel_events` di instalasi yang sudah ada memakai bentuk kolom berbeda dari definisi V137 (memiliki `error_message/received_at/processed_at`, tanpa `external_property_id`). Definisi V137 tidak pernah mengubah tabel yang sudah ada (`CREATE TABLE IF NOT EXISTS`), sehingga handler channel sengaja ditulis mengikuti bentuk yang benar-benar terpasang, bukan definisi V137.
+

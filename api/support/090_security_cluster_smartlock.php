@@ -138,15 +138,17 @@ function enforceOpenShiftForRoomSale(PDO $pdo, ?array $user): void {
 }
 
 /** Source line 7038: isNightShiftRow */
-function isNightShiftRow(array $shift): bool {
+function isNightShiftRow(array $shift,?array $boundaries=null): bool {
     // Jadwal yang dipilih petugas adalah sumber utama. Jam pembukaan hanya
-    // dipakai untuk data lama yang belum mempunyai shift_time.
+    // dipakai untuk data lama yang belum mempunyai shift_time, lalu dinilai
+    // dengan batas jam shift yang dapat diatur properti (R14.1).
     $shiftTime=strtolower(trim((string)($shift['shift_time']??'')));
     if($shiftTime!=='')return in_array($shiftTime,['malam','all'],true);
     $opened=strtotime((string)($shift['opened_at']??''));
     if(!$opened)return false;
-    $hour=(int)date('G',$opened);
-    return $hour>=18 || $hour<=5;
+    $b=$boundaries??tamasyaShiftBoundariesMinutes([]);
+    $minute=(int)date('G',$opened)*60+(int)date('i',$opened);
+    return $minute>=$b['malam_start']||$minute<$b['day_start'];
 }
 
 /** Finance dapat menjadi pemilik shift kas malam; karena itu ia tidak boleh

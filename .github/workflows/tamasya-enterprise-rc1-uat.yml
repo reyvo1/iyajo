@@ -154,6 +154,9 @@ jobs:
           php tests/device-contract-regression.php
           php tests/live-tax-snapshot-contract-regression.php
           php tests/financial-mutation-lock-regression.php
+          php tests/shift-hours-config-regression.php
+          php tests/payment-connector-webhook-regression.php
+          php tests/channel-connector-webhook-regression.php
           php tests/money-precision-regression.php
           php tests/database-tls-regression.php
 
@@ -192,6 +195,9 @@ jobs:
             tests/uat_rc1/scenario_core.py \
             tests/uat_rc1/scenario_finance.py \
             tests/uat_rc1/scenario_operations.py \
+            tests/uat_rc1/scenario_operational_settings.py \
+            tests/uat_rc1/scenario_payment_connector.py \
+            tests/uat_rc1/scenario_channel_connector.py \
             tests/uat_rc1/scenario_booking_finance_matrix.py \
             tests/uat_rc1/scenario_extended.py \
             tests/uat_rc1/scenario_tax_edges.py \
@@ -726,6 +732,9 @@ jobs:
           python3 scenario_core.py
           python3 scenario_finance.py
           python3 scenario_operations.py
+          python3 scenario_operational_settings.py
+          python3 scenario_payment_connector.py
+          python3 scenario_channel_connector.py
           python3 scenario_booking_finance_matrix.py
 
       - name: Historical backfill split tax accounting and authorization
