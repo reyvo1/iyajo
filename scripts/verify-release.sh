@@ -61,6 +61,7 @@ php tests/financial-mutation-lock-regression.php
 php tests/shift-hours-config-regression.php
 php tests/payment-connector-webhook-regression.php
 php tests/channel-connector-webhook-regression.php
+php tests/growth-schema-inventory-regression.php
 php tests/money-precision-regression.php
 php tests/database-tls-regression.php
-printf "All source checks and 44 regression suites passed.\n"
+printf "All source checks and 45 regression suites passed.\n"

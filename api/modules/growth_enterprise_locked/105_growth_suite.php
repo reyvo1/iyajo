@@ -68,7 +68,8 @@ function tamasyaGrowthSchemaTables(): array {
         'growth_rate_plans','growth_rate_rules','growth_rate_overrides',
         'growth_companies','growth_group_reservations','growth_group_booking_links',
         'growth_vendors','growth_purchase_orders','growth_purchase_order_items','growth_purchase_order_payments',
-        'growth_channel_mappings','growth_channel_events','growth_payment_intents','growth_payment_events'
+        'growth_channel_mappings','growth_channel_events','growth_channel_providers',
+        'growth_payment_intents','growth_payment_events','growth_payment_providers'
     ];
 }
 function tamasyaGrowthSchemaReady(PDO $pdo): bool {
