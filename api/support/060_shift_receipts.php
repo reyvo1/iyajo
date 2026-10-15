@@ -828,3 +828,55 @@ function tamasyaDefaultShiftSlotForNow(PDO $pdo,?int $timestamp=null): string {
     $timestamp=$timestamp??time();
     return tamasyaShiftSlotForMinutes(getOperationalSettings($pdo),(int)date('G',(int)$timestamp)*60+(int)date('i',(int)$timestamp));
 }
+
+/**
+ * Owner adalah pemantau read-only di Telegram: boleh MELIHAT semua menu dan
+ * layar baca, tidak boleh MENGUBAH apa pun. HTTP method tidak bisa dipakai
+ * sebagai pembeda di sini karena webhook Telegram selalu POST, jadi keputusan
+ * diambil dari SEMANTIK callback: hanya callback layar-baca yang dibuka.
+ * Fail-closed: callback baru yang belum terdaftar otomatis ditolak owner.
+ */
+function tamasyaTelegramOwnerReadableCallbacks(): array {
+    return ['room_list','sell_room_list','reservation_list','room_payment_status_menu','booking_extend_menu','booking_service_menu','booking_transfer_menu','booking_checkout_menu','panjar_menu','housekeeping_menu','vacancy_menu','patrol_reports_menu','guest_service_menu','guest_identity_menu','cash_shift_menu','laporan_kas_refresh','riwayat_shift_menu','receipt_menu'];
+}
+
+function tamasyaTelegramOwnerReadablePrefixes(): array {
+    return ['room_list:p:','sell_room_list:p:','reservation_list:p:','reservation_detail:','room_select:','room_payment_status_menu:p:','room_payment_status_filter:','booking_extend_menu:p:','booking_service_menu:p:','booking_transfer_menu:p:','booking_checkout_menu:p:','panjar_menu:p:','housekeeping_menu:p:','hk_room:','vacancy_menu:p:','vacancy_report_room:','gsm:p:','gsd:','guest_identity_view:','riwayat_shift_menu:p:','riwayat_shift_detail:','print_receipt:'];
+}
+
+function tamasyaTelegramOwnerCallbackReadable(string $callbackData): bool {
+    if (in_array($callbackData,tamasyaTelegramOwnerReadableCallbacks(),true)) return true;
+    foreach (tamasyaTelegramOwnerReadablePrefixes() as $prefix) {
+        if (str_starts_with($callbackData,$prefix)) return true;
+    }
+    return false;
+}
+
+/** Role yang boleh MEMBACA riwayat tutup shift (bukan menutup shift). */
+function tamasyaShiftHistoryReaderRoles(): array {
+    return ['admin','owner','manager','finance'];
+}
+
+/** Daftar shift yang sudah tutup, terbaru dulu. Murni SELECT. */
+function tamasyaClosedShiftHistory(PDO $pdo,int $page=1,int $pageSize=5): array {
+    $page=max(1,$page);$pageSize=max(1,min(10,$pageSize));
+    $count=(int)$pdo->query("SELECT COUNT(*) FROM shift_sessions WHERE status='closed'")->fetchColumn();
+    $totalPages=max(1,(int)ceil(max(1,$count)/$pageSize));
+    $page=min($page,$totalPages);$offset=($page-1)*$pageSize;
+    $stmt=$pdo->prepare("SELECT id,shift_date,shift_time,staff_name,companion_staff_name,opening_cash,cash_income,cash_expense,expected_cash,actual_cash,variance,closed_at FROM shift_sessions WHERE status='closed' ORDER BY closed_at DESC,id DESC LIMIT ? OFFSET ?");
+    $stmt->bindValue(1,$pageSize,PDO::PARAM_INT);$stmt->bindValue(2,$offset,PDO::PARAM_INT);$stmt->execute();
+    return ['rows'=>$stmt->fetchAll(PDO::FETCH_ASSOC)?:[],'page'=>$page,'totalPages'=>$totalPages,'count'=>$count];
+}
+
+/** Rincian satu shift tutup termasuk ringkasan deposito. Murni SELECT. */
+function tamasyaClosedShiftDetail(PDO $pdo,string $shiftId): ?array {
+    $stmt=$pdo->prepare("SELECT id,shift_date,shift_time,staff_id,staff_name,companion_staff_id,companion_staff_name,opening_cash,cash_income,cash_expense,expected_cash,actual_cash,variance,close_override_reason,notes,opened_at,closed_at FROM shift_sessions WHERE id=? AND status='closed' LIMIT 1");
+    $stmt->execute([$shiftId]);$shift=$stmt->fetch(PDO::FETCH_ASSOC)?:null;
+    if(!$shift)return null;
+    try{
+        $dep=$pdo->prepare("SELECT entry_type,SUM(amount) AS total,COUNT(*) AS n FROM guest_security_deposit_ledger WHERE shift_session_id=? GROUP BY entry_type");
+        $dep->execute([$shiftId]);$deposits=$dep->fetchAll(PDO::FETCH_ASSOC)?:[];
+    }catch(Throwable $ignored){$deposits=[];}
+    $shift['depositSummary']=$deposits;
+    return $shift;
+}

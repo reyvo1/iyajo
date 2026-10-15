@@ -382,7 +382,8 @@ switch ($action) {
                     [["text" => "💵 Terima Panjar"]],
                     [["text" => "🔑 Buka Shift"], ["text" => "📝 Tutup Shift"]],
                     [["text" => "📥 Input Pemasukan"], ["text" => "📤 Input Pengeluaran"]],
-                    [["text" => "📈 Laporan Kas"], ["text" => "🚨 Patroli & Laporan"]],
+                    [["text" => "📈 Laporan Kas"], ["text" => "📋 Riwayat Shift"]],
+                    [["text" => "🚨 Patroli & Laporan"]],
                     [["text" => "🏠 Menu Utama"]],
                     [["text" => "🤖 Tanya AI"], ["text" => "🔒 Logout Admin"]]
                 ],
@@ -397,7 +398,29 @@ switch ($action) {
                     [["text" => "🧾 Cetak Nota"]],
                     [["text" => "💵 Terima Panjar"]],
                     [["text" => "🔑 Buka Shift"], ["text" => "📝 Tutup Shift"]],
+                    [["text" => "📋 Riwayat Shift"]],
                     [["text" => "🚪 Kamar Kosong"]],
+                    [["text" => "🏠 Menu Utama"]],
+                    [["text" => "🤖 Tanya AI"], ["text" => "🔒 Logout"]]
+                ],
+                "resize_keyboard" => true,
+                "one_time_keyboard" => false
+            ];
+            // Owner melihat susunan menu selengkap admin (read-only). Setiap
+            // tombol perubahan tetap ditolak di gerbang callback/command.
+            $ownerKeyboard = [
+                "keyboard" => [
+                    [["text" => "📊 Cek Kamar"], ["text" => "🛒 Jual Kamar"]],
+                    [["text" => "📅 Reservasi"]],
+                    [["text" => "⏳ Perpanjang Sewa"], ["text" => "🛠️ Tambah Layanan"]],
+                    [["text" => "🔄 Pindah Kamar"], ["text" => "🧹 Housekeeping"]],
+                    [["text" => "🚪 Check-out Kamar"], ["text" => "🚪 Kamar Kosong"]],
+                    [["text" => "🧾 Cetak Nota"], ["text" => "🪪 Lihat KTP"]],
+                    [["text" => "💵 Terima Panjar"]],
+                    [["text" => "🔑 Buka Shift"], ["text" => "📝 Tutup Shift"]],
+                    [["text" => "📥 Input Pemasukan"], ["text" => "📤 Input Pengeluaran"]],
+                    [["text" => "📈 Laporan Kas"], ["text" => "📋 Riwayat Shift"]],
+                    [["text" => "🚨 Patroli & Laporan"]],
                     [["text" => "🏠 Menu Utama"]],
                     [["text" => "🤖 Tanya AI"], ["text" => "🔒 Logout"]]
                 ],
@@ -776,9 +799,10 @@ switch ($action) {
 Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift lalu lanjutkan rekonsiliasi kas.",'markup'=>['inline_keyboard'=>$buttons]];
             };
 
-            $keyboardForTelegramRole = static function(?array $staff) use ($userKeyboard,$repsKeyboard,$adminKeyboard,$financeKeyboard,$housekeepingKeyboard,$securityKeyboard,$basicStaffKeyboard) {
+            $keyboardForTelegramRole = static function(?array $staff) use ($userKeyboard,$repsKeyboard,$adminKeyboard,$financeKeyboard,$housekeepingKeyboard,$securityKeyboard,$basicStaffKeyboard,$ownerKeyboard) {
                 if (!$staff) return $userKeyboard;
                 $role = strtolower((string)($staff['role'] ?? ''));
+                if (tamasyaIsOwnerRole($staff)) return $ownerKeyboard;
                 if (in_array($role,['admin','manager'],true)) return $adminKeyboard;
                 if ($role === 'receptionist') return $repsKeyboard;
                 if ($role === 'finance') return $financeKeyboard;
@@ -943,6 +967,12 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                         $allowedCallback=in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
                     } elseif (str_starts_with($callbackData,'mr_')) {
                         $allowedCallback=in_array($callbackRole,['admin','manager','receptionist'],true);
+                    } elseif ($callbackData==='riwayat_shift_menu'||str_starts_with($callbackData,'riwayat_shift_menu:p:')||str_starts_with($callbackData,'riwayat_shift_detail:')) {
+                        $allowedCallback = in_array($callbackRole,function_exists('tamasyaShiftHistoryReaderRoles')?tamasyaShiftHistoryReaderRoles():['admin','owner','manager','finance'],true);
+                    } elseif ($callbackRole==='owner' && function_exists('tamasyaTelegramOwnerCallbackReadable') && tamasyaTelegramOwnerCallbackReadable($callbackData)) {
+                        // Owner read-only: hanya layar baca yang eksplisit terdaftar.
+                        // Callback mutasi/apapun yang baru otomatis tetap ditolak.
+                        $allowedCallback = true;
                     } elseif (in_array($callbackData,$reservationCallbacks,true) || $matchesPrefix($callbackData,$reservationPrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
                     } elseif (in_array($callbackData,$vacancyCallbacks,true) || $matchesPrefix($callbackData,$vacancyPrefixes)) {
@@ -958,7 +988,8 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     } elseif (in_array($callbackData,$bookingPaymentCallbacks,true) || $matchesPrefix($callbackData,$bookingPaymentPrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance'],true);
                     } elseif (in_array($callbackData,$receiptCallbacks,true) || $matchesPrefix($callbackData,$receiptPrefixes)) {
-                        $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance'],true);
+                        // Cetak nota murni baca (SELECT + format thermal), aman untuk Owner read-only.
+                        $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
                     } elseif (in_array($callbackData,$identityCallbacks,true) || $matchesPrefix($callbackData,$identityPrefixes)) {
                         $allowedCallback = hasCapability($loggedInStaff,'view_guest_identity',['admin','manager','receptionist','keamanan']);
                     }
@@ -967,6 +998,9 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     $deniedText = $loggedInStaff
                         ? "Akses tombol ini tidak sesuai peran akun Anda."
                         : "Telegram User ID belum terhubung ke akun staf. Hubungi Admin.";
+                    if ($loggedInStaff && $callbackRole==='owner') {
+                        $deniedText = "Akun Owner bersifat read-only di Telegram: boleh melihat semua menu, tidak boleh mengubah data. Minta Admin/Manager untuk tindakan ini.";
+                    }
                     telegramApiCall($token,'answerCallbackQuery', [
                         "callback_query_id"=>$callbackQueryId,
                         "text"=>"Akses ditolak",
@@ -1084,7 +1118,7 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
 📄 Halaman *{$page}/{$totalPages}* · kamar *{$rangeStart}-{$rangeEnd}* dari *{$count}*.";
                         $buttons=[[['text'=>'🔄 Muat Ulang','callback_data'=>'room_status_menu:p:'.$page]]];
                         if($totalPages>1)$buttons[]=$buildTelegramPagerRow($page,$totalPages,'room_status_menu:p:');
-                        if(in_array($callbackRole,['admin','manager','receptionist'],true))$buttons[]=[['text'=>'🔎 Diagnosa Status Kamar','callback_data'=>'room_list']];
+                        if(in_array($callbackRole,['admin','manager','receptionist','owner'],true))$buttons[]=[['text'=>'🔎 Diagnosa Status Kamar','callback_data'=>'room_list']];
                         $buttons[]=[['text'=>'⬅️ Kamar & Tamu','callback_data'=>'guest_ops_menu']];
                     }
                     $replyMarkup=['inline_keyboard'=>$buttons];$alertText='Status Kamar';
@@ -1098,6 +1132,16 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                         $buttons[]=[['text'=>'⏳ Perpanjang','callback_data'=>'booking_extend_menu'],['text'=>'🛠️ Tambah Layanan','callback_data'=>'booking_service_menu']];
                         $buttons[]=[['text'=>'🔄 Pindah Kamar','callback_data'=>'booking_transfer_menu'],['text'=>'🚪 Check-out','callback_data'=>'booking_checkout_menu']];
                     $buttons[]=[['text'=>'💰 Status Bayar Kamar','callback_data'=>'room_payment_status_menu']];
+                    }
+                    if($callbackRole==='owner'){
+                        // Cermin susunan admin agar terpantau semua; eksekusi
+                        // perubahan tetap ditolak di gerbang callback.
+                        $buttons[]=[['text'=>'📅 Reservasi','callback_data'=>'reservation_list'],['text'=>'🛒 Jual Kamar','callback_data'=>'sell_room_list']];
+                        $buttons[]=[['text'=>'🔎 Diagnosa Kamar','callback_data'=>'room_list']];
+                        $buttons[]=[['text'=>'⏳ Perpanjang','callback_data'=>'booking_extend_menu'],['text'=>'🛠️ Tambah Layanan','callback_data'=>'booking_service_menu']];
+                        $buttons[]=[['text'=>'🔄 Pindah Kamar','callback_data'=>'booking_transfer_menu'],['text'=>'🚪 Check-out','callback_data'=>'booking_checkout_menu']];
+                        $buttons[]=[['text'=>'💰 Status Bayar Kamar','callback_data'=>'room_payment_status_menu']];
+                        $buttons[]=[['text'=>'🧾 Cetak Nota','callback_data'=>'receipt_menu']];
                     }
                     if(in_array($callbackRole,['admin','manager','receptionist','finance'],true))$buttons[]=[['text'=>'🧾 Cetak Nota','callback_data'=>'receipt_menu']];
                     if(hasCapability($loggedInStaff,'view_guest_identity',['admin','manager','receptionist','keamanan']))$buttons[]=[['text'=>'🪪 Lihat KTP','callback_data'=>'guest_identity_menu']];
@@ -1188,6 +1232,15 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                     if(in_array($callbackRole,['admin','manager','finance'],true))$buttons[]=[['text'=>'📥 Input Pemasukan','callback_data'=>'pemasukan_menu']];
                     if(in_array($callbackRole,['admin','manager','finance'],true))$buttons[]=[['text'=>'📤 Input Pengeluaran','callback_data'=>'pengeluaran_menu'],['text'=>'📈 Laporan Kas','callback_data'=>'laporan_kas_refresh']];
                     if(in_array($callbackRole,tamasyaShiftOperatorRoles(),true))$buttons[]=[['text'=>'🔑 Buka Shift','callback_data'=>'buka_shift_menu'],['text'=>'📝 Tutup Shift','callback_data'=>'tutup_shift_menu']];
+                    if(in_array($callbackRole,['admin','owner','manager','finance'],true))$buttons[]=[['text'=>'📋 Riwayat Shift','callback_data'=>'riwayat_shift_menu']];
+                    if($callbackRole==='owner'){
+                        // Cermin tombol kas agar terpantau semua; eksekusi
+                        // perubahan tetap ditolak di gerbang callback.
+                        $buttons[]=[['text'=>'💵 Terima Panjar','callback_data'=>'panjar_menu']];
+                        $buttons[]=[['text'=>'📥 Input Pemasukan','callback_data'=>'pemasukan_menu']];
+                        $buttons[]=[['text'=>'📤 Input Pengeluaran','callback_data'=>'pengeluaran_menu'],['text'=>'📈 Laporan Kas','callback_data'=>'laporan_kas_refresh']];
+                        $buttons[]=[['text'=>'🔑 Buka Shift','callback_data'=>'buka_shift_menu'],['text'=>'📝 Tutup Shift','callback_data'=>'tutup_shift_menu']];
+                    }
                     $buttons[]=[['text'=>'⬅️ Menu Utama','callback_data'=>'main_menu']];
                     $replyText="💰 *KAS & SHIFT*\n\nPilih fungsi kas/shift yang tersedia untuk peran Anda.";$replyMarkup=['inline_keyboard'=>$buttons];$alertText='Kas & Shift';
                 } elseif ($callbackData === 'guest_service_menu' || str_starts_with($callbackData,'gsm:p:')) {
@@ -3472,7 +3525,7 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                     ];
                     $alertText = "Input Kustom";
                 } elseif ($callbackData === "laporan_kas_refresh") {
-                    if (!$loggedInStaff || !in_array($loggedInStaff['role'], ['admin', 'manager', 'finance'])) {
+                    if (!$loggedInStaff || !in_array($loggedInStaff['role'], ['admin', 'owner', 'manager', 'finance'])) {
                         $replyText = "🔒 Akses Ditolak!";
                         $alertText = "Akses ditolak!";
                     } else {
@@ -3502,6 +3555,51 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                             ]
                         ];
                         $alertText = "Laporan dimuat ulang!";
+                    }
+                } elseif ($callbackData === "riwayat_shift_menu" || str_starts_with($callbackData,"riwayat_shift_menu:p:") || str_starts_with($callbackData,"riwayat_shift_detail:")) {
+                    // Read-only: riwayat tutup shift untuk admin/owner/manager/finance.
+                    $histPage=1;$histDetail='';
+                    if(str_starts_with($callbackData,"riwayat_shift_menu:p:"))$histPage=max(1,(int)substr($callbackData,strlen("riwayat_shift_menu:p:")));
+                    elseif(str_starts_with($callbackData,"riwayat_shift_detail:"))$histDetail=trim((string)substr($callbackData,strlen("riwayat_shift_detail:")));
+                    if($histDetail!==''){
+                        $hist=tamasyaClosedShiftDetail($pdo,$histDetail);
+                        if(!$hist){$replyText='⚠️ Data shift tidak ditemukan (mungkin sudah berubah).';$replyMarkup=['inline_keyboard'=>[[['text'=>'⬅️ Riwayat Shift','callback_data'=>'riwayat_shift_menu']]]];}
+                        else{
+                            $variance=(float)($hist['variance']??0);
+                            $depLines=[];
+                            foreach((array)($hist['depositSummary']??[]) as $depRow)$depLines[]='• '.(string)($depRow['entry_type']??'-').': Rp '.tamasyaTelegramFormatAmount((float)($depRow['total']??0)).' ('.(int)($depRow['n']??0).'x)';
+                            $replyText="📋 *RINCIAN TUTUP SHIFT*\n\n"
+                                ."📅 ".substr((string)($hist['shift_date']??'-'),0,10)." · ⏰ ".tamasyaTelegramPlainText((string)($hist['shift_time']??'-'),20)."\n"
+                                ."👤 ".tamasyaTelegramPlainText((string)($hist['staff_name']??'-'),60).((string)($hist['companion_staff_name']??'')!==''?' + '.tamasyaTelegramPlainText((string)$hist['companion_staff_name'],60):'')."\n"
+                                ."🕰️ ".substr((string)($hist['opened_at']??'-'),0,16)." → ".substr((string)($hist['closed_at']??'-'),0,16)."\n\n"
+                                ."💰 Kas awal: Rp ".tamasyaTelegramFormatAmount((float)($hist['opening_cash']??0))."\n"
+                                ."📥 Pemasukan: Rp ".tamasyaTelegramFormatAmount((float)($hist['cash_income']??0))."\n"
+                                ."📤 Pengeluaran: Rp ".tamasyaTelegramFormatAmount((float)($hist['cash_expense']??0))."\n"
+                                ."🎯 Kas harapan: Rp ".tamasyaTelegramFormatAmount((float)($hist['expected_cash']??0))."\n"
+                                ."💵 Kas aktual: Rp ".tamasyaTelegramFormatAmount((float)($hist['actual_cash']??0))."\n"
+                                ."⚖️ Selisih: Rp ".tamasyaTelegramFormatAmount($variance).($variance!=0?' ⚠️':' ✅')."\n"
+                                .(((string)($hist['close_override_reason']??'')!=='')?"📝 Override: ".tamasyaTelegramPlainText((string)$hist['close_override_reason'],120)."\n":'')
+                                .(((string)($hist['notes']??'')!=='')?"🗒️ Catatan: ".tamasyaTelegramPlainText((string)$hist['notes'],200)."\n":'')
+                                ."\n🛡 Deposito:\n".($depLines?implode("\n",$depLines):'• tidak ada pergerakan');
+                            $replyMarkup=['inline_keyboard'=>[[['text'=>'⬅️ Riwayat Shift','callback_data'=>'riwayat_shift_menu']]]];
+                        }
+                        $alertText='Rincian shift';
+                    }else{
+                        $histData=tamasyaClosedShiftHistory($pdo,$histPage,5);
+                        if($histData['count']<=0)$replyText="📋 *RIWAYAT TUTUP SHIFT*\n\nBelum ada shift yang ditutup.";
+                        else{
+                            $histLines=[];
+                            foreach($histData['rows'] as $histRow){
+                                $histVar=(float)($histRow['variance']??0);
+                                $histLines[]='• '.substr((string)($histRow['shift_date']??'-'),0,10).' '.tamasyaTelegramPlainText((string)($histRow['shift_time']??'-'),12).' — '.tamasyaTelegramPlainText((string)($histRow['staff_name']??'-'),30).' — Rp '.tamasyaTelegramFormatAmount((float)($histRow['actual_cash']??0)).($histVar!=0?' (selisih Rp '.tamasyaTelegramFormatAmount($histVar).')':'');
+                            }
+                            $replyText="📋 *RIWAYAT TUTUP SHIFT*\n\n".implode("\n",$histLines)."\n\nHalaman *{$histData['page']}/{$histData['totalPages']}* · {$histData['count']} shift. Ketuk tombol untuk rincian.";
+                        }
+                        $histButtons=[];
+                        foreach($histData['rows'] as $histRow)$histButtons[]=[['text'=>'🧾 '.substr((string)($histRow['shift_date']??'?'),5,5).' '.tamasyaTelegramPlainText((string)($histRow['shift_time']??''),12),'callback_data'=>'riwayat_shift_detail:'.(string)$histRow['id']]];
+                        if($histData['totalPages']>1)$histButtons[]=$buildTelegramPagerRow($histData['page'],$histData['totalPages'],'riwayat_shift_menu:p:');
+                        $histButtons[]=[['text'=>'⬅️ Kas & Shift','callback_data'=>'cash_shift_menu']];
+                        $replyMarkup=['inline_keyboard'=>$histButtons];$alertText='Riwayat shift';
                     }
                 } elseif ($callbackData === "housekeeping_menu" || str_starts_with($callbackData,"housekeeping_menu:p:")) {
                     $pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
@@ -4264,6 +4362,8 @@ Demi keamanan data hotel, grup harus ditambahkan oleh Administrator melalui menu
                 $command = "/jual_kamar";
             } elseif ($command === "📈 Laporan Kas" || strtolower($command) === "laporan") {
                 $command = "/laporan";
+            } elseif ($command === "📋 Riwayat Shift" || strtolower($command) === "riwayat shift") {
+                $command = "/riwayat_shift";
             } elseif (in_array($command,["🤖 Tanya AI","🤖 Bantuan AI","Bantuan AI","Tanya AI"],true) || in_array(strtolower($command),["help","tanya ai","bantuan ai"],true)) {
                 $command = "/ai_help";
             } elseif ($command === "🧹 Housekeeping" || strtolower($command) === "housekeeping" || $command === "🧹 Housekeeping...") {
@@ -4346,8 +4446,8 @@ Demi keamanan database multi-user, command, tombol, binding akun, data tamu, AI,
 
             // If the user entered a command or system menu button, clear conversational state for this chatId
             $isCommandOrMenu = (strpos($command, '/') === 0) || in_array($command, [
-                "📊 Cek Kamar", "🔑 Login Admin", "🔗 Hubungkan Akun", "🤖 Tanya AI", "🤖 Bantuan AI", "📅 Reservasi", "🛒 Jual Kamar", "🛒 Jual Kamar...", 
-                "🔎 Diagnosa Kamar", "🔧 Update Kamar", "📈 Laporan Kas", "📥 Input Pemasukan", "📤 Input Pengeluaran", "🔒 Logout Admin", "🔒 Logout",
+                "📊 Cek Kamar", "🔑 Login Admin", "🔗 Hubungkan Akun", "🤖 Tanya AI", "🤖 Bantuan AI", "📅 Reservasi", "🛒 Jual Kamar", "🛒 Jual Kamar...",
+                "🔎 Diagnosa Kamar", "🔧 Update Kamar", "📈 Laporan Kas", "📋 Riwayat Shift", "📥 Input Pemasukan", "📤 Input Pengeluaran", "🔒 Logout Admin", "🔒 Logout",
                 "🧹 Housekeeping", "🚨 Patroli & Laporan", "🧹 Housekeeping...", "🚨 Patrol & Lapor...",
                 "🔑 Buka Shift", "🔑 Buka Shift...", "📝 Tutup Shift", "📝 Kirim Laporan",
                 "⏳ Perpanjang Sewa", "⏳ Perpanjang Sewa...", "🛠️ Tambah Layanan", "🛠️ Tambah Layanan...",
@@ -6101,9 +6201,9 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                     str_starts_with($command,'/checkout') || str_starts_with($command,'/update_status')) {
                     $requiredDirectRoles = ['admin','manager','receptionist'];
                 } elseif (str_starts_with($command,'/cetak_nota') || str_starts_with($command,'/nota') || str_starts_with($command,'/invoice')) {
-                    $requiredDirectRoles = ['admin','manager','receptionist','finance'];
+                    $requiredDirectRoles = ['admin','manager','receptionist','finance','owner'];
                 } elseif ($command === '/kamar_kosong' || str_starts_with($command,'/kamar_kosong ')) {
-                    $requiredDirectRoles = ['admin','manager','receptionist','finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'];
+                    $requiredDirectRoles = ['admin','manager','receptionist','finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain','owner'];
                 } elseif ($command === '/housekeeping' || str_starts_with($command,'/hk_set')) {
                     $requiredDirectRoles = ['admin','manager','receptionist','cleaning_service'];
                 } elseif ($command === '/patroli_laporan' || str_starts_with($command,'/patrol') || str_starts_with($command,'/lapor_insiden')) {
@@ -6112,13 +6212,22 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                     $requiredDirectRoles = tamasyaShiftOperatorRoles();
                 } elseif ($command === '📥 Input Pemasukan' || str_starts_with($command,'/pemasukan')) {
                     $requiredDirectRoles = ['admin','manager','finance'];
-                } elseif ($command === '📤 Input Pengeluaran' || str_starts_with($command,'/pengeluaran') || str_starts_with($command,'/laporan') || $command==='/integritas') {
+                } elseif ($command === '📤 Input Pengeluaran' || str_starts_with($command,'/pengeluaran')) {
+                    $requiredDirectRoles = ['admin','manager','finance'];
+                } elseif (str_starts_with($command,'/laporan') || $command === '/riwayat_shift' || str_starts_with($command,'/riwayat_shift ') || str_starts_with($command,'/riwayat_shift:')) {
+                    $requiredDirectRoles = function_exists('tamasyaShiftHistoryReaderRoles') ? tamasyaShiftHistoryReaderRoles() : ['admin','owner','manager','finance'];
+                } elseif ($command==='/integritas') {
                     $requiredDirectRoles = ['admin','manager','finance'];
                 }
                 if ($requiredDirectRoles !== null && (!$loggedInStaff || !in_array($directRole,$requiredDirectRoles,true))) {
                     $replyText = "🔒 *AKSES DITOLAK*
 
 Command ini tidak sesuai dengan peran akun Telegram Anda. Tidak ada perubahan yang dilakukan pada database.";
+                    if ($loggedInStaff && $directRole==='owner') {
+                        $replyText = "🔒 *OWNER READ-ONLY*
+
+Akun Owner boleh melihat semua menu, tetapi tidak boleh mengubah data lewat Telegram. Minta Admin/Manager untuk tindakan ini.";
+                    }
                     $stateProcessed = true;
                 }
             }
@@ -6812,8 +6921,8 @@ Hubungi petugas hotel untuk informasi nomor kamar yang tersedia.";
             } elseif (strpos($command, '/laporan') === 0) {
                 if (!$loggedInStaff) {
                     $replyText = "🔒 *AKSES DITOLAK*!\nTelegram ID belum terhubung. Hubungi Admin untuk binding akun staf.";
-                } elseif (!in_array($loggedInStaff['role'], ['admin', 'manager', 'finance'])) {
-                    $replyText = "🔒 *AKSES DITOLAK*!\nMaaf, laporan keuangan hanya diizinkan untuk Admin, Manajer, atau divisi Keuangan.";
+                } elseif (!in_array($loggedInStaff['role'], ['admin', 'owner', 'manager', 'finance'])) {
+                    $replyText = "🔒 *AKSES DITOLAK*!\nMaaf, laporan keuangan hanya diizinkan untuk Admin, Owner, Manajer, atau divisi Keuangan.";
                 } else {
                     $saldoAwal = isset($confRow['initial_balance']) ? (float)$confRow['initial_balance'] : 0;
                     $cashSummary = tamasyaCanonicalCashSummary($pdo,$saldoAwal);
@@ -6835,6 +6944,37 @@ Hubungi petugas hotel untuk informasi nomor kamar yang tersedia.";
                                  "💵 *Arus Likuid Bersih: Rp " . tamasyaTelegramFormatAmount($cashflow) . "*\n" .
                                  "💰 *Saldo Likuid Akhir: Rp " . tamasyaTelegramFormatAmount($finalBalance) . "*\n\n" .
                                  "Laporan langsung tersinkron ke semua perangkat terhubung.";
+                }
+            } elseif (strpos($command, '/riwayat_shift') === 0) {
+                $histReaderRoles = function_exists('tamasyaShiftHistoryReaderRoles') ? tamasyaShiftHistoryReaderRoles() : ['admin','owner','manager','finance'];
+                if (!$loggedInStaff) {
+                    $replyText = "🔒 *AKSES DITOLAK*!\nTelegram ID belum terhubung. Hubungi Admin untuk binding akun staf.";
+                } elseif (!in_array(strtolower((string)$loggedInStaff['role']), array_map('strtolower', $histReaderRoles), true)) {
+                    $replyText = "🔒 *AKSES DITOLAK*!\nMaaf, riwayat tutup shift hanya diizinkan untuk Admin, Owner, Manajer, atau divisi Keuangan.";
+                } else {
+                    $histArg = trim(substr($command, strlen('/riwayat_shift')));
+                    $histArg = ltrim($histArg, " :=");
+                    $histPage = 1;
+                    if ($histArg !== '' && preg_match('/^p?(\d{1,3})$/', $histArg, $histPageMatch)) {
+                        $histPage = max(1, (int)$histPageMatch[1]);
+                    }
+                    $histData = tamasyaClosedShiftHistory($pdo, $histPage, 5);
+                    if ($histData['count'] <= 0) {
+                        $replyText = "📋 *RIWAYAT TUTUP SHIFT*\n\nBelum ada shift yang ditutup.";
+                        $replyMarkup = ['inline_keyboard' => [[['text' => '⬅️ Kas & Shift', 'callback_data' => 'cash_shift_menu']]]];
+                    } else {
+                        $histLines = [];
+                        foreach ($histData['rows'] as $histRow) {
+                            $histVar = (float)($histRow['variance'] ?? 0);
+                            $histLines[] = '• ' . substr((string)($histRow['shift_date'] ?? '-'), 0, 10) . ' ' . tamasyaTelegramPlainText((string)($histRow['shift_time'] ?? ''), 12) . ' — ' . tamasyaTelegramPlainText((string)($histRow['staff_name'] ?? '-'), 30) . ' — Rp ' . tamasyaTelegramFormatAmount((float)($histRow['actual_cash'] ?? 0)) . ($histVar != 0 ? ' (selisih Rp ' . tamasyaTelegramFormatAmount($histVar) . ')' : '');
+                        }
+                        $replyText = "📋 *RIWAYAT TUTUP SHIFT*\n\n" . implode("\n", $histLines) . "\n\nHalaman *{$histData['page']}/{$histData['totalPages']}* · {$histData['count']} shift. Ketuk tombol untuk rincian.";
+                        $histButtons = [];
+                        foreach ($histData['rows'] as $histRow) $histButtons[] = [['text' => '🧾 ' . substr((string)($histRow['shift_date'] ?? '?'), 5, 5) . ' ' . tamasyaTelegramPlainText((string)($histRow['shift_time'] ?? ''), 12), 'callback_data' => 'riwayat_shift_detail:' . (string)$histRow['id']]];
+                        if ($histData['totalPages'] > 1) $histButtons[] = $buildTelegramPagerRow($histData['page'], $histData['totalPages'], 'riwayat_shift_menu:p:');
+                        $histButtons[] = [['text' => '⬅️ Kas & Shift', 'callback_data' => 'cash_shift_menu']];
+                        $replyMarkup = ['inline_keyboard' => $histButtons];
+                    }
                 }
             } elseif ($command === "/housekeeping") {
                 $pageSize=30;$countRooms=(int)$pdo->query("SELECT COUNT(*) FROM rooms")->fetchColumn();$totalPages=max(1,(int)ceil(max(1,$countRooms)/$pageSize));
