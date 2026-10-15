@@ -805,10 +805,43 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                 if (tamasyaIsOwnerRole($staff)) return $ownerKeyboard;
                 if (in_array($role,['admin','manager'],true)) return $adminKeyboard;
                 if ($role === 'receptionist') return $repsKeyboard;
-                if ($role === 'finance') return $financeKeyboard;
-                if ($role === 'cleaning_service') return $housekeepingKeyboard;
-                if ($role === 'keamanan') return $securityKeyboard;
-                return $basicStaffKeyboard;
+                if ($role === 'finance') $baseKeyboard = $financeKeyboard;
+                elseif ($role === 'cleaning_service') $baseKeyboard = $housekeepingKeyboard;
+                elseif ($role === 'keamanan') $baseKeyboard = $securityKeyboard;
+                else $baseKeyboard = $basicStaffKeyboard;
+                // Tombol penjualan/inap/panjar muncul mengikuti centangan per
+                // akun agar "dicentang langsung jalan". Tanpa centangan,
+                // keyboard sama dengan sebelumnya (fallback = peran lama).
+                $flatTexts = [];
+                foreach ((array)($baseKeyboard['keyboard'] ?? []) as $existingRow) {
+                    foreach ((array)$existingRow as $btn) {
+                        if (is_array($btn) && isset($btn['text'])) $flatTexts[] = (string)$btn['text'];
+                    }
+                }
+                $extraRows = [];
+                if (!in_array("🛒 Jual Kamar",$flatTexts,true) && hasCapability($staff,'sell_room_access',['admin','manager','receptionist'])) {
+                    $extraRows[] = [["text" => "🛒 Jual Kamar"]];
+                    $extraRows[] = [["text" => "📅 Reservasi"]];
+                }
+                if (!in_array("⏳ Perpanjang Sewa",$flatTexts,true) && hasCapability($staff,'manage_stay_access',['admin','manager','receptionist'])) {
+                    $extraRows[] = [["text" => "⏳ Perpanjang Sewa"], ["text" => "🛠️ Tambah Layanan"]];
+                    $extraRows[] = [["text" => "🔄 Pindah Kamar"]];
+                    $extraRows[] = [["text" => "🚪 Check-out Kamar"]];
+                }
+                if (!in_array("💵 Terima Panjar",$flatTexts,true) && hasCapability($staff,'receive_payment_access',['admin','manager','receptionist','finance'])) {
+                    $extraRows[] = [["text" => "💵 Terima Panjar"]];
+                }
+                if ($extraRows === []) return $baseKeyboard;
+                $rows = is_array($baseKeyboard['keyboard'] ?? null) ? $baseKeyboard['keyboard'] : [];
+                $insertAt = count($rows);
+                foreach ($rows as $i=>$row) {
+                    foreach ((array)$row as $btn) {
+                        if (is_array($btn) && ($btn['text'] ?? '') === "🏠 Menu Utama") { $insertAt = $i; break 2; }
+                    }
+                }
+                array_splice($rows,$insertAt,0,$extraRows);
+                $baseKeyboard['keyboard'] = $rows;
+                return $baseKeyboard;
             };
 
             $chatId = null;
@@ -927,8 +960,12 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     $supportPrefixes = ['support_reply:'];
                     $financeCallbacks = ['pemasukan_menu','pengeluaran_menu','laporan_kas_refresh','consistency_guard'];
                     $financePrefixes = ['pemasukan_menu:p:','p_room:','p_room_confirm_direct:','p_room_cat:','p_room_custom:','p_room_sub:','p_room_custom_sub:','p_exp_cat:','p_exp_sub:','p_exp_custom:','p_exp_confirm_direct:','p_exp_custom_sub:'];
-                    $reservationCallbacks = ['room_list','sell_room_list','reservation_list','booking_extend_menu','booking_service_menu','booking_transfer_menu','booking_checkout_menu','room_payment_status_menu','cancel_booking_process','simulate_ktp_upload'];
-                    $reservationPrefixes = ['room_list:p:','sell_room_list:p:','reservation_list:p:','reservation_detail:','booking_extend_menu:p:','booking_service_menu:p:','booking_transfer_menu:p:','booking_checkout_menu:p:','room_payment_status_menu:p:','room_payment_status_filter:','room_select:','room_set:','key_status:','key_issue_review:','key_issue_confirm:','r_sell:','r_sell_confirm:','r_sell_nego_prompt:','r_sell_source_prompt:','r_sell_walkin_ktp:','r_sell_custom:','r_sell_source_set:','r_sell_source_back:','r_sell_split_select:','r_sell_open_ended_select:','r_sell_split_bank:','r_sell_dp_confirm:','r_checkout:','r_checkout_nego:','r_checkout_nego_save:','r_checkout_key:','r_checkout_confirm:','r_checkout_defer:','r_checkout_pay:','r_checkout_split:','r_checkout_split_bank:','r_charge_method:','r_charge_account:','r_charge_save:','r_extend:','r_extend_nego:','r_extend_choice:','r_extend_confirm:','r_layanan:','r_layanan_type:','r_layanan_confirm:','r_transfer:','r_transfer_target:','r_transfer_confirm:','r_transfer_key:'];
+                    $sellCallbacks = ['sell_room_list','reservation_list'];
+                    $sellPrefixes = ['sell_room_list:p:','reservation_list:p:','reservation_detail:','r_sell:','r_sell_confirm:','r_sell_nego_prompt:','r_sell_source_prompt:','r_sell_walkin_ktp:','r_sell_custom:','r_sell_source_set:','r_sell_source_back:','r_sell_split_select:','r_sell_open_ended_select:','r_sell_split_bank:','r_sell_dp_confirm:'];
+                    $stayCallbacks = ['booking_extend_menu','booking_service_menu','booking_transfer_menu','booking_checkout_menu'];
+                    $stayPrefixes = ['booking_extend_menu:p:','booking_service_menu:p:','booking_transfer_menu:p:','booking_checkout_menu:p:','r_checkout:','r_checkout_nego:','r_checkout_nego_save:','r_checkout_key:','r_checkout_confirm:','r_checkout_defer:','r_checkout_pay:','r_checkout_split:','r_checkout_split_bank:','r_charge_method:','r_charge_account:','r_charge_save:','r_extend:','r_extend_nego:','r_extend_choice:','r_extend_confirm:','r_layanan:','r_layanan_type:','r_layanan_confirm:','r_transfer:','r_transfer_target:','r_transfer_confirm:','r_transfer_key:'];
+                    $roomReadCallbacks = ['room_list','room_payment_status_menu','cancel_booking_process','simulate_ktp_upload'];
+                    $roomReadPrefixes = ['room_list:p:','room_payment_status_menu:p:','room_payment_status_filter:','room_select:','room_set:','key_status:','key_issue_review:','key_issue_confirm:'];
                     $housekeepingCallbacks = ['housekeeping_menu'];
                     $housekeepingPrefixes = ['housekeeping_menu:p:','hk_room:','hk_set:'];
                     $vacancyCallbacks = ['vacancy_menu'];
@@ -964,16 +1001,24 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     } elseif (in_array($callbackData,$financeCallbacks,true) || $matchesPrefix($callbackData,$financePrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','finance'],true);
                     } elseif ($callbackData==='mr_list'||str_starts_with($callbackData,'mr_list:')||str_starts_with($callbackData,'mr_detail:')) {
-                        $allowedCallback=in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
+                        $allowedCallback=in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true)||hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist']);
                     } elseif (str_starts_with($callbackData,'mr_')) {
-                        $allowedCallback=in_array($callbackRole,['admin','manager','receptionist'],true);
+                        // Buat grup = penjualan: role baseline ATAU centangan sell_room_access.
+                        $allowedCallback=hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist']);
                     } elseif ($callbackData==='riwayat_shift_menu'||str_starts_with($callbackData,'riwayat_shift_menu:p:')||str_starts_with($callbackData,'riwayat_shift_detail:')) {
                         $allowedCallback = in_array($callbackRole,function_exists('tamasyaShiftHistoryReaderRoles')?tamasyaShiftHistoryReaderRoles():['admin','owner','manager','finance'],true);
                     } elseif ($callbackRole==='owner' && function_exists('tamasyaTelegramOwnerCallbackReadable') && tamasyaTelegramOwnerCallbackReadable($callbackData)) {
                         // Owner read-only: hanya layar baca yang eksplisit terdaftar.
                         // Callback mutasi/apapun yang baru otomatis tetap ditolak.
                         $allowedCallback = true;
-                    } elseif (in_array($callbackData,$reservationCallbacks,true) || $matchesPrefix($callbackData,$reservationPrefixes)) {
+                    } elseif (in_array($callbackData,$sellCallbacks,true) || $matchesPrefix($callbackData,$sellPrefixes)) {
+                        // Jual/reservasi: role baseline ATAU centangan sell_room_access.
+                        // Fallback = perilaku lama; centang false eksplisit mencabut.
+                        $allowedCallback = hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist','finance','owner']);
+                    } elseif (in_array($callbackData,$stayCallbacks,true) || $matchesPrefix($callbackData,$stayPrefixes)) {
+                        // Perpanjang/layanan/pindah/checkout: role baseline ATAU centangan manage_stay_access.
+                        $allowedCallback = hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist','finance','owner']);
+                    } elseif (in_array($callbackData,$roomReadCallbacks,true) || $matchesPrefix($callbackData,$roomReadPrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
                     } elseif (in_array($callbackData,$vacancyCallbacks,true) || $matchesPrefix($callbackData,$vacancyPrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'],true);
@@ -986,7 +1031,8 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     } elseif (in_array($callbackData,$shiftCallbacks,true) || $matchesPrefix($callbackData,$shiftPrefixes)) {
                         $allowedCallback = in_array($callbackRole,tamasyaShiftOperatorRoles(),true);
                     } elseif (in_array($callbackData,$bookingPaymentCallbacks,true) || $matchesPrefix($callbackData,$bookingPaymentPrefixes)) {
-                        $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance'],true);
+                        // Terima panjar: role baseline ATAU centangan receive_payment_access.
+                        $allowedCallback = hasCapability($loggedInStaff,'receive_payment_access',['admin','manager','receptionist','finance']);
                     } elseif (in_array($callbackData,$receiptCallbacks,true) || $matchesPrefix($callbackData,$receiptPrefixes)) {
                         // Cetak nota murni baca (SELECT + format thermal), aman untuk Owner read-only.
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
@@ -1125,12 +1171,24 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                 } elseif ($callbackData === 'guest_ops_menu') {
                     $pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
                     $buttons=[[[ 'text'=>'📊 Cek Kamar','callback_data'=>'room_status_menu' ]]];
-                    if(in_array($callbackRole,['admin','manager','receptionist'],true)){
+                    // Tombol jual vs inap dipisah mengikuti centangan:
+                    // sell_room_access → Reservasi/Jual/Grup, manage_stay_access →
+                    // Perpanjang/Layanan/Pindah/Checkout. Tanpa centangan,
+                    // fallback = peran lama persis.
+                    $canSellOps = in_array($callbackRole,['admin','manager','receptionist'],true) || hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist']);
+                    $canStayOps = in_array($callbackRole,['admin','manager','receptionist'],true) || hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist']);
+                    if($canSellOps){
                         $buttons[]=[['text'=>'📅 Reservasi','callback_data'=>'reservation_list'],['text'=>'🛒 Jual Kamar','callback_data'=>'sell_room_list']];
                         if(tamasyaGrowthModuleEnabled('group'))$buttons[]=[['text'=>'Reservasi Beberapa Kamar','callback_data'=>'mr_start:reserve'],['text'=>'Check-in Beberapa Kamar','callback_data'=>'mr_start:check_in_now']];
+                    }
+                    if($canSellOps||$canStayOps){
                         $buttons[]=[['text'=>'🔎 Diagnosa Kamar','callback_data'=>'room_list']];
+                    }
+                    if($canStayOps){
                         $buttons[]=[['text'=>'⏳ Perpanjang','callback_data'=>'booking_extend_menu'],['text'=>'🛠️ Tambah Layanan','callback_data'=>'booking_service_menu']];
                         $buttons[]=[['text'=>'🔄 Pindah Kamar','callback_data'=>'booking_transfer_menu'],['text'=>'🚪 Check-out','callback_data'=>'booking_checkout_menu']];
+                    }
+                    if($canSellOps||$canStayOps){
                     $buttons[]=[['text'=>'💰 Status Bayar Kamar','callback_data'=>'room_payment_status_menu']];
                     }
                     if($callbackRole==='owner'){
@@ -1145,7 +1203,7 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                     }
                     if(in_array($callbackRole,['admin','manager','receptionist','finance'],true))$buttons[]=[['text'=>'🧾 Cetak Nota','callback_data'=>'receipt_menu']];
                     if(hasCapability($loggedInStaff,'view_guest_identity',['admin','manager','receptionist','keamanan']))$buttons[]=[['text'=>'🪪 Lihat KTP','callback_data'=>'guest_identity_menu']];
-                    if(tamasyaGrowthModuleEnabled('group')&&in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true))$buttons[]=[['text'=>'Daftar Grup','callback_data'=>'mr_list']];
+                    if(tamasyaGrowthModuleEnabled('group')&&(in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true)||hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist'])))$buttons[]=[['text'=>'Daftar Grup','callback_data'=>'mr_list']];
                     $buttons[]=[['text'=>'⬅️ Menu Utama','callback_data'=>'main_menu']];
                     $replyText="🛏️ *KAMAR & TAMU*\n\nUntuk satu pemesan beberapa kamar, pilih Reservasi Beberapa Kamar (atau ketik /reservasi_grup). Pilih tanggal dahulu; kamar terisi saat ini boleh dipesan untuk periode lain yang tidak bertabrakan. Tombol perubahan mengikuti izin akun.";
                     $replyMarkup=['inline_keyboard'=>$buttons];$alertText='Kamar & Tamu';
@@ -1228,7 +1286,7 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                 } elseif ($callbackData === 'cash_shift_menu') {
                     $pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
                     $buttons=[];
-                    if(in_array($callbackRole,['admin','manager','receptionist','finance'],true))$buttons[]=[['text'=>'💵 Terima Panjar','callback_data'=>'panjar_menu']];
+                    if(in_array($callbackRole,['admin','manager','receptionist','finance'],true)||hasCapability($loggedInStaff,'receive_payment_access',['admin','manager','receptionist','finance']))$buttons[]=[['text'=>'💵 Terima Panjar','callback_data'=>'panjar_menu']];
                     if(in_array($callbackRole,['admin','manager','finance'],true))$buttons[]=[['text'=>'📥 Input Pemasukan','callback_data'=>'pemasukan_menu']];
                     if(in_array($callbackRole,['admin','manager','finance'],true))$buttons[]=[['text'=>'📤 Input Pengeluaran','callback_data'=>'pengeluaran_menu'],['text'=>'📈 Laporan Kas','callback_data'=>'laporan_kas_refresh']];
                     if(in_array($callbackRole,tamasyaShiftOperatorRoles(),true))$buttons[]=[['text'=>'🔑 Buka Shift','callback_data'=>'buka_shift_menu'],['text'=>'📝 Tutup Shift','callback_data'=>'tutup_shift_menu']];
@@ -2470,7 +2528,7 @@ Tidak ada kamar yang benar-benar tersedia secara operasional untuk dijual saat i
                         if(!$isStale&&!$isDuplicate)$postCallbackBroadcasts[]=["🚪 *KAMAR DILAPORKAN KOSONG*\n\nKamar: *{$roomNumber}*\nPelapor: *".currentStaffLabel($loggedInStaff)."*\nStatus: *MENUNGGU VERIFIKASI CHECKOUT*",false];
                         $replyText=$isStale?"ℹ️ *LAPORAN TERLAMBAT TERSIMPAN*\n\n🚪 Kamar: *{$roomNumber}*\nBooking yang diamati sudah tidak aktif; laporan tetap disimpan sebagai bukti historis.":"✅ *LAPORAN KAMAR KOSONG TERSIMPAN*\n\n🚪 Kamar: *{$roomNumber}*\n📌 Status: *MENUNGGU VERIFIKASI*\n\nKamar belum dijual kembali dan belum dianggap bersih.";
                         $buttons=[];
-                        if(!$isStale&&in_array(strtolower((string)$loggedInStaff['role']),['admin','manager','receptionist'],true))$buttons[]=[['text'=>'✅ Verifikasi & Lanjut Checkout','callback_data'=>'r_checkout:'.$roomNumber]];
+                        if(!$isStale&&hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist']))$buttons[]=[['text'=>'✅ Verifikasi & Lanjut Checkout','callback_data'=>'r_checkout:'.$roomNumber]];
                         $buttons[]=[['text'=>'📊 Cek Status Kamar','callback_data'=>'room_list']];
                         $replyMarkup=['inline_keyboard'=>$buttons];$alertText=$isStale?'Laporan historis tersimpan':($isDuplicate?'Laporan sudah ada':'Laporan tersimpan');
                     }catch(Throwable $vacancyError){$replyText='❌ '.clientExceptionMessage('Laporan kamar kosong gagal',$vacancyError);$alertText='Laporan ditolak';}
@@ -4524,11 +4582,18 @@ Demi keamanan database multi-user, command, tombol, binding akun, data tamu, AI,
                 } elseif (str_starts_with($pendingState,'waiting_for_leave_')) {
                     $pendingAllowed = $pendingRole!=='owner';
                 } elseif (str_starts_with($pendingState,'waiting_for_dp_')) {
-                    $pendingAllowed = in_array($pendingRole,['admin','manager','receptionist','finance'],true);
+                    $pendingAllowed = hasCapability($loggedInStaff,'receive_payment_access',['admin','manager','receptionist','finance']);
                 } elseif (str_starts_with($pendingState,'waiting_for_buka_shift_') || str_starts_with($pendingState,'waiting_for_tutup_shift_')) {
                     $pendingAllowed = in_array($pendingRole,tamasyaShiftOperatorRoles(),true);
+                } elseif (str_starts_with($pendingState,'waiting_mr_') || $pendingState==='mr_done') {
+                    $pendingAllowed = hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist']);
                 } elseif ($pendingState !== 'waiting_for_login_password') {
-                    $pendingAllowed = in_array($pendingRole,['admin','manager','receptionist'],true);
+                    // Langkah lanjutan alur jual/tetap/panjar: boleh via role
+                    // baseline ATAU salah satu centangan penjualan. Tanpa
+                    // centangan, fallback = perilaku lama persis.
+                    $pendingAllowed = hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist'])
+                        || hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist'])
+                        || hasCapability($loggedInStaff,'receive_payment_access',['admin','manager','receptionist','finance']);
                 }
                 if (!$pendingAllowed) {
                     $pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
@@ -6200,16 +6265,24 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
             if (!$stateProcessed) {
                 $directRole = strtolower((string)($loggedInStaff['role'] ?? ''));
                 $requiredDirectRoles = null;
-                if ($command === '🔎 Diagnosa Kamar' || $command === '🔧 Update Kamar' || $command === '/reservasi' || $command === '/reservasi_grup' || $command === '/checkin_grup' || $command === '/jual_kamar' || str_starts_with($command,'/jual ') ||
-                    $command === '/perpanjang' || $command === '/layanan' || $command === '/pindah' ||
-                    str_starts_with($command,'/checkout') || str_starts_with($command,'/update_status')) {
+                $requiredDirectCap = null; // [capability, fallbackRoles]: lolos via role baseline ATAU centangan.
+                if ($command === '🔎 Diagnosa Kamar' || $command === '🔧 Update Kamar') {
                     $requiredDirectRoles = ['admin','manager','receptionist'];
+                } elseif ($command === '/reservasi' || $command === '/reservasi_grup' || $command === '/checkin_grup' || $command === '/jual_kamar' || str_starts_with($command,'/jual ')) {
+                    $requiredDirectCap = ['sell_room_access',['admin','manager','receptionist']];
+                } elseif ($command === '/perpanjang' || $command === '/layanan' || $command === '/pindah' ||
+                    str_starts_with($command,'/checkout') || str_starts_with($command,'/update_status')) {
+                    $requiredDirectCap = ['manage_stay_access',['admin','manager','receptionist']];
+                } elseif (str_starts_with($command,'/panjar')) {
+                    $requiredDirectCap = ['receive_payment_access',['admin','manager','receptionist','finance']];
+                } elseif (str_starts_with($command,'/ktp')) {
+                    $requiredDirectCap = ['view_guest_identity',['admin','manager','receptionist','keamanan']];
                 } elseif (str_starts_with($command,'/cetak_nota') || str_starts_with($command,'/nota') || str_starts_with($command,'/invoice')) {
                     $requiredDirectRoles = ['admin','manager','receptionist','finance','owner'];
                 } elseif ($command === '/kamar_kosong' || str_starts_with($command,'/kamar_kosong ')) {
                     $requiredDirectRoles = ['admin','manager','receptionist','finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain','owner'];
                 } elseif ($command === '/housekeeping' || str_starts_with($command,'/hk_set')) {
-                    $requiredDirectRoles = ['admin','manager','receptionist','cleaning_service'];
+                    $requiredDirectCap = ['perform_housekeeping',['admin','manager','receptionist','cleaning_service']];
                 } elseif ($command === '/patroli_laporan' || str_starts_with($command,'/patrol') || str_starts_with($command,'/lapor_insiden')) {
                     $requiredDirectRoles = ['admin','manager','receptionist','keamanan'];
                 } elseif ($command === '/buka_shift' || $command === '/tutup_shift') {
@@ -6227,6 +6300,16 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                     $replyText = "🔒 *AKSES DITOLAK*
 
 Command ini tidak sesuai dengan peran akun Telegram Anda. Tidak ada perubahan yang dilakukan pada database.";
+                    if ($loggedInStaff && $directRole==='owner') {
+                        $replyText = "🔒 *OWNER READ-ONLY*
+
+Akun Owner boleh melihat semua menu, tetapi tidak boleh mengubah data lewat Telegram. Minta Admin/Manager untuk tindakan ini.";
+                    }
+                    $stateProcessed = true;
+                } elseif ($requiredDirectCap !== null && (!$loggedInStaff || !hasCapability($loggedInStaff,$requiredDirectCap[0],$requiredDirectCap[1]))) {
+                    $replyText = "🔒 *AKSES DITOLAK*
+
+Akun Telegram Anda belum memiliki akses ini. Minta Admin mencentang izin yang sesuai di menu Karyawan. Tidak ada perubahan yang dilakukan pada database.";
                     if ($loggedInStaff && $directRole==='owner') {
                         $replyText = "🔒 *OWNER READ-ONLY*
 
@@ -6561,8 +6644,8 @@ Hubungi petugas hotel untuk informasi nomor kamar yang tersedia.";
             } elseif (strpos($command, '/jual') === 0) {
                 if (!$loggedInStaff) {
                     $replyText = "🔒 *AKSES DITOLAK*!\nTelegram ID belum terhubung. Hubungi Admin untuk binding akun staf.";
-                } elseif (!in_array($loggedInStaff['role'], ['admin', 'manager', 'receptionist'])) {
-                    $replyText = "🔒 *AKSES DITOLAK*!\nMaaf, penjualan kamar hanya diizinkan untuk Admin, Manajer, atau Resepsionis.";
+                } elseif (!hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist'])) {
+                    $replyText = "🔒 *AKSES DITOLAK*!\nMaaf, penjualan kamar hanya diizinkan untuk akun dengan akses penjualan (Admin, Manajer, Resepsionis, atau centangan Jual Kamar & Reservasi).";
                 } else {
                     $rawArgs = trim(substr($command, 5));
                     $parts = preg_split('/\s+/', $rawArgs);
@@ -7010,7 +7093,7 @@ Pilih nomor kamar untuk mengelola status Housekeeping.
                 ];
             } elseif (strpos($command, '/panjar') === 0) {
                 if(!$loggedInStaff){$replyText='🔒 Telegram ID belum terhubung ke akun staf.';}
-                elseif(!in_array(strtolower((string)$loggedInStaff['role']),['admin','manager','receptionist','finance'],true)){$replyText='🔒 Akun ini tidak memiliki izin menerima panjar.';}
+                elseif(!hasCapability($loggedInStaff,'receive_payment_access',['admin','manager','receptionist','finance'])){$replyText='🔒 Akun ini tidak memiliki izin menerima panjar.';}
                 else{
                     $pageSize=30;$count=(int)$pdo->query("SELECT COUNT(*) FROM bookings WHERE status='active'")->fetchColumn();
                     if($count<=0){$replyText='ℹ️ Tidak ada booking aktif yang dapat menerima panjar.';}

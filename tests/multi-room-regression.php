@@ -1,6 +1,7 @@
 <?php
 if(PHP_SAPI!=='cli'){http_response_code(404);exit;}
 define('TAMASYA_API_ENTRY',true);define('TAMASYA_RECEIPT_COMPACTION_LIBRARY',true);
+require dirname(__DIR__).'/api/support/017_authorization_policy.php';
 require dirname(__DIR__).'/api/modules/front_office/043_multi_room_reservations.php';
 require dirname(__DIR__).'/api/modules/front_office/044_multi_room_telegram.php';
 require dirname(__DIR__).'/receipt_storage_maintenance.php';
@@ -21,7 +22,7 @@ final class MrNoDb extends PDO{public function __construct(){}}
 mrReject(fn()=>tamasyaMultiRoomRequire(new MrNoDb(),['role'=>'owner'],true),'Owner write rejected before any DB access');
 $src=file_get_contents(dirname(__DIR__).'/api/modules/front_office/043_multi_room_reservations.php');$cli=file_get_contents(dirname(__DIR__).'/receipt_storage_maintenance.php');
 mrCheck(!preg_match('/CREATE\s+(TABLE|ALTER)|ALTER\s+TABLE/i',$src.$cli),'No runtime schema creation');mrCheck(!preg_match('/DELETE\s+FROM/i',$cli),'Compaction deletes no metadata/history');mrCheck(str_contains($cli,'BINARY response_body=BINARY ?'),'Concurrent replay-body update uses byte comparison');
-require dirname(__DIR__).'/api/support/017_authorization_policy.php';require dirname(__DIR__).'/api/modules/growth_enterprise_locked/105_growth_suite.php';
+require dirname(__DIR__).'/api/modules/growth_enterprise_locked/105_growth_suite.php';
 putenv('TAMASYA_GROWTH_SUITE_ENABLED=0');putenv('TAMASYA_GROWTH_GROUP_CORPORATE_ENABLED=1');mrReject(fn()=>tamasyaMultiRoomRequire(new MrNoDb(),['role'=>'admin'],false),'Disabled parent blocks group before schema access');
 putenv('TAMASYA_GROWTH_SUITE_ENABLED=1');putenv('TAMASYA_GROWTH_GROUP_CORPORATE_ENABLED=0');mrReject(fn()=>tamasyaMultiRoomRequire(new MrNoDb(),['role'=>'admin'],false),'Disabled child blocks group before schema access');
 // Source choices and conflict descriptions use real production helpers, no DB startup.

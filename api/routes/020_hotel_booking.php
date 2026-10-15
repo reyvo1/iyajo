@@ -174,7 +174,7 @@ switch ($action) {
             echo json_encode(['success'=>false,'message'=>'Method Not Allowed']);
             break;
         }
-        requireRoles($loggedInStaff, ['admin', 'manager', 'receptionist']);
+        requireCapability($loggedInStaff, 'manage_stay_access', ['admin', 'manager', 'receptionist']);
         $dedicatedRoomTransferCommand = true;
         // Fall through into the booking mutation engine, but force its internal
         // branch to PUT semantics without changing the public receipt method/action.
@@ -187,8 +187,19 @@ switch ($action) {
             // Penghapusan permanen reservasi hanya untuk pengawas. Resepsionis
             // menggunakan perubahan status/cancel agar jejak transaksi tetap ada.
             requireRoles($loggedInStaff, ['admin', 'manager']);
+        } elseif ($method === 'POST') {
+            // Buat booking = penjualan: role baseline ATAU centangan sell_room_access.
+            requireCapability($loggedInStaff, 'sell_room_access', ['admin', 'manager', 'receptionist']);
         } else {
-            requireRoles($loggedInStaff, ['admin', 'manager', 'receptionist']);
+            // Edit booking (termasuk perpanjangan/pindah via PUT): boleh via
+            // centangan sell ATAU stay, agar finance yang dipilih salah satunya
+            // tetap bisa bekerja. Tanpa centangan, fallback ke role lama.
+            if (!hasCapability($loggedInStaff, 'sell_room_access', ['admin', 'manager', 'receptionist'])
+                && !hasCapability($loggedInStaff, 'manage_stay_access', ['admin', 'manager', 'receptionist'])) {
+                http_response_code(403);
+                echo json_encode(["success" => false, "error" => "Forbidden: Anda tidak memiliki izin untuk operasi ini."]);
+                exit;
+            }
         }
         
         if ($method === 'POST') {
@@ -1333,7 +1344,7 @@ switch ($action) {
     // ----------------------------------------------------------------
     // GET/POST /api/bookings/<id>/security-deposit
     case 'guest-security-deposits':
-        requireRoles($loggedInStaff,['admin','manager','receptionist','finance']);
+        requireCapability($loggedInStaff,'receive_payment_access',['admin','manager','receptionist','finance']);
         $bookingId=trim((string)($_GET['id']??$input['id']??''));
         if($bookingId===''){http_response_code(400);echo json_encode(['success'=>false,'error'=>'ID booking deposito wajib.']);break;}
         if($_SERVER['REQUEST_METHOD']==='GET'){
@@ -1377,7 +1388,7 @@ switch ($action) {
         break;
 
     case 'booking-payments':
-        requireRoles($loggedInStaff, ['admin', 'manager', 'receptionist', 'finance']);
+        requireCapability($loggedInStaff, 'receive_payment_access', ['admin', 'manager', 'receptionist', 'finance']);
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
             echo json_encode(['success'=>false,'message'=>'Method Not Allowed']);
@@ -1426,7 +1437,7 @@ switch ($action) {
     // ----------------------------------------------------------------
     case 'bookings-status':
         tamasyaRuntimeSetStage('bookings-status:authorize');
-        requireRoles($loggedInStaff, ['admin', 'manager', 'receptionist']);
+        requireCapability($loggedInStaff, 'manage_stay_access', ['admin', 'manager', 'receptionist']);
         if ($_SERVER['REQUEST_METHOD'] !== 'PUT' && $_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
             echo json_encode(["message" => "Method Not Allowed"]);

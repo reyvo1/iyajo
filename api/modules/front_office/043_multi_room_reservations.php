@@ -4,7 +4,11 @@ if (!defined('TAMASYA_API_ENTRY')) { http_response_code(404); exit; }
 
 function tamasyaMultiRoomRequire(PDO $pdo,array $actor,bool $write=false): void {
     $roles=$write?['admin','manager','receptionist']:['admin','manager','receptionist','finance','owner'];
-    if(!in_array(strtolower((string)($actor['role']??'')),$roles,true)||!hasDesktopTabAccess($actor,'rooms',$roles))throw new DomainException('Akses reservasi grup tidak diizinkan.',403);
+    if($write){
+        // Tulis grup = penjualan: boleh via role baseline ATAU centangan
+        // sell_room_access per akun. Tab Kamar tetap wajib dicentang.
+        if(!hasCapability($actor,'sell_room_access',$roles)||!hasDesktopTabAccess($actor,'rooms',$roles))throw new DomainException('Akses reservasi grup tidak diizinkan.',403);
+    }elseif(!in_array(strtolower((string)($actor['role']??'')),$roles,true)||!hasDesktopTabAccess($actor,'rooms',$roles))throw new DomainException('Akses reservasi grup tidak diizinkan.',403);
     tamasyaGrowthRequireReady($pdo,'group');
     if($write)tamasyaRequirePropertyReadyForLiveMutation($pdo,'reservasi grup');
 }

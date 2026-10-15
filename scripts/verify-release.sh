@@ -21,6 +21,7 @@ php tests/production-hardening-regression.php
 node tests/production-hardening-regression.mjs
 node tests/report-download-ui-regression.mjs
 php tests/owner-readonly-regression.php
+php tests/capability-sales-regression.php
 node tests/owner-readonly-regression.mjs
 node tests/ui-financial-logic-regression.mjs
 node tests/growth-ui-currency-regression.mjs
