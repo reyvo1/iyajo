@@ -870,9 +870,23 @@ function tamasyaClosedShiftHistory(PDO $pdo,int $page=1,int $pageSize=5): array 
 
 /** Rincian satu shift tutup termasuk ringkasan deposito. Murni SELECT. */
 function tamasyaClosedShiftDetail(PDO $pdo,string $shiftId): ?array {
-    $stmt=$pdo->prepare("SELECT id,shift_date,shift_time,staff_id,staff_name,companion_staff_id,companion_staff_name,opening_cash,cash_income,cash_expense,expected_cash,actual_cash,variance,close_override_reason,notes,opened_at,closed_at FROM shift_sessions WHERE id=? AND status='closed' LIMIT 1");
+    $stmt=$pdo->prepare("SELECT s.id,s.shift_date,s.shift_time,s.staff_id,s.staff_name,s.companion_staff_id,s.companion_staff_name,s.opening_cash,s.cash_income,s.cash_expense,s.expected_cash,s.actual_cash,s.variance,s.close_override_reason,s.notes,s.opened_at,s.closed_at,r.digitalRevenue AS digital_revenue,r.transactionsCount AS transactions_count FROM shift_sessions s LEFT JOIN shift_reports r ON r.shiftSessionId=s.id WHERE s.id=? AND s.status='closed' LIMIT 1");
     $stmt->execute([$shiftId]);$shift=$stmt->fetch(PDO::FETCH_ASSOC)?:null;
     if(!$shift)return null;
+    // Shift lama mungkin belum punya baris shift_reports: hitung ulang
+    // non-tunai dari transaksi yang terkunci pada sesi ini (murni SELECT).
+    if($shift['digital_revenue']===null||$shift['transactions_count']===null){
+        try{
+            $txStmt=$pdo->prepare("SELECT * FROM transactions WHERE shiftSessionId=?");
+            $txStmt->execute([$shiftId]);$txRows=$txStmt->fetchAll(PDO::FETCH_ASSOC)?:[];
+            $totals=tamasyaShiftSettlementTotals($txRows);
+            if($shift['digital_revenue']===null)$shift['digital_revenue']=$totals['digitalInc'];
+            if($shift['transactions_count']===null)$shift['transactions_count']=$totals['txCount'];
+        }catch(Throwable $ignored){
+            if($shift['digital_revenue']===null)$shift['digital_revenue']=0;
+            if($shift['transactions_count']===null)$shift['transactions_count']=0;
+        }
+    }
     try{
         $dep=$pdo->prepare("SELECT entry_type,SUM(amount) AS total,COUNT(*) AS n FROM guest_security_deposit_ledger WHERE shift_session_id=? GROUP BY entry_type");
         $dep->execute([$shiftId]);$deposits=$dep->fetchAll(PDO::FETCH_ASSOC)?:[];

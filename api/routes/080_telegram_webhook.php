@@ -3566,6 +3566,8 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                         if(!$hist){$replyText='⚠️ Data shift tidak ditemukan (mungkin sudah berubah).';$replyMarkup=['inline_keyboard'=>[[['text'=>'⬅️ Riwayat Shift','callback_data'=>'riwayat_shift_menu']]]];}
                         else{
                             $variance=(float)($hist['variance']??0);
+                            $histDigital=(float)($hist['digital_revenue']??0);
+                            $histTxCount=(int)($hist['transactions_count']??0);
                             $depLines=[];
                             foreach((array)($hist['depositSummary']??[]) as $depRow)$depLines[]='• '.(string)($depRow['entry_type']??'-').': Rp '.tamasyaTelegramFormatAmount((float)($depRow['total']??0)).' ('.(int)($depRow['n']??0).'x)';
                             $replyText="📋 *RINCIAN TUTUP SHIFT*\n\n"
@@ -3573,11 +3575,13 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                                 ."👤 ".tamasyaTelegramPlainText((string)($hist['staff_name']??'-'),60).((string)($hist['companion_staff_name']??'')!==''?' + '.tamasyaTelegramPlainText((string)$hist['companion_staff_name'],60):'')."\n"
                                 ."🕰️ ".substr((string)($hist['opened_at']??'-'),0,16)." → ".substr((string)($hist['closed_at']??'-'),0,16)."\n\n"
                                 ."💰 Kas awal: Rp ".tamasyaTelegramFormatAmount((float)($hist['opening_cash']??0))."\n"
-                                ."📥 Pemasukan: Rp ".tamasyaTelegramFormatAmount((float)($hist['cash_income']??0))."\n"
+                                ."📥 Pemasukan tunai: Rp ".tamasyaTelegramFormatAmount((float)($hist['cash_income']??0))."\n"
+                                ."💳 Pemasukan non-tunai (Transfer/QRIS): Rp ".tamasyaTelegramFormatAmount($histDigital)."\n"
                                 ."📤 Pengeluaran: Rp ".tamasyaTelegramFormatAmount((float)($hist['cash_expense']??0))."\n"
-                                ."🎯 Kas harapan: Rp ".tamasyaTelegramFormatAmount((float)($hist['expected_cash']??0))."\n"
-                                ."💵 Kas aktual: Rp ".tamasyaTelegramFormatAmount((float)($hist['actual_cash']??0))."\n"
+                                ."🎯 Kas harapan (laci): Rp ".tamasyaTelegramFormatAmount((float)($hist['expected_cash']??0))."\n"
+                                ."💵 Kas aktual (laci): Rp ".tamasyaTelegramFormatAmount((float)($hist['actual_cash']??0))."\n"
                                 ."⚖️ Selisih: Rp ".tamasyaTelegramFormatAmount($variance).($variance!=0?' ⚠️':' ✅')."\n"
+                                ."📈 Jumlah transaksi: {$histTxCount}\n"
                                 .(((string)($hist['close_override_reason']??'')!=='')?"📝 Override: ".tamasyaTelegramPlainText((string)$hist['close_override_reason'],120)."\n":'')
                                 .(((string)($hist['notes']??'')!=='')?"🗒️ Catatan: ".tamasyaTelegramPlainText((string)$hist['notes'],200)."\n":'')
                                 ."\n🛡 Deposito:\n".($depLines?implode("\n",$depLines):'• tidak ada pergerakan');
