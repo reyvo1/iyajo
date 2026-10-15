@@ -108,8 +108,13 @@ checkShiftHours($ops !== false && strpos($ops, "'shiftDayStart'") !== false
 checkShiftHours($ops !== false && strpos($ops, 'Urutan jam shift wajib pagi < siang < malam') !== false, 'settings save rejects unordered boundaries');
 checkShiftHours($ops !== false && strpos($ops, 'shift_day_start=?,shift_siang_start=?,shift_malam_start=?') !== false, 'settings save persists all three boundaries');
 
-// --- web form computes its default from the same boundaries
+// --- the settings entry lives in its own Operations card, not inside key control
 $opsJs = file_get_contents($root . '/assets/chunks/operations.js');
+checkShiftHours($opsJs !== false && strpos($opsJs, 'title:"Pengaturan Operasional"') !== false, 'operational settings has its own card');
+checkShiftHours($opsJs !== false && strpos($opsJs, 'Jam shift pagi–siang–malam') !== false, 'the card surfaces the current shift boundaries');
+$keyCard = '';
+if ($opsJs !== false && preg_match('/title:"Kebijakan Check-out & Akses Kamar".{0,600}?children:/s', $opsJs, $m)) $keyCard = $m[0];
+checkShiftHours(strpos($keyCard, 'onClick:Qa') === false, 'key-control card no longer hosts the global settings dialog');
 checkShiftHours($opsJs !== false && strpos($opsJs, 'function tamasyaShiftSlotBoundaries(') !== false, 'web form resolves the slot from settings');
 checkShiftHours($opsJs !== false && strpos($opsJs, '_P>=_b.malam||_P<_b.day?"malam":_P>=_b.siang?"siang":"pagi"') !== false, 'web form default matches the server resolution');
 checkShiftHours($opsJs !== false && strpos($opsJs, 'Y>=7&&Y<15?"pagi":Y>=15&&Y<23?"siang":"malam"') === false, 'web form no longer hardcodes the slot');

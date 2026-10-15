@@ -940,6 +940,9 @@ function getOperationsCenterData($pdo) {
     $housekeepingTasks = $fetch("SELECT * FROM housekeeping_tasks ORDER BY FIELD(priority,'urgent','high','normal','low'), created_at DESC LIMIT 300",'housekeepingTasks');
     $vacancyReports = $fetch("SELECT rvr.*,b.status AS booking_status,b.guestName,b.paymentStatus,b.totalAmount FROM room_vacancy_reports rvr LEFT JOIN bookings b ON b.id=rvr.booking_id ORDER BY FIELD(rvr.status,'pending','verified','rejected','checkout_completed'),rvr.reported_at DESC LIMIT 500",'vacancyReports');
     $maintenanceTickets = $fetch("SELECT * FROM maintenance_tickets ORDER BY FIELD(priority,'urgent','high','normal','low'), created_at DESC LIMIT 300",'maintenanceTickets');
+    $facilityTypes = $fetch("SELECT * FROM facility_types ORDER BY active DESC,name LIMIT 200",'facilityTypes');
+    $facilities = $fetch("SELECT f.*,t.code AS type_code,t.name AS type_name,t.capacity_model,t.pricing_model FROM facilities f LEFT JOIN facility_types t ON t.id=f.facility_type_id ORDER BY f.active DESC,f.name LIMIT 300",'facilities');
+    $facilityBookings = $fetch("SELECT fb.*,f.name AS facility_name FROM facility_bookings fb LEFT JOIN facilities f ON f.id=fb.facility_id ORDER BY fb.use_date DESC,fb.start_time LIMIT 300",'facilityBookings');
     $lostFoundItems = $fetch("SELECT * FROM lost_found_items ORDER BY FIELD(custody_status,'found','secured','guest_notified','returned','disposed','donated','authority'), found_at DESC LIMIT 400",'lostFoundItems');
     // R7 R4 compatibility bridge: legacy open Lost & Found alerts must not remain
     // invisible merely because they predate the canonical lost_found_items row.
@@ -1073,7 +1076,7 @@ function getOperationsCenterData($pdo) {
     } catch (Throwable $e) { $failedDatasets[]='metrics'; error_log('[operations-center] metrics: '.$e->getMessage()); $metrics['databaseConnected']=false; }
     $metrics['responseMs'] = (int)round((microtime(true)-$startedAt)*1000);
     $failedDatasets=array_values(array_unique($failedDatasets));
-    return compact('auditLogs','shiftSessions','approvals','sessions','syncDevices','reconciliationItems','taxRules','housekeepingTasks','vacancyReports','maintenanceTickets','lostFoundItems','maintenanceCancellationReviews','operationalIncidents','guestServiceRequests','roomOperationalHolds','operationalEntityLinks','guestProfiles','systemAlerts','backupRuns','journalEntries','journalLines','financialIntegrity','approvalPolicy','metrics','roomAccessControls','roomKeyEvents','smartLockJobs','nightAuditRuns','nightAuditItems','operationalSettings') + [
+    return compact('auditLogs','shiftSessions','approvals','sessions','syncDevices','reconciliationItems','taxRules','housekeepingTasks','vacancyReports','maintenanceTickets','facilityTypes','facilities','facilityBookings','lostFoundItems','maintenanceCancellationReviews','operationalIncidents','guestServiceRequests','roomOperationalHolds','operationalEntityLinks','guestProfiles','systemAlerts','backupRuns','journalEntries','journalLines','financialIntegrity','approvalPolicy','metrics','roomAccessControls','roomKeyEvents','smartLockJobs','nightAuditRuns','nightAuditItems','operationalSettings') + [
         'dataHealth'=>['complete'=>count($failedDatasets)===0,'failedDatasets'=>$failedDatasets],
         'serverTime'=>date(DATE_ATOM)
     ];

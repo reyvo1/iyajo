@@ -75,7 +75,7 @@ bash tests/uat_prd/mysql-bootstrap-runtime-boundary.sh \
 TABLE_COUNT=$(docker exec -e MYSQL_PWD=tamasya-ci-only "$DB_CONTAINER" \
   mysql --protocol=TCP -h127.0.0.1 --batch --skip-column-names -utamasya_ci tamasya_prd_saas \
   -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()")
-[[ "$TABLE_COUNT" -eq 113 ]] || { echo "unexpected canonical table count after migration-authority bootstrap: $TABLE_COUNT" >&2; exit 1; }
+[[ "$TABLE_COUNT" -eq 116 ]] || { echo "unexpected canonical table count after migration-authority bootstrap: $TABLE_COUNT" >&2; exit 1; }
 # Do not use the restricted runtime identity as trigger-authority evidence. MySQL
 # intentionally hides trigger metadata when the account lacks TRIGGER privilege.
 # mysql-bootstrap-runtime-boundary.sh already verified the exact trigger set and

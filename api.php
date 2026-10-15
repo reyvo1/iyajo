@@ -1209,6 +1209,7 @@ if ($loggedInStaff) {
     $actionDesktopTabs = [
         'booking-identity'=>['rooms'],
         'bookings'=>['rooms'],
+        'facilities'=>['rooms','operations'],
         'multi-room-bookings'=>['rooms'],
         'rooms'=>['rooms'],
         'room-transfers'=>['rooms'],

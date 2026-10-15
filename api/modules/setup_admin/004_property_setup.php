@@ -419,6 +419,6 @@ function tamasyaPropertyActionRequiresReady(string $action,string $method='GET',
         'pos-sale-create','pos-sale-void','pos-delivery-update',
         'public-reservation-request','salary-slips','salary-payment-correction','staff-savings',
         'attendance','biometric-device-webhook',
-        'inventory-maintenance','sync','growth-suite','enterprise-suite'
+        'inventory-maintenance','sync','growth-suite','enterprise-suite','facilities'
     ],true);
 }

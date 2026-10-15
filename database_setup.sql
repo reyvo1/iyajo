@@ -2789,6 +2789,68 @@ VALUES ('system_default','property-primary','online_primary',0);
 -- category/subcategory catalog and assigns protected semantic roles through categories.system_key.
 -- Operational room types remain in the existing rooms.type master field and are independent from Finance.
 
+-- TABLE: facility_types (R15 dynamic facility engine: capacity/pricing models are data, not code)
+CREATE TABLE `facility_types` (
+  `id` varchar(100) NOT NULL,
+  `code` varchar(50) NOT NULL,
+  `name` varchar(150) NOT NULL,
+  `capacity_model` varchar(20) NOT NULL DEFAULT 'open',
+  `pricing_model` varchar(20) NOT NULL DEFAULT 'visit',
+  `requires_staff` tinyint(1) NOT NULL DEFAULT 0,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_facility_type_code` (`code`),
+  KEY `idx_facility_type_active` (`active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- TABLE: facilities (units of a type: a pool, a karaoke room, a gym hall)
+CREATE TABLE `facilities` (
+  `id` varchar(100) NOT NULL,
+  `code` varchar(50) NOT NULL,
+  `name` varchar(150) NOT NULL,
+  `facility_type_id` varchar(100) NOT NULL,
+  `capacity` int(11) NOT NULL DEFAULT 0,
+  `open_time` time DEFAULT NULL,
+  `close_time` time DEFAULT NULL,
+  `base_price` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_facility_code` (`code`),
+  KEY `idx_facility_type` (`facility_type_id`,`active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- TABLE: facility_bookings (capacity consumption; money posts as folio extras, never here)
+CREATE TABLE `facility_bookings` (
+  `id` varchar(100) NOT NULL,
+  `facility_id` varchar(100) NOT NULL,
+  `booking_id` varchar(100) DEFAULT NULL,
+  `guest_name` varchar(150) NOT NULL,
+  `use_date` date NOT NULL,
+  `start_time` time DEFAULT NULL,
+  `end_time` time DEFAULT NULL,
+  `pax` int(11) NOT NULL DEFAULT 1,
+  `unit_price` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `total` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `status` varchar(20) NOT NULL DEFAULT 'reserved',
+  `payment_status` varchar(20) NOT NULL DEFAULT 'unpaid',
+  `folio_extra_id` varchar(100) DEFAULT NULL,
+  `operation_id` varchar(100) DEFAULT NULL,
+  `notes` varchar(500) DEFAULT NULL,
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_facility_booking_operation` (`operation_id`),
+  KEY `idx_facility_booking_slot` (`facility_id`,`use_date`,`status`),
+  KEY `idx_facility_booking_guest` (`booking_id`,`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 -- Fresh baseline release marker. No production/legacy data migration is required.
 INSERT INTO `schema_release_state`
 (`id`,`current_release`,`patch_level`,`source_checksum`,`migration_run_id`,`maintenance_required`)

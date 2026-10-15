@@ -260,3 +260,18 @@ Push R14 pertama membuat CI merah dua kali. Keduanya diperbaiki di akar, bukan d
 - Verifikasi tidak ada pelemahan: nol baris `expect` dihapus di seluruh session ini (satu label + satu token yang mengikuti perubahan kode, sisanya murni penambahan: 5 regression suite + 3 scenario UAT). Detail per baris dicatat dalam laporan audit sesi ini.
 - Hasil akhir: gate lokal 45/45, run CI `38549766171` **8/8 job HIJAU** termasuk seluruh UAT browser dan ±1.800 assertion scenario yang dijalankan manual satu-per-satu di stack lokal.
 
+
+## 2026-10-14 (lanjutan 3) — PERBAIKAN MENU NYASAR + P1 FASILITAS DINAMIS + PETA P2
+
+### Audit menu: satu-satunya menu yang salah tempat diperbaiki
+- Keluhan: pengaturan jam shift "nyasar" di dalam kartu "Kebijakan Check-out & Akses Kamar" (kontrol kunci) sehingga sulit ditemukan.
+- Audit seluruh struktur menu (4 domain, 21 sub-nav operasi, kartu finance/rooms/SDM/sistem): trio night-audit, cleanup, dan kunci memakai pola mode–aksi–riwayat yang disengaja; journal/pajak/rekonsiliasi di Operasional adalah permukaan back-office yang memang dioperasikan dari sana. Satu-satunya yang benar-benar salah tempat adalah dialog Pengaturan global.
+- Perbaikan: kartu baru "Pengaturan Operasional" (tepat sebelum "Shift & Tutup Kas") berisi ringkasan baca-saja (check-in/out, jam shift, toleransi, kas) + tombol Pengaturan yang sama; tombol dilepas dari kartu kunci. Dikunci regression (41 checks).
+
+### P1 — Modul fasilitas dinamis (R15)
+- Tipe dan unit adalah DATA: `facility_types` (model kapasitas open/quota/slot/room, model tarif visit/hour/package/member) + `facilities` (unit fisik) + `facility_bookings` (konsumsi kapasitas). Kolam/gym/karaoke/bar/spa dibuat lewat form, bukan coding.
+- Harga dihitung server (visit×pax, per-jam dibulatkan ke atas, paket flat, member tercatat tanpa tagihan); klien tidak boleh mendikte uang. Slot/ruangan yang bertabrakan dan kuota habis ditolak 409; waktu dinormalisasi ke HH:MM:SS agar slot bersebelahan tidak salah dianggap tabrakan.
+- Pemakaian menagih ke folio booking sebagai extra (`taxKind/allocationType=extra`, snapshot PBJT kanonik, `extra_service` income) dan lunas lewat alur pembayaran/checkout biasa. Tidak ada INSERT transaction di route fasilitas. Batal hanya untuk yang belum dibayar (yang lunas lewat refund); replay idempotent.
+- UI di Operasional → grup daily, setelah shifts: sub-nav `facilities`, master untuk admin/manager, reservasi untuk resepsionis, Owner terkunci oleh kebijakan yang sama. Tanpa hooks di dalam view (mengikuti pola existing agar tidak melanggar aturan React).
+- Bukti: `tests/facility-management-regression.php` (37) + `tests/uat_rc1/scenario_facility_management.py` (28). Baseline schema 113→116 tabel (tiga assertion jumlah diperbarui).
+- Peta P2 (tenant billing → onboarding → isolasi adversarial → e-faktur/load/DR/legal) ditulis di `P2_ROADMAP.md` beserta prinsip yang tidak boleh dilanggar.

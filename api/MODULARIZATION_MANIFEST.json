@@ -64,6 +64,7 @@
     "090_operations_communications.php",
     "091_receipt_storage_health.php",
     "095_canonical_reports.php",
+    "096_facility_management.php",
     "099_universal_catalog.php",
     "100_catalog_downloads.php",
     "110_growth_suite.php",

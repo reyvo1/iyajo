@@ -46,6 +46,7 @@ try {
     require __DIR__ . '/routes/091_receipt_storage_health.php';
     if ($routeHandled) { return; }
     require __DIR__ . '/routes/095_canonical_reports.php';
+    require __DIR__ . '/routes/096_facility_management.php';
     if ($routeHandled) { return; }
     require __DIR__ . '/routes/099_universal_catalog.php';
     if ($routeHandled) { return; }
