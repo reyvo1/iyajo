@@ -1,6 +1,11 @@
 from client import *
 from scenario_core import db,state
+from scenario_fixtures import ensure_open_shift
 import concurrent.futures,datetime
+# The overlap race needs exactly one precondition the suite does not otherwise
+# guarantee at this point: an open cash shift. Without it both racers are
+# rejected for the same environmental reason and the test measures nothing.
+ensure_open_shift('rc1_concurrency_shift')
 results=[]
 def check(name,ok,detail=None):
     results.append({'test':name,'pass':bool(ok),'details':detail}); print('PASS' if ok else 'FAIL',name,detail or '',flush=True)
