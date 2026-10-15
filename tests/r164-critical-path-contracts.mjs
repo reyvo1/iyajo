@@ -13,8 +13,8 @@ const a=(ok,msg)=>{assert.ok(ok,`FAIL ${msg}`);console.log('PASS',msg)};
 for(const cmd of manifest.required){a(wf.includes(cmd),`Historical UAT retained: ${cmd}`)}
 a(new Set(manifest.required).size===54,'Historical suite count remains exactly 54');
 for (const cmd of ['php tests/durable-history-retention-regression.php','php tests/receipt-compaction-cursor-regression.php','node tests/uat-command-preflight.mjs']) a(wf.includes(cmd),`Historical P1 test retained: ${cmd}`);
-a(wf.split('ref: ${{ github.sha }}').length-1===4,'All four checkout jobs pinned to event SHA');
-a(wf.split('test "$(git rev-parse HEAD)" = "$GITHUB_SHA"').length-1===4,'All four checkout jobs fail closed on SHA mismatch');
+a(wf.split('ref: ${{ github.sha }}').length-1===5,'All five checkout jobs pinned to event SHA');
+a(wf.split('test "$(git rev-parse HEAD)" = "$GITHUB_SHA"').length-1===5,'All five checkout jobs fail closed on SHA mismatch');
 for(const php of ['8.2','8.3','8.4','8.5']) a(wf.includes(`'${php}'`),`Source PHP ${php} remains in matrix`);
 for(const stage of ['Full hotel finance, booking, UI and Telegram UAT','MariaDB 10.11','PRD VPS, realtime and SaaS','Two-node','Telegram end-to-end operational','Historical backfill split tax accounting']){
   // Some stage names appear with different title case or in script steps.

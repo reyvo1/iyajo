@@ -1117,11 +1117,6 @@ jobs:
           TABLES=$(mysql --batch --skip-column-names -h127.0.0.1 -utamasya_ci -ptamasya_ci_only tamasya_load_uat -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()")
           test "$TABLES" -ge 116
           php first_install.php | tee tests/load/logs/first-install.json
-      - name: Seed rooms and open shift
-        run: |
-          set -euo pipefail
-          python3 tests/uat_rc1/bootstrap_session.py
-          python3 tests/uat_rc1/scenario_setup.py
       - name: Start application server
         run: |
           set -euo pipefail
@@ -1133,6 +1128,11 @@ jobs:
           done
           cat tests/load/logs/php-server.log
           exit 1
+      - name: Seed rooms and open shift (server already up)
+        run: |
+          set -euo pipefail
+          python3 tests/uat_rc1/bootstrap_session.py
+          python3 tests/uat_rc1/scenario_setup.py
       - name: Bounded k6 pressure (correctness thresholds only)
         run: |
           set -euo pipefail
