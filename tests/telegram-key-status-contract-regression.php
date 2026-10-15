@@ -7,7 +7,7 @@ $canonical=file_get_contents($root.'/api/routes/090_operations_communications.ph
 $shared=file_get_contents($root.'/api/support/091_room_access_issue.php');
 $checks=[
     'Key status button is offered only for active booking and authorized room access actor'=>str_contains($source,"if(\$activeBookingId!=='' && hasCapability(\$loggedInStaff,'manage_room_access'"),
-    'Callback is registered under the existing reservation role gate'=>str_contains($source,"'room_select:','room_set:','key_status:','key_issue_review:','key_issue_confirm:','r_sell:'"),
+    'Callback is registered under the existing reservation role gate'=>str_contains($source,"'room_select:','room_set:','key_status:','key_issue_review:','key_issue_confirm:'")&&str_contains($source,"'r_sell:','r_sell_confirm:'"),
     'Callback rechecks room-access capability on every tap'=>str_contains($source,"if(!hasCapability(\$loggedInStaff,'manage_room_access'"),
     'Callback refreshes booking state and rejects stale/non-active booking'=>str_contains($source,"WHERE id=? AND status='active' LIMIT 1") && str_contains($source,"if(!\$keyBooking)"),
     'Key-control status comes from canonical booking row'=>str_contains($source,"SELECT id,roomNumber,keyControlStatus,accessMode,status FROM bookings"),
