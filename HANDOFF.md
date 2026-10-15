@@ -275,3 +275,9 @@ Push R14 pertama membuat CI merah dua kali. Keduanya diperbaiki di akar, bukan d
 - UI di Operasional → grup daily, setelah shifts: sub-nav `facilities`, master untuk admin/manager, reservasi untuk resepsionis, Owner terkunci oleh kebijakan yang sama. Tanpa hooks di dalam view (mengikuti pola existing agar tidak melanggar aturan React).
 - Bukti: `tests/facility-management-regression.php` (37) + `tests/uat_rc1/scenario_facility_management.py` (28). Baseline schema 113→116 tabel (tiga assertion jumlah diperbarui).
 - Peta P2 (tenant billing → onboarding → isolasi adversarial → e-faktur/load/DR/legal) ditulis di `P2_ROADMAP.md` beserta prinsip yang tidak boleh dilanggar.
+
+## 2026-10-15 — AKAR MERAH CI: TABRAKAN KAMAR ANTAR-SUITE (bukan race gagal)
+
+- Gejala: `scenario_concurrency` merah `[409, 409]` di CI padahal hijau lokal. Evidence logging (bukan tebakan) membuktikan: shift terbuka ADA, tapi kamar 103 sudah dipegang booking Nov 14–16 milik `scenario_public_guest_journey` (konversi reservasi website yang sah, tidak dilepas) — persis menabrak window uji. Lolos/gagal tergantung kamar mana yang dipilih journey: murni untung-untungan urutan suite.
+- Perbaikan di akar (4 lapis kerapuhan dalam 1 file): kamar dipilih dinamis yang benar-benar bebas di window uji (predikat overlap sama dengan route); pastikan shift terbuka sendiri; operation id + nama tamu unik per run; booking pemenang dilepas di akhir; log bukti respons/shift/penghambat saat gagal.
+- Hasil: 5/5 deterministik di 3 run lokal beruntun + CI kembali 8/8 hijau.
