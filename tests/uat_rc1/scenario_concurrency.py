@@ -16,7 +16,10 @@ payload={'guestName':'RC1 Concurrent Guest','roomNumber':'103','checkIn':str(fut
 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
     jobs=[pool.submit(request,'bookings','POST',payload,'rc1_concurrent_booking_'+str(i),38184+i) for i in range(2)]
     replies=[j.result() for j in jobs]
-check('Concurrent overlap has exactly one winner',sorted(r[0] for r in replies)==[200,409],[r[0] for r in replies])
+check('Concurrent overlap has exactly one winner',sorted(r[0] for r in replies)==[200,409],
+      {'statuses':[r[0] for r in replies],'bodies':[str(r[1])[:300] for r in replies],
+       'openShifts':db("SELECT id,shift_time,staff_id,status FROM shift_sessions WHERE status='open'"),
+       'room103':db("SELECT id,status,checkIn,checkOut FROM bookings WHERE roomNumber='103' AND status IN ('reserved','active')")})
 check('Concurrent overlap writes one booking',db('SELECT COUNT(*) n FROM bookings WHERE guestName=?',['RC1 Concurrent Guest'])[0]['n']==1)
 cart={'paymentMethod':'cash','items':[{'productId':state['product_2'],'quantity':1}]}
 before=db('SELECT COUNT(*) n FROM pos_sales')[0]['n']
