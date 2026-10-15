@@ -19,6 +19,21 @@
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
+import { Counter } from 'k6/metrics';
+
+// Diagnostic only: status-code histogram (tagged) + sampled failure bodies.
+// Keeps --log-failed small: max 2 sampled lines per VU.
+const loadStatus = new Counter('load_status');
+let failLogBudget = 2;
+
+function recordStatus(label, res) {
+  loadStatus.add(1, { endpoint: label, status: String(res.status) });
+  // 409 is an expected contention answer, not a diagnostic signal.
+  if (res.status !== 200 && res.status !== 409 && failLogBudget > 0) {
+    failLogBudget -= 1;
+    console.log(`[load-diag] ${label} status=${res.status} body=${(res.body || '').substring(0, 200)}`);
+  }
+}
 
 const BASE = __ENV.BASE_URL || 'http://127.0.0.1:38184';
 const ADMIN_USER = __ENV.ADMIN_USER || 'admin';
@@ -107,14 +122,17 @@ export function setup() {
 
 function readMix(token) {
   let res = http.get(`${BASE}/api.php?action=ping`, { headers: authHeaders(token), timeout: '30s' });
+  recordStatus('ping', res);
   noServerError(res, 'ping');
   check(res, { 'ping 200': (r) => r.status === 200 });
 
   res = http.get(`${BASE}/api.php?action=hotel-data`, { headers: authHeaders(token), timeout: '30s' });
+  recordStatus('hotel-data', res);
   noServerError(res, 'hotel-data');
   check(res, { 'hotel-data 200': (r) => r.status === 200 });
 
   res = http.get(`${BASE}/api.php?action=bookings`, { headers: authHeaders(token), timeout: '30s' });
+  recordStatus('bookings-list', res);
   noServerError(res, 'bookings-list');
 }
 
@@ -139,6 +157,7 @@ function writeMix(data, token) {
     timeout: '30s',
   });
   noServerError(res, 'booking-create');
+  recordStatus('booking-create', res);
   // A contested room/date legitimately answers 409; anything else must be 200.
   check(res, { 'booking-create 200-or-409': (r) => r.status === 200 || r.status === 409 });
   if (res.status === 200) {
@@ -151,6 +170,7 @@ function writeMix(data, token) {
         { headers: authHeaders(token, { 'X-Tamasya-Operation-ID': op('load_payhdr') }), timeout: '30s' }
       );
       noServerError(pay, 'booking-payment');
+      recordStatus('booking-payment', pay);
       check(pay, { 'booking-payment 200-or-409': (r) => r.status === 200 || r.status === 409 });
     }
   }
@@ -161,6 +181,7 @@ function reportMix(token) {
     `${BASE}/api.php?action=canonical-report&type=financial_summary&from=2031-01-01&to=2031-12-31`,
     { headers: authHeaders(token), timeout: '60s' }
   );
+  recordStatus('canonical-report', res);
   noServerError(res, 'canonical-report');
 }
 
