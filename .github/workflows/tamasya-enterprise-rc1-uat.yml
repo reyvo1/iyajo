@@ -1025,3 +1025,116 @@ jobs:
           php tests/universal-catalog-mysql-uat.php
           php tests/universal-catalog-finance-mysql-uat.php
           php tests/night-audit-mode-mysql-uat.php
+
+  load-regression:
+    # Bounded pressure test (k6): proves correctness under concurrency, never
+    # capacity. Runners are small and shared and CI serves PHP's single-threaded
+    # dev server, so latency is recorded but never asserted. Thresholds cover
+    # only correctness: zero HTTP 500 and passing checks.
+    name: Load regression under bounded pressure (k6)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: root_ci_only
+          MYSQL_DATABASE: tamasya_load_uat
+          MYSQL_USER: tamasya_ci
+          MYSQL_PASSWORD: tamasya_ci_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot_ci_only --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      APP_ENV: test
+      APP_DEBUG: '0'
+      APP_TIMEZONE: Asia/Makassar
+      APP_URL: http://127.0.0.1:38187
+      APP_ALLOWED_ORIGINS: http://127.0.0.1:38187
+      APP_ALLOWED_HOSTS: 127.0.0.1,localhost
+      APP_REQUIRE_JSON_CONTENT_TYPE: '1'
+      APP_CREDENTIALS_FILE: /tmp/tamasya-load-ci-db.php
+      APP_EXPECTED_DB_NAME: tamasya_load_uat
+      APP_REQUIRE_EXPECTED_DB_NAME: '1'
+      DB_TLS_REQUIRED: '0'
+      APP_ENCRYPTION_KEY: 0123456789abcdef0123456789abcdef
+      SECURITY_EVENT_HASH_KEY: 0123456789abcdef0123456789abcdef
+      CRON_SECRET: 0123456789abcdef0123456789abcdef
+      BACKUP_DIR: /tmp/tamasya-load-backups
+      TAMASYA_HYBRID_OUTBOX_DIR: /tmp/tamasya-load-hybrid-outbox
+      APP_BOOTSTRAP_ADMIN_USERNAME: admin
+      APP_BOOTSTRAP_ADMIN_PASSWORD: Tamasya-UAT-RC1-Only!
+      APP_BOOTSTRAP_ADMIN_NAME: Load Regression Administrator
+      TAMASYA_COMPANY_ID: company-load-uat
+      TAMASYA_PROPERTY_ID: hotel-load-uat-01
+      TAMASYA_PROPERTY_CODE: LOADUAT
+      TAMASYA_PROPERTY_NAME: TAMASYA LOAD UAT HOTEL
+      TAMASYA_PROPERTY_CURRENCY: IDR
+      TAMASYA_PROPERTY_COUNTRY: ID
+      TAMASYA_UAT_BASE_URL: http://127.0.0.1:38187
+      TAMASYA_UAT_ORIGIN: http://127.0.0.1:38187
+      TAMASYA_UAT_DB_PORT: '3306'
+      K6_BASE_URL: http://127.0.0.1:38187
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - name: Require exact workflow-trigger commit
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.4'
+          extensions: pdo_mysql, curl, mbstring, openssl, zip
+          coverage: none
+      - name: Install k6
+        run: |
+          set -euo pipefail
+          sudo mkdir -p /usr/share/keyrings
+          curl -fsSL https://dl.k6.io/key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/k6-archive-keyring.gpg
+          echo "deb [signed-by=/usr/share/keyrings/k6-archive-keyring.gpg] https://dl.k6.io/deb stable main" | sudo tee /etc/apt/sources.list.d/k6.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq k6 default-mysql-client
+          k6 version
+      - name: Prepare disposable load database
+        run: |
+          set -euo pipefail
+          cat >/tmp/tamasya-load-ci-db.php <<'PHP'
+          <?php
+          $db_host = '127.0.0.1';
+          $db_port = 3306;
+          $db_name = 'tamasya_load_uat';
+          $db_user = 'tamasya_ci';
+          $db_pass = 'tamasya_ci_only';
+          PHP
+          chmod 600 /tmp/tamasya-load-ci-db.php
+          mkdir -p /tmp/tamasya-load-backups /tmp/tamasya-load-hybrid-outbox tests/load/logs
+          mysql --protocol=TCP -h127.0.0.1 -P3306 -uroot -proot_ci_only -e "SET GLOBAL log_bin_trust_function_creators=1"
+          mysql --protocol=TCP -h127.0.0.1 -P3306 -utamasya_ci -ptamasya_ci_only tamasya_load_uat < database_setup.sql
+          TABLES=$(mysql --batch --skip-column-names -h127.0.0.1 -utamasya_ci -ptamasya_ci_only tamasya_load_uat -e "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema=DATABASE()")
+          test "$TABLES" -ge 116
+          php first_install.php | tee tests/load/logs/first-install.json
+      - name: Seed rooms and open shift
+        run: |
+          set -euo pipefail
+          python3 tests/uat_rc1/bootstrap_session.py
+          python3 tests/uat_rc1/scenario_setup.py
+      - name: Start application server
+        run: |
+          set -euo pipefail
+          php -S 127.0.0.1:38187 -t . >tests/load/logs/php-server.log 2>&1 &
+          echo $! > /tmp/tamasya-load-php.pid
+          for i in $(seq 1 45); do
+            if curl -fsS http://127.0.0.1:38187/index.html >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          cat tests/load/logs/php-server.log
+          exit 1
+      - name: Bounded k6 pressure (correctness thresholds only)
+        run: |
+          set -euo pipefail
+          k6 run --env BASE_URL="$K6_BASE_URL" tests/load/k6-hotel-load.js | tee tests/load/logs/k6-summary.txt
+          grep -E "checks.*100(\.0+)?%" tests/load/logs/k6-summary.txt
