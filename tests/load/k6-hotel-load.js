@@ -40,7 +40,11 @@ export const options = {
 };
 
 function op(prefix) {
-  return `${prefix}_${__VU}_${__ITER}_${Date.now()}`;
+  // __VU/__ITER only exist inside VU code, not in setup(). typeof guard
+  // avoids ReferenceError so setup() can reuse the same helper.
+  const vu = typeof __VU !== 'undefined' ? __VU : 0;
+  const it = typeof __ITER !== 'undefined' ? __ITER : 0;
+  return `${prefix}_${vu}_${it}_${Date.now()}_${Math.floor(Math.random() * 1000000)}`;
 }
 
 function authHeaders(token, extra) {
