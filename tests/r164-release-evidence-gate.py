@@ -19,6 +19,6 @@ for file in ['tests/telegram-update-retention-regression.php','tests/r164-critic
     runner=('php ' if file.endswith('.php') else 'node ' if file.endswith('.mjs') else 'python3 ')+file
     if w.count(runner) != 1:
         sys.exit('FAIL regression not executed: '+file)
-if w.count('ref: ${{ github.sha }}') != 4 or w.count('test "$(git rev-parse HEAD)" = "$GITHUB_SHA"') != 4:
+if w.count('ref: ${{ github.sha }}') != 5 or w.count('test "$(git rev-parse HEAD)" = "$GITHUB_SHA"') != 5:
     sys.exit('FAIL GitHub workflow checkout provenance is not pinned and asserted for every job')
 print('PASS 54 preserved, P1/P2 regressions, canonical key issuance and 4 checkout SHA gates; tax/real Telegram/physical Hybrid remain separate release signoff')
