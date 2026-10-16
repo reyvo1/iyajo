@@ -35,6 +35,18 @@ pekerjaan berjalan tuntas. Kalau ragu, TANYA pemilik dulu — jangan menebak.
   (`bookings`, `transactions`, `rooms`, `staff`, `shift_sessions`).
 - Rewrite stack, ganti framework, pindah bahasa.
 
+## Aturan perbaikan frontend bertahap (berlaku tiap ada perubahan UI)
+
+Frontend = React terkompilasi tanpa sumber JSX (lihat definisi paket di
+`HANDOFF-SAAS-FINAL-2026-10-16.md` §8). Aturannya:
+1. Edit darurat/kecil boleh langsung di bundle (`assets/chunks/*.js`),
+   WAJIB verifikasi `node --check` + uji manual menu terkait.
+2. Chunk yang SUDAH 2x diedit darurat, pada perubahan ke-3 WAJIB ditulis
+   ulang menjadi modul JS bersih berversi (bukan tambah tambalan).
+3. Prioritas tulis-ulang: `staff.js` → `rooms.js` → `operations.js` →
+   sisanya. Target akhir: pipeline build dari sumber.
+4. Dilarang: edit bundle tanpa verifikasi; menggabungkan 2 chunk jadi satu.
+
 ## Aturan penegakan
 
 1. Sebelum menyentuh file, cek daftar di atas. File di Zona Beku =
