@@ -1876,7 +1876,7 @@ function prepareTelegramCheckoutFinancialStep(PDO $pdo, array $staff, array $boo
     $remaining=max(0.0,round($total-$ledger['net'],2));
     $summary="🛎️ *CHECK-OUT KAMAR {$roomNumber}*\n\n👤 Tamu: *{$booking['guestName']}*\n💰 Total tagihan: *Rp ".number_format($total,0,',','.')."*\n✅ Sudah diterima: *Rp ".number_format($ledger['net'],0,',','.')."*\n⏳ Sisa tagihan: *Rp ".number_format($remaining,0,',','.')."*\n🔑 Status kunci: *".strtoupper($keyDisposition)."*\n\n";
     if($remaining>0){
-        return ['text'=>$summary.'Pilih metode pelunasan.'.($vacancyReportId?' Bila tamu sudah benar-benar pergi, checkout operasional dapat melepas kamar dan mencatat sisa sebagai piutang.':' Checkout diselesaikan setelah ledger server seimbang.'),'markup'=>prepareTelegramCheckoutPaymentChoice($pdo,$staff,$booking,$remaining,$keyDisposition,$keyReason,$vacancyReportId),'alert'=>'Pilih pembayaran'];
+        return ['text'=>$summary.'Pilih metode pelunasan.'.($vacancyReportId?' Bila tamu sudah benar-benar pergi, checkout operasional dapat melepas kamar dan mencatat sisa sebagai piutang.':' Bila tamu sudah pergi tanpa membayar, tekan tombol lapor kamar kosong di bawah, selesaikan verifikasi, lalu ulangi checkout untuk membuka opsi piutang.'),'markup'=>prepareTelegramCheckoutPaymentChoice($pdo,$staff,$booking,$remaining,$keyDisposition,$keyReason,$vacancyReportId),'alert'=>'Pilih pembayaran'];
     }
     $ctx=json_encode(['expectedTotalAmount'=>$total,'expectedRemaining'=>0,'expiresAt'=>time()+900,'flow'=>'checkout_ready','bookingId'=>(string)$booking['id'],'roomNumber'=>$roomNumber,'keyDisposition'=>$keyDisposition,'keyReason'=>$keyReason,'vacancyReportId'=>$vacancyReportId],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
     $pdo->prepare("UPDATE staff SET telegram_state='waiting_for_checkout_confirmation',telegram_context=? WHERE id=?")->execute([$ctx,(string)$staff['id']]);
@@ -1908,6 +1908,11 @@ function prepareTelegramCheckoutPaymentChoice(PDO $pdo, array $staff, array $boo
     }
     if(trim((string)$vacancyReportId)!==''){
         $buttons[] = [["text" => "🚪 Checkout operasional · catat piutang", "callback_data" => "r_checkout_defer:{$roomNumber}"]];
+    }else{
+        // Tamu kabur tanpa laporan = jalan buntu bila tidak diarahkan:
+        // piutang wajib berasal dari laporan kamar kosong terverifikasi.
+        // Arahkan langsung ke pelaporan agar alur tidak berhenti di sini.
+        $buttons[] = [["text" => "🚪 Tamu sudah pergi? Laporkan kamar kosong dulu", "callback_data" => "vacancy_report_room:{$roomNumber}"]];
     }
     $negotiationNonce=bin2hex(random_bytes(10));
     $buttons[] = [['text'=>'✍️ Tetapkan Harga Nego Sebelum Bayar','callback_data'=>'r_checkout_nego:'.$roomNumber.':'.$negotiationNonce]];
