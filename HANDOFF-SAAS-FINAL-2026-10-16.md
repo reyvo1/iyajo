@@ -124,6 +124,12 @@ lihat §8. Jangan lepas source di bawah Rp200jt.
 Termasuk: seluruh source + `migrations/` + skrip deploy + `FILE_CHECKSUMS` +
 dokumen arsitektur & SOP + training 5 hari + garansi bug 3 bulan + update
 kritis 1 tahun + 1x pendampingan instalasi hotel pertama pembeli.
+Definisi jujur "source frontend" (2026-10-16, PENTING untuk due diligence):
+UI adalah React TERKOMPILASI (`assets/chunks/*.js` + `vendor-react.js`);
+file sumber `.jsx/.tsx` TIDAK ada di repo (tidak ada pipeline build
+frontend). Edit kecil terbukti bisa langsung di bundle; rebuild dari
+sumber bukan bagian paket ini kecuali disepakati terpisah (rujukan:
+konsultasi frontend-bundle 2026-10-16).
 Tidak termasuk: hosting/infra, custom fitur baru, migrasi data hotel lama
 (dihitung terpisah), support on-site di luar training.
 Syarat lisensi: pakai untuk perusahaan pembeli sendiri, dilarang jual-ulang/
