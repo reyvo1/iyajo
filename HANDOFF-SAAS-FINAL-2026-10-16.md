@@ -3,7 +3,7 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (HEAD `c6e975f`, CI 9/9 success, tree bersih)
+## 1. Status saat ini (HEAD `0bb5ba6`, CI 9/9 success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
 - `7b21097` Menu Riwayat Tutup Shift + Owner read-only konsisten (Telegram).
@@ -11,7 +11,14 @@ Kerjaan terakhir (sudah push + ZIP):
 - `d4ded49` Pemasukan transfer tampil di rincian Riwayat Shift.
 - `5b75fe1` **Centangan per akun mengendalikan Jual/Inap/Panjar di Telegram & Web.**
 - `c6e975f` Penyesuaian test kontrak key-status.
-- ZIP produksi terbaru: `tamasya-production-prod-20261016-0000.zip` (347 files).
+- `afe0866` Housekeeping: role `finance` masuk baseline (`perform_housekeeping`).
+- `2abfb86` **Centangan jual/inap tembus tab Kamar** (helper 017, 070 ×2, 043
+  tulis, 080 fallback, UI `app-shell.js` + `rooms.js`).
+- `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
+  (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
+  `scripts/verify-release.sh`.
+- ZIP produksi terbaru: `tamasya-production-prod-20261017-1835.zip` (374 files).
+  ZIP lama (termasuk `...1713.zip`) sudah usang, jangan dipakai.
 
 Cara pakai di Telegram (sudah terbukti jalan): centang 3 capability baru di
 menu Karyawan untuk akun tsb → tekan 🏠 Menu Utama → tombol muncul.
