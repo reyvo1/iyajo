@@ -64,6 +64,12 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
   baris kunci + peluncur reservasi grup); tab Kamar disisipkan ke navigasi
   saat centangan sell/stay aktif (tanpa menambah `assets/app-core.js` supaya
   anggaran grafik awal 970 KB tetap terjaga).
+- Perbaikan 17 Okt (insiden CI): penyisipan splice navigasi di
+  `assets/chunks/app-shell.js` sempat memakai koma di dalam deklarasi `const`
+  sehingga bundel gagal boot (semua UAT browser merah), sementara gerbang lama
+  `node --check` memberi false-pass untuk file ESM. Kini koma diganti titik
+  koma (ukuran byte tetap) dan `scripts/verify-release.sh` memakai parser modul
+  (`node --input-type=module --check`) untuk file ber-`import`/`export`.
 - Perubahan 17 Okt (finance bisa housekeeping): gate `perform_housekeeping` di
   `080_telegram_webhook.php` (×6 + keyboard dinamis), `090_operations_communications.php`
   (×2), `020_identity_access_audit.php`, `040_rooms_checkout_housekeeping.php`,

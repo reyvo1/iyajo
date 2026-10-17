@@ -9,7 +9,12 @@ while read -r digest path; do
   path="${path#\*}"
   case "$path" in
     *.php) php -l "$path" >/dev/null ;;
-    *.js|*.mjs) node --check "$path" ;;
+    *.js|*.mjs)
+      if [ "${path##*.}" = "mjs" ] || grep -qE '(^|[;}])(import|export)[^A-Za-z0-9_$]' "$path"; then
+        node --input-type=module --check < "$path" || { echo "ESM syntax fail: $path" >&2; exit 1; }
+      else
+        node --check "$path" || { echo "JS syntax fail: $path" >&2; exit 1; }
+      fi ;;
   esac
 done < FILE_CHECKSUMS.sha256
 python3 -m compileall -q tests/uat_rc1 tests/uat_prd
