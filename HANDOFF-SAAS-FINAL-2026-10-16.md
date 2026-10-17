@@ -45,9 +45,25 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
   POST/PUT, `booking-payments`, `guest-security-deposits`, `bookings-status`.
 - `api/modules/front_office/043_multi_room_reservations.php` —
   `tamasyaMultiRoomRequire` write = sell cap + tab Kamar.
-- `tests/capability-sales-regression.php` — 19 cek (baru).
+- `tests/capability-sales-regression.php` — 35 cek (termasuk workspace Kamar
+  dan kontrak sumber gate Telegram).
 - `tests/multi-room-regression.php` — require `017` dipindah ke atas
   (wajib, kalau tidak fatal `hasCapability()` undefined).
+- Perubahan 17 Okt lanjutan (capability kamar tembus UI+API): helper baru
+  `tamasyaHasRoomsWorkspaceAccess()` di `api/support/017_authorization_policy.php`
+  (centangan `sell_room_access`/`manage_stay_access` mengalahkan
+  `desktopTabs.rooms=false`; owner & baseline admin/manager/resepsionis tetap;
+  menu Kamar eksplisit tetap dihormati bila tidak ada centangan). Dipakai di
+  `api/support/070_data_projection_scope.php` (×2, notifikasi + proyeksi data)
+  dan `tamasyaMultiRoomRequire` (043, jalur tulis).
+- `api/routes/080_telegram_webhook.php` — fallback jual/inap dibersihkan
+  (`finance`,`owner` dihapus dari dua gate callback; keyboard dinamis tetap
+  jalur utama centangan).
+- `assets/chunks/app-shell.js` — 4 memo capability (sell/stay/panjar/kelola
+  kamar) diteruskan sebagai prop ke `assets/chunks/rooms.js` (10 gate tombol +
+  baris kunci + peluncur reservasi grup); tab Kamar disisipkan ke navigasi
+  saat centangan sell/stay aktif (tanpa menambah `assets/app-core.js` supaya
+  anggaran grafik awal 970 KB tetap terjaga).
 - Perubahan 17 Okt (finance bisa housekeeping): gate `perform_housekeeping` di
   `080_telegram_webhook.php` (×6 + keyboard dinamis), `090_operations_communications.php`
   (×2), `020_identity_access_audit.php`, `040_rooms_checkout_housekeeping.php`,

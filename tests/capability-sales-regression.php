@@ -41,4 +41,25 @@ salesCheck(($p['capabilities']['sell_room_access']??null)===false,'Preset owner 
 salesCheck(($p['capabilities']['manage_stay_access']??null)===false,'Preset owner memaksa stay false');
 salesCheck(($p['capabilities']['receive_payment_access']??null)===false,'Preset owner memaksa panjar false');
 salesCheck(($p['capabilities']['perform_housekeeping']??null)===false,'Preset owner memaksa housekeeping false');
+// Workspace Kamar: centangan sell/stay tembus apa pun menu Kamar; peran lain tetap seperti semula.
+$roomsAccess=function(string $role,?array $caps=null,?array $tabs=null): bool{
+    $u=['id'=>'u1','role'=>$role];$p=[];
+    if($caps!==null)$p['capabilities']=$caps;
+    if($tabs!==null)$p['desktopTabs']=$tabs;
+    if($p)$u['permissions']=json_encode($p);
+    return tamasyaHasRoomsWorkspaceAccess($u);
+};
+salesCheck($roomsAccess('finance',['sell_room_access'=>true])===true,'Finance centang jual bisa buka Kamar');
+salesCheck($roomsAccess('finance',['manage_stay_access'=>true])===true,'Finance centang inap bisa buka Kamar');
+salesCheck($roomsAccess('finance')===false,'Finance tanpa centangan tetap terkunci');
+salesCheck($roomsAccess('finance',['sell_room_access'=>false])===false,'Finance centang jual dicabut tetap terkunci');
+salesCheck($roomsAccess('koki',['sell_room_access'=>true])===true,'Koki centang jual bisa buka Kamar');
+salesCheck($roomsAccess('koki')===false,'Koki tanpa centangan terkunci');
+salesCheck($roomsAccess('receptionist',null,['rooms'=>false])===false,'Resepsionis menu Kamar dimatikan tetap terkunci');
+salesCheck($roomsAccess('receptionist')===true,'Resepsionis baseline tetap bisa');
+salesCheck($roomsAccess('owner')===true,'Owner tetap bisa membaca Kamar');
+$telegramSource=file_get_contents(dirname(__DIR__).'/api/routes/080_telegram_webhook.php');
+salesCheck(strpos($telegramSource,"hasCapability(\$loggedInStaff,'sell_room_access',['admin','manager','receptionist']);")!==false,'Telegram jual: fallback peran bersih');
+salesCheck(strpos($telegramSource,"hasCapability(\$loggedInStaff,'manage_stay_access',['admin','manager','receptionist']);")!==false,'Telegram inap: fallback peran bersih');
+salesCheck(strpos($telegramSource,"'sell_room_access',['admin','manager','receptionist','finance','owner']")===false&&strpos($telegramSource,"'manage_stay_access',['admin','manager','receptionist','finance','owner']")===false,'Telegram jual/inap: finance-owner dihapus dari fallback');
 echo "$passed passed; 0 failed\n";

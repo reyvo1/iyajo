@@ -161,6 +161,23 @@ function hasDesktopTabAccess($user, $tab, $fallbackRoles = []) {
     return in_array($user['role'] ?? '', $fallbackRoles, true);
 }
 
+/** Workspace Kamar: baseline role, menu Kamar (desktopTabs) eksplisit, atau
+ *  centangan sell_room_access/manage_stay_access per akun. Centangan capability
+ *  menang atas desktopTabs.rooms=false supaya centang di editor staf selalu
+ *  tembus ke UI, API, dan proyeksi data (070).
+ */
+function tamasyaHasRoomsWorkspaceAccess($user): bool {
+    if (!is_array($user)) return false;
+    if (tamasyaIsOwnerRole($user)) return true;
+    $permissions=$user['permissions']??null;
+    if(is_string($permissions))$permissions=json_decode($permissions,true);
+    $caps=is_array($permissions)&&is_array($permissions['capabilities']??null)?$permissions['capabilities']:null;
+    if($caps!==null&&(($caps['sell_room_access']??null)===true||($caps['manage_stay_access']??null)===true))return true;
+    $override=tamasyaPermissionOverride($user['permissions']??null,'desktopTabs','rooms');
+    if($override!==null)return $override===true;
+    return in_array(strtolower(trim((string)($user['role']??''))),['admin','manager','receptionist','owner'],true);
+}
+
 /** Source line 2201: requireDesktopTabAccess */
 function requireDesktopTabAccess($user, $tab, $fallbackRoles = []) {
     if (!hasDesktopTabAccess($user, $tab, $fallbackRoles)) {

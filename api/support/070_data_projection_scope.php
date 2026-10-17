@@ -854,7 +854,7 @@ function tamasyaCanSeeFinancialNotifications($user): bool {
 }
 
 function tamasyaCanSeeRoomNotifications($user): bool {
-    return hasDesktopTabAccess($user,'rooms',['admin','manager','receptionist','owner']);
+    return tamasyaHasRoomsWorkspaceAccess($user);
 }
 
 function tamasyaCanSeePublicSupportNotifications($user): bool {
@@ -927,7 +927,7 @@ function getRoleScopedHotelData($pdo, $user) {
     // Projection layer terakhir: explicit desktop deny harus mengurangi DATA, bukan hanya tombol/route.
     // Fallback role tetap kompatibel bila key desktopTabs belum pernah disimpan.
     $applyDesktopDataScope = static function(array $scoped) use ($user): array {
-        $roomsAllowed=hasDesktopTabAccess($user,'rooms',['admin','manager','receptionist','owner']);
+        $roomsAllowed=tamasyaHasRoomsWorkspaceAccess($user);
         $financeAllowed=hasDesktopTabAccess($user,'finance',['admin','manager','finance','owner']);
         $reportAllowed=hasDesktopTabAccess($user,'report',['admin','manager','finance','owner']);
         $inventoryAllowed=hasDesktopTabAccess($user,'inventory',['admin','manager','finance','receptionist','koki','cleaning_service']);

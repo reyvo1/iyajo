@@ -1017,10 +1017,10 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     } elseif (in_array($callbackData,$sellCallbacks,true) || $matchesPrefix($callbackData,$sellPrefixes)) {
                         // Jual/reservasi: role baseline ATAU centangan sell_room_access.
                         // Fallback = perilaku lama; centang false eksplisit mencabut.
-                        $allowedCallback = hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist','finance','owner']);
+                        $allowedCallback = hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist']);
                     } elseif (in_array($callbackData,$stayCallbacks,true) || $matchesPrefix($callbackData,$stayPrefixes)) {
                         // Perpanjang/layanan/pindah/checkout: role baseline ATAU centangan manage_stay_access.
-                        $allowedCallback = hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist','finance','owner']);
+                        $allowedCallback = hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist']);
                     } elseif (in_array($callbackData,$roomReadCallbacks,true) || $matchesPrefix($callbackData,$roomReadPrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
                     } elseif (in_array($callbackData,$vacancyCallbacks,true) || $matchesPrefix($callbackData,$vacancyPrefixes)) {
