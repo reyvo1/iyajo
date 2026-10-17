@@ -636,7 +636,7 @@ switch ($action) {
                 bumpServerRevision($pdo);
                 tamasyaFinancialCommit($pdo);
             } elseif ($command === 'housekeeping-save') {
-                requireCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service']);
+                requireCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']);
                 $requestedId=trim((string)($input['id']??''));
                 $id=$requestedId?:generateServerId('hk');
                 $room=trim((string)($input['roomNumber']??'')); if($room==='')throw new InvalidArgumentException('Nomor kamar wajib diisi.');
@@ -702,7 +702,7 @@ switch ($action) {
                     broadcastTelegramNotification($pdo,(string)$hkNotify['telegram'],false);
                 }
             } elseif ($command === 'housekeeping-status') {
-                requireCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service']);
+                requireCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']);
                 $status=strtolower(trim((string)($input['status']??'')));
                 if(!in_array($status,['dirty','assigned','cleaning','inspection','ready','blocked'],true))throw new InvalidArgumentException('Status housekeeping tidak valid.');
                 $taskId=trim((string)($input['id']??''));if($taskId==='')throw new InvalidArgumentException('ID tugas housekeeping wajib diisi.');

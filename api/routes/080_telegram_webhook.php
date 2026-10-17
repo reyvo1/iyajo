@@ -831,6 +831,9 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                 if (!in_array("💵 Terima Panjar",$flatTexts,true) && hasCapability($staff,'receive_payment_access',['admin','manager','receptionist','finance'])) {
                     $extraRows[] = [["text" => "💵 Terima Panjar"]];
                 }
+                if (!in_array("🧹 Housekeeping",$flatTexts,true) && hasCapability($staff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance'])) {
+                    $extraRows[] = [["text" => "🧹 Housekeeping"]];
+                }
                 if ($extraRows === []) return $baseKeyboard;
                 $rows = is_array($baseKeyboard['keyboard'] ?? null) ? $baseKeyboard['keyboard'] : [];
                 $insertAt = count($rows);
@@ -1023,7 +1026,7 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     } elseif (in_array($callbackData,$vacancyCallbacks,true) || $matchesPrefix($callbackData,$vacancyPrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'],true);
                     } elseif (in_array($callbackData,$housekeepingCallbacks,true) || $matchesPrefix($callbackData,$housekeepingPrefixes)) {
-                        $allowedCallback = hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service']);
+                        $allowedCallback = hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']);
                     } elseif (in_array($callbackData,$patrolCallbacks,true) || $matchesPrefix($callbackData,$patrolPrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','keamanan'],true);
                     } elseif (in_array($callbackData,$guestServiceCallbacks,true) || $matchesPrefix($callbackData,$guestServicePrefixes)) {
@@ -1338,7 +1341,7 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                     $pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
                     $buttons=[];
                     if(in_array($callbackRole,$guestServiceTelegramRoles,true))$buttons[]=[['text'=>'🔔 Permintaan Tamu','callback_data'=>'gsm:p:1']];
-                    if(hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service']))$buttons[]=[['text'=>'🧹 Housekeeping','callback_data'=>'housekeeping_menu']];
+                    if(hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']))$buttons[]=[['text'=>'🧹 Housekeeping','callback_data'=>'housekeeping_menu']];
                     if(in_array($callbackRole,['admin','manager','receptionist','keamanan'],true))$buttons[]=[['text'=>'🚨 Patroli & Laporan','callback_data'=>'patrol_reports_menu']];
                     $buttons[]=[['text'=>'🚪 Laporkan Kamar Kosong','callback_data'=>'vacancy_menu']];
                     $buttons[]=[['text'=>'⬅️ Menu Utama','callback_data'=>'main_menu']];
@@ -3771,7 +3774,7 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                         'clean_available' => ['status'=>'available','notification'=>'✅ [HOUSEKEEPING] Kamar selesai dibersihkan','reply'=>'✅ *PEMBERSIHAN SELESAI*','broadcast'=>'✅ *PEMBERSIHAN SELESAI*'],
                         'need_maintenance' => ['status'=>'maintenance','notification'=>'⚠️ [HOUSEKEEPING] Kerusakan teknis/fisik kamar dilaporkan ke Engineering','reply'=>'⚠️ *KERUSAKAN / PERLU PERBAIKAN DILAPORKAN*','broadcast'=>'⚠️ *KERUSAKAN KAMAR DILAPORKAN KE ENGINEERING*']
                     ];
-                    if (!$loggedInStaff || !hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service']) || !isset($actionMap[$action]) || $roomNumber === '') {
+                    if (!$loggedInStaff || !hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']) || !isset($actionMap[$action]) || $roomNumber === '') {
                         $replyText = "⚠️ Permintaan Housekeeping tidak valid atau sesi telah berakhir.";
                         $alertText = "Permintaan ditolak";
                     } else {
@@ -4572,7 +4575,7 @@ Demi keamanan database multi-user, command, tombol, binding akun, data tamu, AI,
                 } elseif ($pendingState === 'waiting_for_incident_text') {
                     $pendingAllowed = in_array($pendingRole,['admin','manager','receptionist','keamanan'],true);
                 } elseif ($pendingState === 'waiting_for_housekeeping_damage_detail') {
-                    $pendingAllowed = hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service']);
+                    $pendingAllowed = hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']);
                 } elseif ($pendingState === 'waiting_for_guest_service_completion_note') {
                     $pendingAllowed = in_array($pendingRole,$guestServiceTelegramRoles,true);
                 } elseif (in_array($pendingState,['waiting_for_vacancy_belongings_detail','waiting_for_vacancy_damage_detail'],true)) {
@@ -6282,7 +6285,7 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                 } elseif ($command === '/kamar_kosong' || str_starts_with($command,'/kamar_kosong ')) {
                     $requiredDirectRoles = ['admin','manager','receptionist','finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain','owner'];
                 } elseif ($command === '/housekeeping' || str_starts_with($command,'/hk_set')) {
-                    $requiredDirectCap = ['perform_housekeeping',['admin','manager','receptionist','cleaning_service']];
+                    $requiredDirectCap = ['perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']];
                 } elseif ($command === '/patroli_laporan' || str_starts_with($command,'/patrol') || str_starts_with($command,'/lapor_insiden')) {
                     $requiredDirectRoles = ['admin','manager','receptionist','keamanan'];
                 } elseif ($command === '/buka_shift' || $command === '/tutup_shift') {
@@ -7210,8 +7213,8 @@ Shift aktif diambil langsung dari database:
                 $action = $actionAliases[$action] ?? $action;
                 $statusMap = ['cleaning'=>'maintenance','clean_available'=>'available','need_maintenance'=>'maintenance'];
                 $damageDetail=trim(implode(' ',array_slice($parts,3)));
-                if (!$loggedInStaff || !hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service']) || !isset($statusMap[$action]) || $roomNumber === '') {
-                    $replyText = "⚠️ Format salah atau akses ditolak. Perintah Housekeeping hanya untuk Admin, Manajer, Resepsionis, atau Housekeeping. Gunakan: `/hk_set <nomor_kamar> <bersihkan | siap | perbaikan>`.";
+                if (!$loggedInStaff || !hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']) || !isset($statusMap[$action]) || $roomNumber === '') {
+                    $replyText = "⚠️ Format salah atau akses ditolak. Perintah Housekeeping hanya untuk Admin, Manajer, Resepsionis, Housekeeping, atau Keuangan. Gunakan: `/hk_set <nomor_kamar> <bersihkan | siap | perbaikan>`.";
                 } elseif($action==='need_maintenance'&&$damageDetail==='') {
                     $ctx=json_encode(['roomNumber'=>$roomNumber],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
                     $pdo->prepare("UPDATE staff SET telegram_state='waiting_for_housekeeping_damage_detail',telegram_context=? WHERE id=?")->execute([$ctx,$loggedInStaff['id']]);

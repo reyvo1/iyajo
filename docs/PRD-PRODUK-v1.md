@@ -47,7 +47,7 @@ Dokumen induk fitur per modul per 2026-10-16. Arsitektur di
   lapor kamar kosong (tidak otomatis menjual ulang), verifikasi checkout.
 - Kunci: mode physical/smart/hybrid; serah-terima via `manage_room_access`;
   PIN smart hanya di sesi web aman; bridge job ke provider.
-- Akses: `perform_housekeeping` (baseline +cleaning), kunci via capability.
+- Akses: `perform_housekeeping` (baseline +cleaning +finance), kunci via capability.
 
 ## 5. Operasional Lapangan & Tamu
 

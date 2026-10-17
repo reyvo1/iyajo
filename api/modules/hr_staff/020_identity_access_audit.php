@@ -1121,7 +1121,7 @@ function projectOperationsCenterDataForUser(array $data, $user): array {
 
     $canRoomAccess=hasCapability($user,'manage_room_access',['admin','manager','receptionist']);
     $canNightAudit=function_exists('canPerformNightAuditForUser') ? canPerformNightAuditForUser($user) : ($role==='finance' || hasCapability($user,'perform_night_audit',['admin','manager','finance','receptionist','keamanan']));
-    $canHousekeeping=hasCapability($user,'perform_housekeeping',['admin','manager','receptionist','cleaning_service']);
+    $canHousekeeping=hasCapability($user,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']);
     $canManageOps=hasCapability($user,'manage_operational_settings',['admin','manager']);
     $canViewAudit=hasCapability($user,'view_audit_log',['admin','manager','finance']);
     $canManageTax=hasCapability($user,'manage_tax_rules',['admin','manager']);

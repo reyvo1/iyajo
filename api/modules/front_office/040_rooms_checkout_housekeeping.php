@@ -771,7 +771,7 @@ function applyHousekeepingAction(PDO $pdo, array $staff, string $roomNumber, str
     if($roomNumber===''||!in_array($action,['cleaning','clean_available','need_maintenance'],true)){
         throw new InvalidArgumentException('Tindakan housekeeping tidak valid.');
     }
-    if(!hasCapability($staff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service'])){
+    if(!hasCapability($staff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance'])){
         throw new RuntimeException('Akun ini tidak memiliki izin menjalankan housekeeping.');
     }
     $staffId=trim((string)($staff['id']??''));

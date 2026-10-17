@@ -25,11 +25,12 @@ Server harus sudah menjalankan ZIP terbaru.
 | `manage_stay_access` | Perpanjang, Pindah & Check-out (Telegram & Web) | Perpanjang, Layanan, Pindah, Checkout |
 | `receive_payment_access` | Terima Panjar/DP (Telegram & Web) | Panjar (`panjar_menu`, `dp_*`, `/panjar`) |
 
-Aturan: role = baseline (fallback tidak berubah); centang true = tambah akses;
+Aturan: role = baseline; centang true = tambah akses;
 centang false eksplisit = cabut akses; **owner selalu read-only**
 (`hasCapability` owner hanya lolos `view_*`, preset sesi memaksa).
-Yang sudah ada dan tidak diubah: `perform_housekeeping`, `view_guest_identity`,
-`manage_room_access`, + 13 lainnya.
+Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
+17 Okt 2026; gate Telegram/web/klien disesuaikan). Yang tidak diubah:
+`view_guest_identity`, `manage_room_access`, + 13 lainnya.
 
 ## 3. File yang disentuh fitur capability (jika regresi, cek ini dulu)
 
@@ -47,6 +48,10 @@ Yang sudah ada dan tidak diubah: `perform_housekeeping`, `view_guest_identity`,
 - `tests/capability-sales-regression.php` — 19 cek (baru).
 - `tests/multi-room-regression.php` — require `017` dipindah ke atas
   (wajib, kalau tidak fatal `hasCapability()` undefined).
+- Perubahan 17 Okt (finance bisa housekeeping): gate `perform_housekeeping` di
+  `080_telegram_webhook.php` (×6 + keyboard dinamis), `090_operations_communications.php`
+  (×2), `020_identity_access_audit.php`, `040_rooms_checkout_housekeeping.php`,
+  `assets/app-core.js`, `assets/chunks/operations.js`, `assets/chunks/local-connect.js`.
 - `tests/telegram-key-status-contract-regression.php` — cek gate disesuaikan
   dengan belahan sell/stay.
 - `.github/workflows/tamasya-enterprise-rc1-uat.yml`, `scripts/verify-release.sh`
