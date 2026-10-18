@@ -679,6 +679,236 @@ function generateBotThermalReceipt($booking, $staffName) {
     return $text;
 }
 
+/** Escaping aman untuk isi template email nota/laporan resmi. */
+function tamasyaReceiptEmailEsc($value): string {
+    return htmlspecialchars((string)$value,ENT_QUOTES,'UTF-8');
+}
+
+/**
+ * Konten email nota resmi satu booking (web & Telegram).
+ * Matematika mengikuti generateBotThermalReceipt supaya angka di layar,
+ * nota thermal, dan email selalu identik (dasar pajak + extras + PBJT).
+ */
+function tamasyaBookingReceiptEmailContent(array $booking,string $staffName,?array $property=null): array {
+    $property=$property??tamasyaPropertyProfile();
+    $propertyName=trim((string)($property['hotelName']??''))?:'Hotel';
+    $propertyAddress=trim((string)($property['address']??''));
+    $propertyPhone=trim((string)($property['phone']??''));
+    $propertyEmail=trim((string)($property['email']??''));
+    $daysCount=1;
+    if(!empty($booking['checkIn'])&&!empty($booking['checkOut'])){
+        try{$diff=(new DateTime((string)$booking['checkIn']))->diff(new DateTime((string)$booking['checkOut']));$daysCount=$diff->days?:1;}catch(Throwable $ignored){$daysCount=1;}
+    }
+    $vatAmount=isset($booking['vatAmount'])?(float)$booking['vatAmount']:0;
+    $vatRate=(isset($booking['vatRate'])&&$booking['vatRate']!==null&&$booking['vatRate']!=='')?(float)$booking['vatRate']:null;
+    $hasVAT=$vatAmount>0;
+    $extrasList=[];
+    if(!empty($booking['extras'])){
+        $decoded=is_array($booking['extras'])?$booking['extras']:json_decode((string)$booking['extras'],true);
+        if(is_array($decoded))$extrasList=$decoded;
+    }
+    $extrasBaseTotal=0.0;
+    foreach($extrasList as $ex){
+        $qty=isset($ex['qty'])?max(1,(int)$ex['qty']):1;
+        $price=isset($ex['price'])?(float)$ex['price']:0;
+        $gross=isset($ex['total'])&&is_numeric($ex['total'])?(float)$ex['total']:$price*$qty;
+        $extrasBaseTotal+=isset($ex['baseAmount'])&&is_numeric($ex['baseAmount'])?(float)$ex['baseAmount']:max(0.0,$gross-(float)($ex['taxAmount']??0));
+    }
+    $totalAmount=(float)($booking['totalAmount']??0);
+    $totalRoomRent=max(0.0,$totalAmount-$vatAmount-$extrasBaseTotal);
+    $idNota=strtoupper(substr((string)($booking['id']??''),0,10));
+    $createdTs=strtotime((string)($booking['createdAt']??''))?:time();
+    $prefix=trim((string)($property['invoicePrefix']??''))?:'INV';
+    $invoiceNumber=$prefix.'/'.date('Y',$createdTs).'/'.(strtoupper(substr((string)($booking['id']??''),0,8))?:'NOTA');
+    $paid=strtolower((string)($booking['paymentStatus']??''))==='paid';
+    $method=strtolower((string)($booking['paymentMethod']??''));
+    $methodLabel=$method==='qris'?'QRIS':($method==='transfer'?'TRANSFER BANK':($method==='cash'?'TUNAI / CASH':''));
+    $money=static fn($v)=>'Rp '.number_format((float)$v,0,',','.');
+    $esc=static fn($v)=>tamasyaReceiptEmailEsc($v);
+    $td='padding:10px 14px;border-bottom:1px solid #e2e8f0;font-size:13px;color:#334155;';
+    $tdr=$td.'text-align:right;white-space:nowrap;color:#0f172a;';
+    $rows='';
+    $rows.='<tr><td style="'.$td.'">Tarif Kamar ('.$esc($daysCount).'x)</td><td style="'.$tdr.'">'.$esc($money($totalRoomRent)).'</td></tr>';
+    foreach($extrasList as $ex){
+        $qty=isset($ex['qty'])?max(1,(int)$ex['qty']):1;
+        $price=isset($ex['price'])?(float)$ex['price']:0;
+        $gross=isset($ex['total'])&&is_numeric($ex['total'])?(float)$ex['total']:$price*$qty;
+        $base=isset($ex['baseAmount'])&&is_numeric($ex['baseAmount'])?(float)$ex['baseAmount']:max(0.0,$gross-(float)($ex['taxAmount']??0));
+        $rows.='<tr><td style="'.$td.'">'.$esc((string)($ex['name']??'Layanan')).' (x'.$esc($qty).')</td><td style="'.$tdr.'">'.$esc($money($base)).'</td></tr>';
+    }
+    if($hasVAT)$rows.='<tr><td style="'.$td.'">Pajak PBJT'.($vatRate!==null?' ('.$esc($vatRate).'%)':' (tarif komponen)').'</td><td style="'.$tdr.'">'.$esc($money($vatAmount)).'</td></tr>';
+    $rows.='<tr><td style="padding:12px 14px;font-size:13px;font-weight:bold;color:#0f172a;background:#f8fafc;">TOTAL TAGIHAN</td><td style="padding:12px 14px;text-align:right;white-space:nowrap;font-size:14px;font-weight:bold;color:#0f172a;background:#f8fafc;">'.$esc($money($totalAmount)).'</td></tr>';
+    $badge=$paid
+        ?'<span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#ecfdf5;color:#047857;font-weight:bold;font-size:12px;letter-spacing:.5px;">LUNAS'.($methodLabel!==''?' &middot; '.$esc($methodLabel):'').'</span>'
+        :'<span style="display:inline-block;padding:4px 12px;border-radius:999px;background:#fffbeb;color:#b45309;font-weight:bold;font-size:12px;letter-spacing:.5px;">BELUM BAYAR</span>';
+    $kepada='<strong style="color:#0f172a;font-size:14px;">'.$esc((string)($booking['guestName']??'-')).'</strong>'.(trim((string)($booking['guestPhone']??''))!==''?'<br><span style="color:#64748b;">'.$esc((string)$booking['guestPhone']).'</span>':'');
+    $html='<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.$esc($invoiceNumber).'</title></head><body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
+        .'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;"><tr><td align="center" style="padding:24px 12px;">'
+        .'<table role="presentation" width="640" cellpadding="0" cellspacing="0" style="max-width:640px;width:100%;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">'
+        .'<tr><td style="background:#0f172a;padding:22px 26px;"><div style="color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">'.$esc($propertyName).'</div>'
+        .($propertyAddress!==''?'<div style="color:#cbd5e1;font-size:12px;margin-top:4px;">'.$esc($propertyAddress).'</div>':'')
+        .'<div style="color:#cbd5e1;font-size:12px;margin-top:2px;">'.trim(($propertyPhone!==''?'Telp: '.$esc($propertyPhone):'').($propertyEmail!==''?' &middot; '.$esc($propertyEmail):''),' &middot;').'</div></td></tr>'
+        .'<tr><td style="padding:22px 26px 6px;"><div style="font-size:15px;font-weight:bold;letter-spacing:1px;color:#0f172a;">NOTA RESMI / INVOICE</div>'
+        .'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;"><tr>'
+        .'<td style="font-size:12px;color:#64748b;">No. Nota<br><strong style="color:#0f172a;font-size:13px;">'.$esc($invoiceNumber).'</strong></td>'
+        .'<td style="font-size:12px;color:#64748b;text-align:right;">Tanggal<br><strong style="color:#0f172a;font-size:13px;">'.date('d/m/Y',$createdTs).'</strong></td></tr></table></td></tr>'
+        .'<tr><td style="padding:14px 26px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;">'
+        .'<tr><td style="padding:12px 14px;width:50%;vertical-align:top;border-right:1px solid #e2e8f0;"><div style="font-size:11px;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;">Kepada</div><div style="margin-top:4px;">'.$kepada.'</div></td>'
+        .'<td style="padding:12px 14px;width:50%;vertical-align:top;"><div style="font-size:11px;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;">Menginap</div>'
+        .'<div style="font-size:13px;color:#334155;margin-top:4px;">Kamar '.$esc((string)($booking['roomNumber']??'-')).' ('.$esc((string)($booking['roomType']??'-')).')</div>'
+        .'<div style="font-size:12px;color:#64748b;margin-top:2px;">'.$esc((string)($booking['checkIn']??'-')).' &rarr; '.$esc((string)($booking['checkOut']??'-')).'</div>'
+        .'<div style="font-size:12px;color:#64748b;margin-top:2px;">Durasi: '.$esc($daysCount).' malam</div></td></tr></table></td></tr>'
+        .'<tr><td style="padding:18px 26px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;border-collapse:separate;border-spacing:0;">'
+        .'<tr><td style="padding:10px 14px;background:#0f172a;color:#ffffff;font-size:12px;font-weight:bold;letter-spacing:.5px;border-radius:10px 0 0 0;">RINCIAN</td><td style="padding:10px 14px;background:#0f172a;color:#ffffff;font-size:12px;font-weight:bold;text-align:right;letter-spacing:.5px;border-radius:0 10px 0 0;">JUMLAH</td></tr>'
+        .$rows.'</table></td></tr>'
+        .'<tr><td style="padding:14px 26px 4px;">'.$badge.'</td></tr>'
+        .'<tr><td style="padding:12px 26px 8px;font-size:12px;color:#64748b;">Nota ini diterbitkan oleh sistem '.$esc($propertyName).' &middot; Staf: '.$esc($staffName).' &middot; ID Nota: '.$esc($idNota).'</td></tr>'
+        .'<tr><td style="padding:16px 26px 24px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;">Dokumen resmi dibuat otomatis oleh sistem. Terima kasih atas kunjungan Anda di '.$esc($propertyName).'.</td></tr>'
+        .'</table></td></tr></table></body></html>';
+    $subject='Nota '.$invoiceNumber.' - Kamar '.trim((string)($booking['roomNumber']??'')).' - '.$propertyName;
+    return ['subject'=>$subject,'html'=>$html,'invoiceNumber'=>$invoiceNumber,'idNota'=>$idNota,'totalAmount'=>$totalAmount];
+}
+
+/**
+ * Konten email laporan reservasi grup ke perusahaan (invoice kolektif).
+ * Sumber angka = tamasyaMultiRoomDetail supaya sama dengan layar grup.
+ */
+function tamasyaGroupReportEmailContent(array $detail,string $staffName,?array $property=null,?array $company=null): array {
+    $property=$property??tamasyaPropertyProfile();
+    $propertyName=trim((string)($property['hotelName']??''))?:'Hotel';
+    $propertyAddress=trim((string)($property['address']??''));
+    $propertyPhone=trim((string)($property['phone']??''));
+    $propertyEmail=trim((string)($property['email']??''));
+    $group=is_array($detail['group']??null)?$detail['group']:[];
+    $bookings=is_array($detail['bookings']??null)?$detail['bookings']:[];
+    $totals=is_array($detail['totals']??null)?$detail['totals']:['total'=>0.0,'paid'=>0.0,'balance'=>0.0];
+    $company=is_array($company)?$company:[];
+    $reference=trim((string)($group['group_code']??''))?:('GRP-'.strtoupper(substr((string)($group['id']??''),0,8)));
+    $statusLabels=['reserved'=>'Reservasi','active'=>'Menginap','completed'=>'Checkout','cancelled'=>'Dibatalkan'];
+    $billingLabels=['individual'=>'Per kamar','split'=>'Digabung','master'=>'Satuan grup','corporate'=>'Korporat'];
+    $money=static fn($v)=>'Rp '.number_format((float)$v,0,',','.');
+    $esc=static fn($v)=>tamasyaReceiptEmailEsc($v);
+    $th='padding:9px 10px;background:#0f172a;color:#ffffff;font-size:11px;font-weight:bold;text-align:left;';
+    $thr=$th.'text-align:right;white-space:nowrap;';
+    $td='padding:9px 10px;border-bottom:1px solid #e2e8f0;font-size:12px;color:#334155;';
+    $tdr=$td.'text-align:right;white-space:nowrap;color:#0f172a;';
+    $rows='';
+    foreach($bookings as $b){
+        $cancelled=strtolower((string)($b['status']??''))==='cancelled';
+        $lineTotal=$cancelled?'-':$money(max(0,(float)($b['totalAmount']??0)-(float)($b['discountAmount']??0)));
+        $rows.='<tr><td style="'.$td.'"><strong style="color:#0f172a;">Kamar '.$esc((string)($b['roomNumber']??'-')).'</strong> <span style="color:#94a3b8;">('.$esc((string)($b['roomType']??'-')).')</span></td>'
+            .'<td style="'.$td.'">'.$esc((string)($b['guestName']??'-')).'</td>'
+            .'<td style="'.$td.'">'.$esc((string)($b['checkIn']??'-')).'</td>'
+            .'<td style="'.$td.'">'.$esc((string)($b['checkOut']??'-')).'</td>'
+            .'<td style="'.$td.'">'.$esc($statusLabels[strtolower((string)($b['status']??''))]??(string)($b['status']??'-')).'</td>'
+            .'<td style="'.$tdr.'">'.$esc($lineTotal).'</td>'
+            .'<td style="'.$tdr.'">'.$esc($money((float)($b['amountPaid']??0))).'</td>'
+            .'<td style="'.$tdr.'">'.$esc($money((float)($b['balanceDue']??0))).'</td></tr>';
+    }
+    $summary='<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:14px;border:1px solid #e2e8f0;border-radius:10px;">'
+        .'<tr><td style="padding:10px 14px;font-size:12px;color:#64748b;">Total tagihan grup</td><td style="padding:10px 14px;text-align:right;font-size:13px;font-weight:bold;color:#0f172a;">'.$esc($money((float)($totals['total']??0))).'</td></tr>'
+        .'<tr><td style="padding:10px 14px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">Sudah dibayar</td><td style="padding:10px 14px;border-top:1px solid #e2e8f0;text-align:right;font-size:13px;color:#047857;">'.$esc($money((float)($totals['paid']??0))).'</td></tr>'
+        .'<tr><td style="padding:10px 14px;border-top:1px solid #e2e8f0;font-size:12px;color:#64748b;">Sisa tagihan</td><td style="padding:10px 14px;border-top:1px solid #e2e8f0;text-align:right;font-size:13px;font-weight:bold;color:'.((float)($totals['balance']??0)>0?'#b45309':'#047857').';">'.$esc($money((float)($totals['balance']??0))).'</td></tr></table>';
+    $kepada='<strong style="color:#0f172a;font-size:14px;">'.$esc(trim((string)($company['name']??''))?:'Perusahaan').'</strong>';
+    if(trim((string)($company['tax_id']??''))!=='')$kepada.='<br><span style="color:#64748b;font-size:12px;">NPWP: '.$esc((string)$company['tax_id']).'</span>';
+    if(trim((string)($company['address']??''))!=='')$kepada.='<br><span style="color:#64748b;font-size:12px;">'.$esc((string)$company['address']).'</span>';
+    if(trim((string)($company['phone']??''))!=='')$kepada.='<br><span style="color:#64748b;font-size:12px;">'.$esc((string)$company['phone']).'</span>';
+    $html='<!DOCTYPE html><html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>'.$esc($reference).'</title></head><body style="margin:0;padding:0;background:#f1f5f9;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
+        .'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f1f5f9;"><tr><td align="center" style="padding:24px 12px;">'
+        .'<table role="presentation" width="720" cellpadding="0" cellspacing="0" style="max-width:720px;width:100%;background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;">'
+        .'<tr><td style="background:#0f172a;padding:22px 26px;"><div style="color:#ffffff;font-size:20px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">'.$esc($propertyName).'</div>'
+        .($propertyAddress!==''?'<div style="color:#cbd5e1;font-size:12px;margin-top:4px;">'.$esc($propertyAddress).'</div>':'')
+        .'<div style="color:#cbd5e1;font-size:12px;margin-top:2px;">'.trim(($propertyPhone!==''?'Telp: '.$esc($propertyPhone):'').($propertyEmail!==''?' &middot; '.$esc($propertyEmail):''),' &middot;').'</div></td></tr>'
+        .'<tr><td style="padding:22px 26px 6px;"><div style="font-size:15px;font-weight:bold;letter-spacing:1px;color:#0f172a;">LAPORAN RESERVASI GRUP / INVOICE KOLEKTIF</div>'
+        .'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;"><tr>'
+        .'<td style="font-size:12px;color:#64748b;">Referensi<br><strong style="color:#0f172a;font-size:13px;">'.$esc($reference).'</strong></td>'
+        .'<td style="font-size:12px;color:#64748b;text-align:right;">Tanggal cetak<br><strong style="color:#0f172a;font-size:13px;">'.date('d/m/Y H:i').'</strong></td></tr></table></td></tr>'
+        .'<tr><td style="padding:14px 26px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;">'
+        .'<tr><td style="padding:12px 14px;width:50%;vertical-align:top;border-right:1px solid #e2e8f0;"><div style="font-size:11px;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;">Kepada</div><div style="margin-top:4px;">'.$kepada.'</div></td>'
+        .'<td style="padding:12px 14px;width:50%;vertical-align:top;"><div style="font-size:11px;color:#94a3b8;letter-spacing:.5px;text-transform:uppercase;">Detail Grup</div>'
+        .'<div style="font-size:13px;color:#334155;margin-top:4px;">'.$esc((string)($group['name']??'-')).'</div>'
+        .'<div style="font-size:12px;color:#64748b;margin-top:2px;">'.$esc((string)($group['arrival_date']??'-')).' &rarr; '.$esc((string)($group['departure_date']??'-')).'</div>'
+        .'<div style="font-size:12px;color:#64748b;margin-top:2px;">'.count($bookings).' kamar &middot; Tagihan: '.$esc($billingLabels[strtolower((string)($group['billing_mode']??''))]??(string)($group['billing_mode']??'-')).'</div></td></tr></table></td></tr>'
+        .'<tr><td style="padding:18px 26px 0;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0;border-radius:10px;border-collapse:separate;border-spacing:0;">'
+        .'<tr><th style="'.$th.'border-radius:10px 0 0 0;">Kamar</th><th style="'.$th.'">Tamu</th><th style="'.$th.'">Check-in</th><th style="'.$th.'">Check-out</th><th style="'.$th.'">Status</th><th style="'.$thr.'">Total</th><th style="'.$thr.'">Dibayar</th><th style="'.$thr.'border-radius:0 10px 0 0;">Sisa</th></tr>'
+        .$rows.'</table>'.$summary.'</td></tr>'
+        .'<tr><td style="padding:12px 26px 8px;font-size:12px;color:#64748b;">Laporan ini dibuat dari reservasi grup '.$esc($reference).' &middot; Staf: '.$esc($staffName).' &middot; '.date('d/m/Y H:i').'</td></tr>'
+        .'<tr><td style="padding:16px 26px 24px;border-top:1px solid #e2e8f0;font-size:11px;color:#94a3b8;">Dokumen resmi dibuat otomatis oleh sistem '.$esc($propertyName).'. Rincian per kamar tersedia pada nota masing-masing.</td></tr>'
+        .'</table></td></tr></table></body></html>';
+    $subject='Laporan Grup '.$reference.' - '.trim((string)($group['name']??'')).' - '.$propertyName;
+    return ['subject'=>$subject,'html'=>$html,'reportReference'=>$reference,'totals'=>$totals];
+}
+
+/**
+ * Pengiriman email resmi (nota/laporan) dengan audit wajib.
+ * SMTP utama, fallback PHP mail() seperti alur laporan canonical; bila keduanya
+ * gagal, pemanggil menerima RuntimeException dengan pesan yang bisa ditampilkan.
+ */
+function tamasyaSendReceiptEmail(PDO $pdo,array $actor,string $to,string $subject,string $html,string $auditAction,string $entityType,string $entityId,array $auditData,string $channel='web'): array {
+    $to=strtolower(trim($to));
+    if(!filter_var($to,FILTER_VALIDATE_EMAIL))throw new InvalidArgumentException('Alamat email penerima tidak valid.');
+    if(function_exists('tamasyaExternalSideEffectsAllowed')&&!tamasyaExternalSideEffectsAllowed())throw new RuntimeException('Pengiriman email resmi hanya boleh dilakukan dari node Primary yang aktif.');
+    $confStmt=$pdo->query("SELECT * FROM config WHERE id='system_default' LIMIT 1");
+    $conf=$confStmt?($confStmt->fetch(PDO::FETCH_ASSOC)?:[]):[];
+    $sent=false;$method='';
+    if(trim((string)($conf['smtp_host']??''))!==''){$sent=sendSmtpMail($to,$subject,$html,$conf,[]);if($sent)$method='SMTP';}
+    if(!$sent&&function_exists('tamasyaPhpMailWithAttachments')){$sent=tamasyaPhpMailWithAttachments($to,$subject,$html,[],$conf);if($sent)$method='PHP mail()';}
+    if(!$sent)throw new RuntimeException('Email tidak berhasil dikirim. Periksa konfigurasi SMTP/email hosting di Pengaturan.');
+    $masked=function_exists('tamasyaMaskEmailAddress')?tamasyaMaskEmailAddress($to):(preg_replace('/(^.).*(@.*$)/','$1***$2',$to)?:'[email]');
+    $auditData['recipientHash']=hash('sha256',$to);
+    $auditData['method']=$method;
+    $auditData['channel']=$channel;
+    if(function_exists('writeRequiredEnterpriseAudit')){
+        writeRequiredEnterpriseAudit($pdo,$actor,$auditAction,$entityType,$entityId,null,$auditData,$channel);
+    }
+    return ['masked'=>$masked,'method'=>$method];
+}
+
+/** Nota resmi satu booking via email (dipakai web & Telegram). */
+function tamasyaSendBookingReceiptEmail(PDO $pdo,array $actor,array $booking,string $email,string $channel='web',string $operationId=''): array {
+    $property=tamasyaPropertyProfile($pdo);
+    $content=tamasyaBookingReceiptEmailContent($booking,(string)($actor['name']??'System'),$property);
+    $entityId='receipt_email_'.substr(hash('sha256',($operationId?:($GLOBALS['tamasya_request_operation_id']??'')).'|'.(string)($booking['id']??'').'|'.strtolower(trim($email))),0,40);
+    $result=tamasyaSendReceiptEmail($pdo,$actor,$email,$content['subject'],$content['html'],'Mengirim nota kamar via email','booking',(string)($booking['id']??''),[
+        'invoiceNumber'=>$content['invoiceNumber'],
+        'idNota'=>$content['idNota'],
+        'roomNumber'=>(string)($booking['roomNumber']??''),
+        'guestNameHash'=>hash('sha256',(string)($booking['guestName']??'')),
+        'totalAmount'=>(float)($booking['totalAmount']??0),
+        'paymentStatus'=>(string)($booking['paymentStatus']??''),
+        'eventId'=>$entityId,
+    ],$channel);
+    return $result+['invoiceNumber'=>$content['invoiceNumber']];
+}
+
+/** Laporan reservasi grup via email ke perusahaan (invoice kolektif). */
+function tamasyaSendGroupReportEmail(PDO $pdo,array $actor,string $groupId,string $email,string $channel='web',string $operationId=''): array {
+    if(!function_exists('tamasyaMultiRoomDetail'))throw new RuntimeException('Modul reservasi grup belum aktif pada deployment ini.');
+    $groupId=trim($groupId);
+    if($groupId==='')throw new InvalidArgumentException('Reservasi grup wajib dipilih.');
+    $detail=tamasyaMultiRoomDetail($pdo,$groupId);
+    $company=null;
+    $companyId=trim((string)($detail['group']['company_id']??''));
+    if($companyId!==''){
+        $stmt=$pdo->prepare('SELECT id,name,tax_id,billing_email,phone,address FROM growth_companies WHERE id=? LIMIT 1');
+        $stmt->execute([$companyId]);
+        $company=$stmt->fetch(PDO::FETCH_ASSOC)?:null;
+    }
+    $property=tamasyaPropertyProfile($pdo);
+    $content=tamasyaGroupReportEmailContent($detail,(string)($actor['name']??'System'),$property,$company);
+    $entityId='group_report_email_'.substr(hash('sha256',($operationId?:($GLOBALS['tamasya_request_operation_id']??'')).'|'.$groupId.'|'.strtolower(trim($email))),0,40);
+    $result=tamasyaSendReceiptEmail($pdo,$actor,$email,$content['subject'],$content['html'],'Mengirim laporan grup via email','growth_group_reservation',$groupId,[
+        'reportReference'=>$content['reportReference'],
+        'companyId'=>$companyId?:null,
+        'bookingCount'=>count($detail['bookings']??[]),
+        'total'=>(float)($detail['totals']['total']??0),
+        'paid'=>(float)($detail['totals']['paid']??0),
+        'balance'=>(float)($detail['totals']['balance']??0),
+        'eventId'=>$entityId,
+    ],$channel);
+    return $result+['reportReference'=>$content['reportReference']];
+}
+
 /** Source line 5291: renderBookingConfirmation */
 function renderBookingConfirmation($pdo, $loggedInStaff) {
     $currentCtx = $loggedInStaff['telegram_context'] ?? '';

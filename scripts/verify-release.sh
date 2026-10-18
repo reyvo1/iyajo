@@ -39,6 +39,7 @@ php tests/negotiation-settlement-characterisation.php
 php tests/growth-kpi-regression.php
 php tests/multi-room-regression.php
 php tests/receipt-projection-regression.php
+php tests/receipt-email-regression.php
 node --experimental-vm-modules tests/multi-room-ui-regression.mjs
 php tests/telegram-charge-payment-regression.php
 php tests/telegram-shift-regression.php

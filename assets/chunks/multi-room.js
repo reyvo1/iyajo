@@ -24,6 +24,7 @@ export function TamasyaMultiRoomPanel({currentRole,onRefresh,onSelectRoom,onChec
  const write=['admin','manager','receptionist'].includes(currentRole),[view,setView]=f.useState(''),[intent,setIntent]=f.useState('reserve'),[busy,setBusy]=f.useState(false),[error,setError]=f.useState(''),[groups,setGroups]=f.useState([]),[data,setData]=f.useState(null),[options,setOptions]=f.useState(null),[selected,setSelected]=f.useState({}),[operation,setOperation]=f.useState(oid),[paymentOperation,setPaymentOperation]=f.useState(oid),[pay,setPay]=f.useState({amount:'',method:'cash',bank:'',date:today()}),[form,setForm]=f.useState({name:'',phone:'',email:'',notes:'',source:'Direct',company:'',paymentDate:today(),from:today(),to:tomorrow(),billing:'individual',percent:50,groupId:''});
  const [nextPage,setNextPage]=f.useState(null),[checking,setChecking]=f.useState(false);
  const [edit,setEdit]=f.useState(null),[customSource,setCustomSource]=f.useState(false);
+ const [report,setReport]=f.useState({email:'',note:''});
  const availSeq=f.useRef(0),inFlight=f.useRef(false),returnFocus=f.useRef(null);
  const update=(key,value)=>{setOperation(oid());setForm(old=>({...old,[key]:value}));};
  const run=async fn=>{if(inFlight.current)return;inFlight.current=true;setBusy(true);setError('');try{await fn();}catch(e){setError(e.message);}finally{setBusy(false);inFlight.current=false;}};
@@ -90,10 +91,16 @@ export function TamasyaMultiRoomPanel({currentRole,onRefresh,onSelectRoom,onChec
     h('label',{},'Metode',paymentMethodSelect(pay.method,e=>setPay(old=>({...old,method:e.target.value,bank:''})))),
     pay.method!=='cash'&&h('label',{},'Akun penerimaan',bankSelect(pay.bank,e=>setPay(old=>({...old,bank:e.target.value})),pay.method))),
    h('button',{type:'submit',disabled:busy||!isOnline},busy?'Menyimpan…':'Simpan pembayaran'));
+  const reportForm=write&&h('form',{onSubmit:e=>{e.preventDefault();run(async()=>{setReport(old=>({...old,note:''}));const result=await api('send',{groupId:data.group.id,email:String(report.email||'').trim()},{},oid(),'group-report-email');setReport({email:'',note:result.message||'Laporan terkirim.'});});}},
+   h('h3',{},'Kirim laporan ke email'),
+   h('p',{className:'mr-note'},'Laporan konsolidasi seluruh kamar grup dikirim ke email perusahaan / pemesan. Kosongkan tujuan untuk memakai email penagihan perusahaan tersimpan. Nota per kamar dikirim dari Detail kamar.'),
+   h('div',{className:'mr-fields'},field('Email tujuan',{type:'email',value:report.email,onChange:e=>setReport(old=>({...old,email:e.target.value})),placeholder:'email@perusahaan.com',maxLength:150})),
+   h('button',{type:'submit',disabled:busy||!isOnline},busy?'Mengirim…':'Kirim laporan'),
+   report.note&&h('p',{className:'mr-note',role:'status'},report.note));
   content=h('div',{},
    h('div',{className:'mr-summary'},h('strong',{},`${data.group.group_code} · ${data.group.name}`),h('span',{},labels[data.lifecycle.status]||data.lifecycle.status),h('span',{},`${data.group.arrival_date} → ${data.group.departure_date}`),h('span',{},`${data.bookings.length} kamar · ${data.group.billing_mode}`),h('span',{},`Sumber: ${data.group.contact.bookingSource||'Direct'}`)),
    h('div',{className:'mr-totals'},...Object.entries(data.totals).map(([key,value])=>h('div',{key},h('small',{},({total:'Total tagihan',paid:'Sudah dibayar',balance:'Sisa'})[key]),h('strong',{},money(value))))),
-   h('div',{className:'mr-scroll-table'},h('table',{},h('thead',{},h('tr',{},...['Kamar / Penghuni','Status / Periode','Tagihan','Dibayar','Sisa','Aksi'].map(x=>h('th',{key:x},x)))),h('tbody',{},...tableRows))),groupControls,contactForm,paymentForm,
+   h('div',{className:'mr-scroll-table'},h('table',{},h('thead',{},h('tr',{},...['Kamar / Penghuni','Status / Periode','Tagihan','Dibayar','Sisa','Aksi'].map(x=>h('th',{key:x},x)))),h('tbody',{},...tableRows))),groupControls,contactForm,paymentForm,reportForm,
    ...data.folios.map(folio=>h('div',{className:'mr-note',key:folio.folio.id},h('strong',{},`Master folio ${folio.folio.folio_number}`),h('p',{},`Tagihan ${money(folio.chargeTotal)} · Alokasi pembayaran ${money(folio.paymentAllocatedTotal)} · Sisa ${money(folio.balance)}`))),
    h('p',{className:'mr-note'},'Checkout, perpanjangan, pindah kamar, deposito jaminan, dan kunci melalui Detail kamar. Satu tindakan hanya memengaruhi booking yang dipilih.'));
  }

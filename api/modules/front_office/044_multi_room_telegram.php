@@ -33,6 +33,7 @@ function tamasyaMultiRoomTelegramDetail(PDO $pdo,array $actor,string $id,int $pa
     $nav=[];if($page>1)$nav[]=['text'=>'← Kamar','callback_data'=>'mr_detail:'.$id.':'.($page-1)];if($page*20<count($d['bookings']))$nav[]=['text'=>'Kamar →','callback_data'=>'mr_detail:'.$id.':'.($page+1)];if($nav)$buttons[]=$nav;
     if($write&&!in_array($d['lifecycle']['status'],['completed','cancelled'],true))$buttons[]=[['text'=>'➕ Tambah kamar','callback_data'=>'mr_add:'.$id]];
     if($write&&$d['totals']['balance']>0)$buttons[]=[['text'=>'💰 DP / Pembayaran grup','callback_data'=>'mr_pay:'.$id]];
+    if($write)$buttons[]=[['text'=>'✉️ Kirim laporan ke email','callback_data'=>'mr_report:'.$id]];
     $buttons[]=[['text'=>'🔄 Muat ulang','callback_data'=>'mr_detail:'.$id],['text'=>'⬅️ Daftar grup','callback_data'=>'mr_list']];
     $display=$d;$display['bookings']=array_slice($d['bookings'],($page-1)*20,20);
     return ['text'=>tamasyaMultiRoomTelegramSummary($display,'Detail reservasi grup').' · Halaman kamar '.$page.'/'.max(1,(int)ceil(count($d['bookings'])/20)),'markup'=>['inline_keyboard'=>$buttons]];
@@ -80,6 +81,28 @@ function tamasyaMultiRoomTelegramCallback(PDO $pdo,array $actor,string $callback
     }
     if($command==='mr_add'){$d=tamasyaMultiRoomDetail($pdo,$parts[1]??'');if(in_array($d['lifecycle']['status'],['completed','cancelled'],true))throw new RuntimeException('Grup sudah selesai.');$g=$d['group'];$ctx=['flow'=>'multi-room','nonce'=>bin2hex(random_bytes(8)),'expiresAt'=>time()+1800,'lifecycleIntent'=>'reserve','selected'=>[],'groupId'=>$g['id'],'guestName'=>$g['name'],'guestPhone'=>$g['contact']['phone']??'','bookingSource'=>$g['contact']['bookingSource']??'Direct','billingMode'=>$g['billing_mode'],'routedPercent'=>$g['contact']['routedPercent']??0];tamasyaMultiRoomTelegramState($pdo,$actor,'waiting_mr_dates',$ctx);return ['text'=>'Ketik tanggal masuk dan keluar untuk kamar tambahan: YYYY-MM-DD YYYY-MM-DD.','markup'=>null];}
     if($command==='mr_pay'){$d=tamasyaMultiRoomDetail($pdo,$parts[1]??'');$ctx=['flow'=>'multi-room','nonce'=>bin2hex(random_bytes(8)),'expiresAt'=>time()+900,'groupId'=>$d['group']['id'],'date'=>date('Y-m-d')];tamasyaMultiRoomTelegramState($pdo,$actor,'waiting_mr_payment_amount',$ctx);return ['text'=>'💰 Ketik nominal uang yang benar-benar diterima. Sisa grup: Rp '.tamasyaTelegramFormatAmount($d['totals']['balance']),'markup'=>['inline_keyboard'=>[[['text'=>'Batalkan','callback_data'=>'main_menu']]]]];}
+    if($command==='mr_report'){
+        $d=tamasyaMultiRoomDetail($pdo,$parts[1]??'');
+        $companyId=trim((string)($d['group']['company_id']??''));$companyName='';$companyEmail='';
+        if($companyId!==''){$row=tamasyaEnterpriseFetch($pdo,'SELECT name,billing_email FROM growth_companies WHERE id=?',[$companyId]);if($row){$companyName=trim((string)($row['name']??''));$companyEmail=trim((string)($row['billing_email']??''));}}
+        tamasyaMultiRoomTelegramState($pdo,$actor,'waiting_for_receipt_email',['flow'=>'multi-room','expiresAt'=>time()+900,'mode'=>'company','groupId'=>$d['group']['id']]);
+        $keyboard=[];
+        if(filter_var($companyEmail,FILTER_VALIDATE_EMAIL))$keyboard[]=[['text'=>'✉️ Kirim ke '.$companyEmail,'callback_data'=>'mr_report_send:'.$d['group']['id']]];
+        $keyboard[]=[['text'=>'❌ Batalkan','callback_data'=>'cancel_booking_process']];
+        $text="✉️ *KIRIM LAPORAN GRUP KE EMAIL*\n\nGrup: *".tamasyaTelegramPlainText($d['group']['group_code'].' · '.$d['group']['name'],160)."*\n".($companyName!==''?"Perusahaan: *".tamasyaTelegramPlainText($companyName,120)."*\n":'').($companyEmail!==''?"Email terdaftar: `".$companyEmail."`\n\nTekan tombol kirim, atau ketik alamat email lain.":"Perusahaan belum punya email. Ketik alamat email tujuan.");
+        return ['text'=>$text,'markup'=>['inline_keyboard'=>$keyboard]];
+    }
+    if($command==='mr_report_send'){
+        $d=tamasyaMultiRoomDetail($pdo,$parts[1]??'');
+        $companyId=trim((string)($d['group']['company_id']??''));$companyEmail='';
+        if($companyId!==''){$row=tamasyaEnterpriseFetch($pdo,'SELECT billing_email FROM growth_companies WHERE id=?',[$companyId]);if($row)$companyEmail=trim((string)($row['billing_email']??''));}
+        if($companyEmail===''||!filter_var($companyEmail,FILTER_VALIDATE_EMAIL))throw new RuntimeException('Email perusahaan belum terdaftar. Ketik alamat email tujuan atau lengkapi data perusahaan.');
+        $result=tamasyaSendGroupReportEmail($pdo,$actor,$d['group']['id'],$companyEmail,'telegram',$operationId);
+        $pdo->prepare('UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?')->execute([$actor['id']]);
+        $reply=tamasyaMultiRoomTelegramDetail($pdo,$actor,$d['group']['id']);
+        $reply['text']="✅ Laporan ".$result['reportReference']." terkirim ke ".$result['masked'].". \n\n".$reply['text'];
+        return $reply;
+    }
     $nonce=end($parts);$ctx=tamasyaMultiRoomTelegramContext($actor,$nonce);$state=(string)($actor['telegram_state']??'');
     if(in_array($command,['mr_confirm','mr_pay_confirm'],true)&&$state==='mr_done')return tamasyaMultiRoomTelegramDetail($pdo,$actor,$ctx['groupId']);
     if($command==='mr_source'){

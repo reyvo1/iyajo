@@ -15,6 +15,8 @@ if (!in_array((string)($action ?? ''), array (
   10 => 'room-transfers',
   11 => 'booking-negotiated-price',
   12 => 'multi-room-bookings',
+  13 => 'booking-receipt-email',
+  14 => 'group-report-email',
 ), true)) { return; }
 $routeHandled = true;
 switch ($action) {
@@ -39,6 +41,34 @@ switch ($action) {
                 else throw new InvalidArgumentException('Pilihan reservasi grup tidak dikenal.');
             }else{http_response_code(405);echo tamasyaJsonEncode(['success'=>false,'error'=>'Method Not Allowed']);}
         }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();if($e instanceof InvalidArgumentException){http_response_code(422);}else{tamasyaApplyExceptionHttpStatus($e,422);}echo tamasyaJsonEncode(['success'=>false,'error'=>clientExceptionMessage('Reservasi grup gagal',$e)]);}
+        break;
+    case 'booking-receipt-email':
+    case 'group-report-email':
+        try {
+            if (strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')) !== 'POST') { http_response_code(405); echo tamasyaJsonEncode(['success'=>false,'error'=>'Method Not Allowed']); break; }
+            $roles=['admin','manager','receptionist'];
+            if(!hasCapability($loggedInStaff,'sell_room_access',$roles)&&!hasCapability($loggedInStaff,'manage_stay_access',$roles))throw new DomainException('Peran ini tidak berhak mengirim email resmi.',403);
+            if(!tamasyaHasRoomsWorkspaceAccess($loggedInStaff))throw new DomainException('Akses workspace Kamar tidak diizinkan.',403);
+            $email=trim((string)($input['email']??''));
+            if($action==='booking-receipt-email'){
+                $bookingId=trim((string)($input['bookingId']??''));
+                if($bookingId==='')throw new InvalidArgumentException('Booking wajib dipilih.');
+                $stmt=$pdo->prepare('SELECT * FROM bookings WHERE id=? LIMIT 1');$stmt->execute([$bookingId]);$booking=$stmt->fetch(PDO::FETCH_ASSOC);
+                if(!$booking)throw new InvalidArgumentException('Booking tidak ditemukan.');
+                $result=tamasyaSendBookingReceiptEmail($pdo,$loggedInStaff,$booking,$email,'web',(string)($GLOBALS['tamasya_request_operation_id']??''));
+                echo tamasyaJsonEncode(['success'=>true,'invoiceNumber'=>$result['invoiceNumber'],'masked'=>$result['masked'],'message'=>'Nota '.$result['invoiceNumber'].' terkirim ke '.$result['masked'].'.']);
+            }else{
+                tamasyaGrowthRequireReady($pdo,'group');
+                $groupId=trim((string)($input['groupId']??''));
+                if($groupId==='')throw new InvalidArgumentException('Reservasi grup wajib dipilih.');
+                if($email===''){
+                    $stmt=$pdo->prepare('SELECT c.billing_email FROM growth_group_reservations g LEFT JOIN growth_companies c ON c.id=g.company_id WHERE g.id=? LIMIT 1');
+                    $stmt->execute([$groupId]);$email=trim((string)($stmt->fetchColumn()?:''));
+                }
+                $result=tamasyaSendGroupReportEmail($pdo,$loggedInStaff,$groupId,$email,'web',(string)($GLOBALS['tamasya_request_operation_id']??''));
+                echo tamasyaJsonEncode(['success'=>true,'reportReference'=>$result['reportReference'],'masked'=>$result['masked'],'message'=>'Laporan '.$result['reportReference'].' terkirim ke '.$result['masked'].'.']);
+            }
+        }catch(Throwable $e){http_response_code($e instanceof DomainException&&in_array($e->getCode(),[403,409],true)?$e->getCode():422);echo tamasyaJsonEncode(['success'=>false,'error'=>clientExceptionMessage('Email resmi gagal dikirim',$e)]);}
         break;
     case 'booking-negotiated-price':
         requireDesktopTabAccess($loggedInStaff,'rooms',['admin','manager','receptionist']);

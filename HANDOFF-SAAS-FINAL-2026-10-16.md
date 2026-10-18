@@ -19,6 +19,19 @@ Kerjaan terakhir (sudah push + ZIP):
   `scripts/verify-release.sh`.
 - ZIP produksi terbaru: `tamasya-production-prod-20261017-1835.zip` (374 files).
   ZIP lama (termasuk `...1713.zip`) sudah usang, jangan dipakai.
+- Perubahan 18 Okt (commit terbaru): **Kirim Nota / Laporan Grup via email
+  resmi** dari pratinjau nota web, bot Telegram, dan detail grup web. Tahap 1
+  tanpa lampiran PDF: email HTML resmi, angka identik nota thermal / layar
+  grup (PBJT + extras), semua teks pemakai di-escape. Gate web:
+  `sell_room_access` ATAU `manage_stay_access` (baseline admin/manager/
+  resepsionis) + workspace Kamar; owner/finance tetap read-only. Telegram:
+  tombol ✉️ di pratinjau nota & `/cetak_nota`, state
+  `waiting_for_receipt_email`, callback `email_receipt*` (tamu) dan
+  `mr_report*` (grup, gate jual). Web: tombol + panel di dialog nota
+  (`booking-receipt.js`) dan form laporan di detail grup (`multi-room.js`).
+  Audit wajib per kirim (event id hash `receipt_email_*` /
+  `group_report_email_*`, email penerima di-hash, metode SMTP/PHP mail).
+  Test baru: `php tests/receipt-email-regression.php` (33 cek).
 
 Cara pakai di Telegram (sudah terbukti jalan): centang 3 capability baru di
 menu Karyawan untuk akun tsb → tekan 🏠 Menu Utama → tombol muncul.
@@ -85,6 +98,16 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
   dengan belahan sell/stay.
 - `.github/workflows/tamasya-enterprise-rc1-uat.yml`, `scripts/verify-release.sh`
   — daftarkan test baru.
+- Perubahan 18 Okt (nota/laporan via email): `api/support/060_shift_receipts.php`
+  (`tamasyaBookingReceiptEmailContent`, `tamasyaGroupReportEmailContent`,
+  `tamasyaSendReceiptEmail`, `tamasyaSendBookingReceiptEmail`,
+  `tamasyaSendGroupReportEmail`), `api/routes/020_hotel_booking.php` (action
+  `booking-receipt-email`/`group-report-email`), `api/routes/080_telegram_webhook.php`
+  (`email_receipt:`, `email_receipt_send:`, state `waiting_for_receipt_email`),
+  `api/modules/front_office/044_multi_room_telegram.php` (`mr_report:`,
+  `mr_report_send:`), `assets/chunks/booking-receipt.js`,
+  `assets/chunks/multi-room.js`, `tests/receipt-email-regression.php` +
+  registrasi di `scripts/verify-release.sh`.
 - `FILE_CHECKSUMS.sha256` — WAJIB refresh tiap ada file berubah atau CI
   merah (pelajaran: commit kode dan checksum boleh beda run; run yang lolos
   adalah yang membawa checksum baru).
@@ -96,6 +119,7 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
    `php tests/owner-readonly-regression.php`,
    `php tests/telegram-shift-regression.php`,
    `php tests/multi-room-regression.php`,
+   `php tests/receipt-email-regression.php`,
    `php tests/telegram-key-status-contract-regression.php`.
 3. `sha256sum` file berubah → update `FILE_CHECKSUMS.sha256` (tambah entri
    alfabetis untuk file baru) → `sha256sum -c FILE_CHECKSUMS.sha256`.

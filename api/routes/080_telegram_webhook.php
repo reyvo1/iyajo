@@ -1039,6 +1039,11 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     } elseif (in_array($callbackData,$receiptCallbacks,true) || $matchesPrefix($callbackData,$receiptPrefixes)) {
                         // Cetak nota murni baca (SELECT + format thermal), aman untuk Owner read-only.
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
+                    } elseif (str_starts_with($callbackData,'email_receipt:') || str_starts_with($callbackData,'email_receipt_send:')) {
+                        // Kirim nota via email = aksi keluar (mengirim email atas nama hotel):
+                        // penjualan ATAU rawat-inap. Owner read-only & Finance tidak berhak.
+                        $allowedCallback = hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist'])
+                            || hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist']);
                     } elseif (in_array($callbackData,$identityCallbacks,true) || $matchesPrefix($callbackData,$identityPrefixes)) {
                         $allowedCallback = hasCapability($loggedInStaff,'view_guest_identity',['admin','manager','receptionist','keamanan']);
                     }
@@ -2758,6 +2763,52 @@ Ketik bagian *Tunai* saja. Contoh: `40000`. Sisa otomatis menjadi Transfer/QRIS.
                     } else {
                         $replyText = generateBotThermalReceipt($booking, $loggedInStaff ? $loggedInStaff['name'] : 'System');
                         $alertText = "Nota berhasil dicetak!";
+                        if ($loggedInStaff && (hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist']) || hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist']))) {
+                            $replyMarkup = ['inline_keyboard'=>[[['text'=>'✉️ Kirim nota ke email','callback_data'=>'email_receipt:'.$bookingId]]]];
+                        }
+                    }
+                } elseif (str_starts_with($callbackData, "email_receipt:")) {
+                    $bookingId = explode(":", $callbackData)[1] ?? '';
+                    $stmtBooking = $pdo->prepare("SELECT * FROM bookings WHERE id = ? LIMIT 1");
+                    $stmtBooking->execute([$bookingId]);
+                    $booking = $stmtBooking->fetch();
+                    if (!$booking) {
+                        $replyText = "⚠️ Data sewa tidak ditemukan!";
+                        $alertText = "Error!";
+                    } else {
+                        $storedEmail = trim((string)($booking['guestEmail'] ?? ''));
+                        $keyboard = [];
+                        if ($storedEmail !== '' && filter_var($storedEmail, FILTER_VALIDATE_EMAIL)) {
+                            $keyboard[] = [['text'=>'✉️ Kirim ke '.$storedEmail,'callback_data'=>'email_receipt_send:'.$bookingId]];
+                        }
+                        $keyboard[] = [['text'=>'❌ Batalkan','callback_data'=>'cancel_booking_process']];
+                        $replyText = "✉️ *KIRIM NOTA KAMAR ".tamasyaTelegramPlainText((string)$booking['roomNumber'],20)." KE EMAIL*\n\n" .
+                            "Tamu: *".tamasyaTelegramPlainText((string)$booking['guestName'],120)."*\n" .
+                            ($storedEmail !== '' ? "Email tersimpan: `".$storedEmail."`\n\nTekan tombol kirim, atau ketik alamat email lain." : "Ketik alamat email tujuan.");
+                        $replyMarkup = ['inline_keyboard'=>$keyboard];
+                        if ($loggedInStaff) {
+                            $ctx = ['flow'=>'receipt-email','expiresAt'=>time()+900,'mode'=>'guest','bookingId'=>$bookingId];
+                            $pdo->prepare("UPDATE staff SET telegram_state = 'waiting_for_receipt_email', telegram_context = ? WHERE id = ?")->execute([tamasyaJsonEncode($ctx), $loggedInStaff['id']]);
+                        }
+                        $alertText = "Siap kirim nota";
+                    }
+                } elseif (str_starts_with($callbackData, "email_receipt_send:")) {
+                    try {
+                        $bookingId = explode(":", $callbackData)[1] ?? '';
+                        $stmtBooking = $pdo->prepare("SELECT * FROM bookings WHERE id = ? LIMIT 1");
+                        $stmtBooking->execute([$bookingId]);
+                        $booking = $stmtBooking->fetch();
+                        if (!$booking) throw new InvalidArgumentException('Data sewa tidak ditemukan.');
+                        $target = trim((string)($booking['guestEmail'] ?? ''));
+                        if ($target === '' || !filter_var($target, FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Email tamu belum tersimpan. Ketik alamat email tujuan terlebih dahulu.');
+                        $result = tamasyaSendBookingReceiptEmail($pdo, $loggedInStaff, $booking, $target, 'telegram', $telegramCallbackOperationId);
+                        $pdo->prepare("UPDATE staff SET telegram_state = NULL, telegram_context = NULL WHERE id = ?")->execute([$loggedInStaff['id']]);
+                        $replyText = "✅ *NOTA TERKIRIM*\n\nNota ".$result['invoiceNumber']." sudah dikirim ke ".$result['masked'].".\nJika tamu belum menerima, minta cek folder spam atau periksa konfigurasi email hotel.";
+                        $replyMarkup = ['inline_keyboard'=>[[['text'=>'🧾 Cetak Nota Thermal','callback_data'=>'print_receipt:'.$bookingId]]]];
+                        $alertText = "Nota terkirim";
+                    } catch (Throwable $emailError) {
+                        $replyText = "❌ " . clientExceptionMessage('Nota belum terkirim', $emailError) . "\n\nKetik alamat email lain, atau tekan Batalkan.";
+                        $alertText = "Gagal mengirim";
                     }
                 } elseif ($callbackData === "pemasukan_menu" || str_starts_with($callbackData,"pemasukan_menu:p:")) {
                     if(!$loggedInStaff || !in_array($loggedInStaff['role'],['admin','manager','finance'],true)){$replyText="🔒 Akses Ditolak! Menu ini hanya untuk Admin/Manajer/Finance.";$alertText="Akses ditolak!";}
@@ -5854,6 +5905,38 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                     try{$ctx=tamasyaTelegramChargeContext($loggedInStaff,(string)(json_decode((string)$currentCtx,true)['nonce']??''));$replyText='💳 Gunakan tombol untuk memilih Tunai, Transfer, atau QRIS dan konfirmasi pembayaran.';$replyMarkup=tamasyaTelegramChargeMarkup($ctx);}
                     catch(Throwable $e){$replyText=clientExceptionMessage('Sesi pembayaran tidak valid',$e);}
                     $stateProcessed=true;
+                } elseif ($currentState === 'waiting_for_receipt_email') {
+                    // Nota tamu atau laporan grup dikirim ke email yang diketik staf.
+                    // Sesuai keputusan izin: penjualan ATAU rawat-inap; owner/finance tidak.
+                    try {
+                        $ctx = json_decode((string)$currentCtx, true);
+                        if (!is_array($ctx) || (int)($ctx['expiresAt'] ?? 0) < time()) throw new RuntimeException('Sesi kirim email sudah kedaluwarsa. Mulai ulang dari tombol kirim nota.');
+                        if (hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist']) !== true
+                            && hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist']) !== true) {
+                            throw new DomainException('Peran ini tidak berhak mengirim email resmi.',403);
+                        }
+                        $target = trim((string)$command);
+                        if (($ctx['mode'] ?? '') === 'company') {
+                            $result = tamasyaSendGroupReportEmail($pdo, $loggedInStaff, (string)($ctx['groupId'] ?? ''), $target, 'telegram', $telegramUpdateOperationId);
+                            $pdo->prepare("UPDATE staff SET telegram_state = NULL, telegram_context = NULL WHERE id = ?")->execute([$loggedInStaff['id']]);
+                            $replyText = "✅ *LAPORAN GRUP TERKIRIM*\n\nLaporan ".$result['reportReference']." sudah dikirim ke ".$result['masked'].".";
+                            $replyMarkup = ['inline_keyboard'=>[[['text'=>'🏨 Buka Detail Grup','callback_data'=>'mr_detail:'.(string)($ctx['groupId'] ?? '')]]]];
+                        } else {
+                            $bookingId = (string)($ctx['bookingId'] ?? '');
+                            $stmtBooking = $pdo->prepare("SELECT * FROM bookings WHERE id = ? LIMIT 1");
+                            $stmtBooking->execute([$bookingId]);
+                            $booking = $stmtBooking->fetch();
+                            if (!$booking) throw new InvalidArgumentException('Data sewa tidak ditemukan.');
+                            $result = tamasyaSendBookingReceiptEmail($pdo, $loggedInStaff, $booking, $target, 'telegram', $telegramUpdateOperationId);
+                            $pdo->prepare("UPDATE staff SET telegram_state = NULL, telegram_context = NULL WHERE id = ?")->execute([$loggedInStaff['id']]);
+                            $replyText = "✅ *NOTA TERKIRIM*\n\nNota ".$result['invoiceNumber']." sudah dikirim ke ".$result['masked'].".";
+                            $replyMarkup = ['inline_keyboard'=>[[['text'=>'🧾 Cetak Nota Thermal','callback_data'=>'print_receipt:'.$bookingId]]]];
+                        }
+                    } catch (Throwable $emailStateError) {
+                        $replyText = "❌ " . clientExceptionMessage('Email belum terkirim', $emailStateError) . "\n\nKetik alamat email yang benar, atau /batal untuk membatalkan.";
+                        $replyMarkup = ['inline_keyboard'=>[[['text'=>'❌ Batalkan','callback_data'=>'cancel_booking_process']]]];
+                    }
+                    $stateProcessed = true;
                 } elseif ($currentState === 'waiting_for_extend_nights') {
                     $roomNumber = trim($currentCtx);
                     $nights = preg_match('/^[1-9][0-9]*$/',trim((string)$command)) ? (int)$command : 0;
@@ -6535,6 +6618,9 @@ Apakah Anda yakin ingin memproses check-out kamar ini?";
                         } else {
                             // Generate nota thermal
                             $replyText = generateBotThermalReceipt($booking, $loggedInStaff['name']);
+                            if (hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist']) || hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist'])) {
+                                $replyMarkup = ['inline_keyboard'=>[[['text'=>'✉️ Kirim nota ke email','callback_data'=>'email_receipt:'.$booking['id']]]]];
+                            }
                         }
                     }
                 }
