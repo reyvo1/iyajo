@@ -11,6 +11,7 @@ $GLOBALS['fake_smtp_throws'] = false;
 $GLOBALS['fake_php_mail_ok'] = false;
 $GLOBALS['fake_smtp_host'] = '';
 $GLOBALS['fake_mail_log'] = [];
+$GLOBALS['fake_sql_log'] = [];
 $GLOBALS['fake_audits'] = [];
 $GLOBALS['fake_company'] = false;
 $GLOBALS['fake_group_detail'] = [];
@@ -48,7 +49,10 @@ final class ReceiptEmailFixture extends PDO {
 }
 final class ReceiptEmailStatement extends PDOStatement {
     public function __construct(private string $query) {}
-    public function execute(?array $params = null): bool { return true; }
+    public function execute(?array $params = null): bool {
+        $GLOBALS['fake_sql_log'][] = ['sql'=>$this->query,'params'=>$params];
+        return true;
+    }
     public function fetch(int $mode = PDO::FETCH_DEFAULT, int $cursorOrientation = PDO::FETCH_ORI_NEXT, int $cursorOffset = 0): mixed {
         if (str_contains($this->query, 'FROM config')) return ['id'=>'system_default','smtp_host'=>$GLOBALS['fake_smtp_host']];
         if (str_contains($this->query, 'FROM growth_companies')) return $GLOBALS['fake_company'];
@@ -126,6 +130,14 @@ emailCheck(preg_match('/^receipt_email_[0-9a-f]{40}$/',(string)$audit['after']['
 $sentAgain = tamasyaSendBookingReceiptEmail($pdo,$actor,$booking,'tamu@uji.test','web','op-1');
 $auditAgain = $GLOBALS['fake_audits'][array_key_last($GLOBALS['fake_audits'])];
 emailCheck($sentAgain['invoiceNumber']===$sent['invoiceNumber'] && $auditAgain['after']['eventId']===$audit['after']['eventId'],'Same operation replays the same invoice and audit event id');
+$updateLogs = fn() => array_values(array_filter($GLOBALS['fake_sql_log'],fn($row)=>str_contains($row['sql'],'UPDATE bookings SET guestEmail')));
+$persistRows = $updateLogs();
+emailCheck(count($persistRows)>=1 && $persistRows[0]['params']===['tamu@uji.test',$booking['id']],'Successful send persists the normalized email onto the booking');
+$persistBaseline = count($updateLogs());
+tamasyaSendBookingReceiptEmail($pdo,$actor,array_merge($booking,['guestEmail'=>'tamu@uji.test']),'tamu@uji.test','web','op-1c');
+emailCheck(count($updateLogs())===$persistBaseline,'Re-sending to the same stored address skips the redundant write');
+tamasyaSendBookingReceiptEmail($pdo,$actor,$booking,str_repeat('a',64).'@'.str_repeat('b',40).'.test','web','op-1d');
+emailCheck(count($updateLogs())===$persistBaseline,'Addresses beyond the varchar(100) column are not persisted');
 $GLOBALS['fake_smtp_ok'] = false;
 $GLOBALS['fake_php_mail_ok'] = true;
 $fallbackSend = tamasyaSendBookingReceiptEmail($pdo,$actor,$booking,'tamu@uji.test','telegram','op-2');

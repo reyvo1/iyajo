@@ -878,6 +878,13 @@ function tamasyaSendBookingReceiptEmail(PDO $pdo,array $actor,array $booking,str
         'paymentStatus'=>(string)($booking['paymentStatus']??''),
         'eventId'=>$entityId,
     ],$channel);
+    // Alamat yang berhasil dipakai disimpan ke booking agar kirim berikutnya
+    // terisi otomatis (prefill dialog web & tombol "Email tersimpan" Telegram).
+    // Kolom bookings.guestEmail varchar(100): alamat lebih panjang tidak dipaksa.
+    $persistEmail=strtolower(trim($email));
+    if(($booking['id']??'')!==''&&mb_strlen($persistEmail)<=100&&strcasecmp($persistEmail,strtolower(trim((string)($booking['guestEmail']??''))))!==0){
+        $pdo->prepare('UPDATE bookings SET guestEmail = ? WHERE id = ?')->execute([$persistEmail,(string)$booking['id']]);
+    }
     return $result+['invoiceNumber'=>$content['invoiceNumber']];
 }
 
