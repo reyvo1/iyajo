@@ -3,9 +3,16 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (HEAD `0bb5ba6`, CI 9/9 success, tree bersih)
+## 1. Status saat ini (HEAD `b3f04d0`, CI 9/9 success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `b3f04d0` **Fix nota email tidak sampai** (SMTP base64 wrap RFC 5321 +
+  fallback exception + test sink loopback; CI 9/9 hijau).
+- `9e42e0e` + `d7e9bb6` Refresh `FILE_CHECKSUMS.sha256` (hanya file
+  git-tracked, exclude self) — dua CI merah 18 Okt karena checksum basi.
+- `4881b09` Fix warna servis/bloker → rose (rooms.js + dashboard.js) +
+  audit kosmetik (catatan lengkap di bawah).
+- `1037684` **Kirim Nota / Laporan Grup via email resmi** (web + Telegram).
 - `7b21097` Menu Riwayat Tutup Shift + Owner read-only konsisten (Telegram).
 - `8d08596` + checksum refresh.
 - `d4ded49` Pemasukan transfer tampil di rincian Riwayat Shift.
@@ -17,8 +24,15 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261017-1835.zip` (374 files).
-  ZIP lama (termasuk `...1713.zip`) sudah usang, jangan dipakai.
+- ZIP produksi terbaru: `tamasya-production-prod-20261018-1738.zip` (374 files,
+  SUDAH berisi fix nota email). ZIP lama (…1630, …1349, …1835, dst.) usang,
+  jangan dipakai.
+- Fakta database (audit 18 Okt): `database_setup.sql` = 116 CREATE TABLE,
+  SHA-256 `604f7d466b4e07de4e6f854c2f03a7609b52a08e5cf8b94efacf186aabfc263e`;
+  `migrations/` = 21 file. Dokumen rilis lama (HANDOFF.md P0/R3,
+  CANONICAL_REPORT_ENGINE.md, PRODUCTION_FULL_AUDIT_R4.md) yang menulis
+  "13 migration" / SHA `87bebefe…` adalah catatan historis rilis saat itu,
+  bukan keadaan sekarang.
 - Perubahan 18 Okt (commit terbaru): **Kirim Nota / Laporan Grup via email
   resmi** dari pratinjau nota web, bot Telegram, dan detail grup web. Tahap 1
   tanpa lampiran PDF: email HTML resmi, angka identik nota thermal / layar
@@ -31,7 +45,22 @@ Kerjaan terakhir (sudah push + ZIP):
   (`booking-receipt.js`) dan form laporan di detail grup (`multi-room.js`).
   Audit wajib per kirim (event id hash `receipt_email_*` /
   `group_report_email_*`, email penerima di-hash, metode SMTP/PHP mail).
-  Test baru: `php tests/receipt-email-regression.php` (33 cek).
+  Test baru: `php tests/receipt-email-regression.php` (kini 36 cek, termasuk
+  fallback exception SMTP).
+
+- **Perbaikan 18 Okt (nota email tidak terkirim padahal laporan keuangan masuk):**
+  akar masalah di klien SMTP `sendSmtpMail`: jalur TANPA lampiran mengirim HTML
+  nota sebagai SATU baris panjang (4.794 oktet) sehingga melanggar batas baris
+  RFC 5321 (998 oktet) dan ditolak server ketat (mis. Exim ≥4.95 / cPanel:
+  "message has lines too long for transport"); jalur laporan keuangan selalu
+  ber-lampiran → MIME base64 76 kolom → lolos (sebab "laporan masuk, nota
+  tidak"). Fix: `Content-Transfer-Encoding: base64` + `chunk_split(…, 76)`
+  untuk semua jalur tanpa lampiran (nota web/Telegram, laporan grup, CRM
+  campaign, EmailAdapter); `tamasyaSendReceiptEmail` kini menangkap exception
+  SMTP lalu fallback `PHP mail()` (paritas alur laporan canonical). Test baru
+  `tests/smtp-line-length-regression.php` — sink SMTP loopback, membuktikan
+  tiap baris wire ≤998 oktet + base64 round-trip tanpa kehilangan data;
+  didaftarkan di CI workflow + `scripts/verify-release.sh` (53 suite).
 
 - **Perubahan 18 Okt (audit kosmetik + fix warna servis/bloker):**
   Dashboard & Denah Kamar: kartu servis/maintenance → **rose/merah**,
@@ -123,6 +152,11 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
   `mr_report_send:`), `assets/chunks/booking-receipt.js`,
   `assets/chunks/multi-room.js`, `tests/receipt-email-regression.php` +
   registrasi di `scripts/verify-release.sh`.
+- Fix 18 Okt (RFC 5321): `api/modules/comms/050_integrations_telegram_mail.php`
+  (`sendSmtpMail` → base64 + `chunk_split` 76 kolom untuk jalur tanpa lampiran),
+  `api/support/060_shift_receipts.php` (try/catch exception SMTP → fallback
+  PHP mail), `tests/smtp-line-length-regression.php` (baru; sink SMTP loopback),
+  registrasi di CI workflow + `scripts/verify-release.sh` (kini 53 suite).
 - `FILE_CHECKSUMS.sha256` — WAJIB refresh tiap ada file berubah atau CI
   merah (pelajaran: commit kode dan checksum boleh beda run; run yang lolos
   adalah yang membawa checksum baru).
@@ -135,6 +169,7 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
    `php tests/telegram-shift-regression.php`,
    `php tests/multi-room-regression.php`,
    `php tests/receipt-email-regression.php`,
+   `php tests/smtp-line-length-regression.php`,
    `php tests/telegram-key-status-contract-regression.php`.
 3. `sha256sum` file berubah → update `FILE_CHECKSUMS.sha256` (tambah entri
    alfabetis untuk file baru) → `sha256sum -c FILE_CHECKSUMS.sha256`.
