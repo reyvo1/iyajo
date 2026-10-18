@@ -33,6 +33,21 @@ Kerjaan terakhir (sudah push + ZIP):
   `group_report_email_*`, email penerima di-hash, metode SMTP/PHP mail).
   Test baru: `php tests/receipt-email-regression.php` (33 cek).
 
+- **Perubahan 18 Okt (audit kosmetik + fix warna servis/bloker):**
+  Dashboard & Denah Kamar: kartu servis/maintenance → **rose/merah**,
+  badge "Servis / Maintenance" + "Operasional / Blocker" + "L&F / Blocker"
+  + legend dot → rose (`bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/20 text-rose-400`),
+  housekeeping tetap amber/cyan; nomor kamar `shrink-0 whitespace-nowrap`
+  + parent `gap-2` (fix wrap "40/5"); donut chart "Alokasi Status Kamar"
+  `R: "Servis / Blocker" color #f43f5e` (Housekeeping `#06b6d4`).
+  File: `assets/chunks/rooms.js` + `assets/chunks/dashboard.js`.
+  Verifikasi: `node --check` SYNTAX_OK, Playwright before/after screenshots.
+  Audit mobile (390×844): charts render, tables scroll, room grid stack OK;
+  **gap mobile**: room detail bottom-sheet TIDAK ADA (klik room tidak buka
+  apapun — desktop pakai sidebar), Operasional nav items campur konten.
+  "Perlu perhatian" panel amber biarkan (mixed alerts, per-item coloring
+  butuh refactor minified code).
+
 Cara pakai di Telegram (sudah terbukti jalan): centang 3 capability baru di
 menu Karyawan untuk akun tsb → tekan 🏠 Menu Utama → tombol muncul.
 Server harus sudah menjalankan ZIP terbaru.
