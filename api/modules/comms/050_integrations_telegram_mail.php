@@ -561,7 +561,13 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
         $headers .= "Content-Type: " . $mime['contentType'] . "\r\n";
         $mimeBody = (string)$mime['body'];
     } else {
+        // RFC 5322 batas 998 oktet/baris: HTML nota/konten dibangun sebagai satu
+        // baris panjang, dan server SMTP ketat (mis. Exim >= 4.95, Exchange)
+        // menolak "message has lines too long for transport". Base64 + chunk_split
+        // 76 kolom menjaga tiap baris wire tetap pendek dan 7-bit bersih.
         $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
+        $headers .= "Content-Transfer-Encoding: base64\r\n";
+        $mimeBody = chunk_split(base64_encode((string)$message), 76, "\r\n");
     }
     $headers .= "To: <$to>\r\n";
     $headers .= "From: <$from_email>\r\n";

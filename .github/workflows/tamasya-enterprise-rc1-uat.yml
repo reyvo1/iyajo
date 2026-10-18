@@ -120,6 +120,8 @@ jobs:
           php tests/growth-kpi-regression.php
           php tests/multi-room-regression.php
           php tests/receipt-projection-regression.php
+          php tests/receipt-email-regression.php
+          php tests/smtp-line-length-regression.php
           php tests/receipt-compaction-cursor-regression.php
           php tests/durable-history-retention-regression.php
           php tests/telegram-update-retention-regression.php

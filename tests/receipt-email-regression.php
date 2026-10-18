@@ -7,6 +7,7 @@ require dirname(__DIR__).'/api/support/060_shift_receipts.php';
 
 $GLOBALS['fake_side_effects'] = true;
 $GLOBALS['fake_smtp_ok'] = false;
+$GLOBALS['fake_smtp_throws'] = false;
 $GLOBALS['fake_php_mail_ok'] = false;
 $GLOBALS['fake_smtp_host'] = '';
 $GLOBALS['fake_mail_log'] = [];
@@ -24,6 +25,7 @@ function tamasyaMaskEmailAddress(string $email): string {
 function tamasyaExternalSideEffectsAllowed(): bool { return (bool)$GLOBALS['fake_side_effects']; }
 function sendSmtpMail($to, $subject, $html, $conf, $attachments = []): bool {
     $GLOBALS['fake_mail_log'][] = ['via'=>'smtp','to'=>$to,'subject'=>$subject];
+    if (!empty($GLOBALS['fake_smtp_throws'])) throw new RuntimeException('simulated smtp transport failure');
     return (bool)$GLOBALS['fake_smtp_ok'];
 }
 function tamasyaPhpMailWithAttachments($to, $subject, $html, $attachments = [], $conf = []): bool {
@@ -128,6 +130,11 @@ $GLOBALS['fake_smtp_ok'] = false;
 $GLOBALS['fake_php_mail_ok'] = true;
 $fallbackSend = tamasyaSendBookingReceiptEmail($pdo,$actor,$booking,'tamu@uji.test','telegram','op-2');
 emailCheck($fallbackSend['method']==='PHP mail()','SMTP failure falls back to PHP mail like canonical reports');
+$GLOBALS['fake_smtp_ok'] = true;
+$GLOBALS['fake_smtp_throws'] = true;
+$thrownFallback = tamasyaSendBookingReceiptEmail($pdo,$actor,$booking,'tamu@uji.test','web','op-2b');
+emailCheck($thrownFallback['method']==='PHP mail()','SMTP exception also falls back to PHP mail without aborting');
+$GLOBALS['fake_smtp_throws'] = false;
 $GLOBALS['fake_php_mail_ok'] = false;
 $GLOBALS['fake_smtp_host'] = '';
 try {
@@ -155,5 +162,9 @@ emailCheck(str_contains($webhook,'waiting_for_receipt_email') && str_contains($w
 emailCheck(str_contains($multiTelegram,'mr_report:') && str_contains($multiTelegram,'mr_report_send:') && str_contains($multiTelegram,'tamasyaSendGroupReportEmail'),'Telegram group detail wires the collective report email flow');
 emailCheck(str_contains(file_get_contents($root.'/assets/chunks/booking-receipt.js'),'booking-receipt-email'),'Web receipt dialog calls the guarded receipt-email action');
 emailCheck(str_contains(file_get_contents($root.'/assets/chunks/multi-room.js'),'group-report-email'),'Web group detail calls the guarded group-report action');
+$smtpModuleSrc = file_get_contents($root.'/api/modules/comms/050_integrations_telegram_mail.php');
+emailCheck(str_contains($smtpModuleSrc,'Content-Transfer-Encoding: base64') && str_contains($smtpModuleSrc,'chunk_split(base64_encode('),'No-attachment SMTP path base64-wraps every wire row');
+$receiptLibSrc = file_get_contents($root.'/api/support/060_shift_receipts.php');
+emailCheck(str_contains($receiptLibSrc,'try{$sent=sendSmtpMail(') && str_contains($receiptLibSrc,'catch(Exception $smtpFailure)'),'Receipt email send wraps SMTP exceptions so the PHP mail fallback always runs');
 
 echo "Receipt email: $passed passed; 0 failed.".PHP_EOL;
