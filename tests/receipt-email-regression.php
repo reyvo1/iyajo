@@ -166,5 +166,9 @@ $smtpModuleSrc = file_get_contents($root.'/api/modules/comms/050_integrations_te
 emailCheck(str_contains($smtpModuleSrc,'Content-Transfer-Encoding: base64') && str_contains($smtpModuleSrc,'chunk_split(base64_encode('),'No-attachment SMTP path base64-wraps every wire row');
 $receiptLibSrc = file_get_contents($root.'/api/support/060_shift_receipts.php');
 emailCheck(str_contains($receiptLibSrc,'try{$sent=sendSmtpMail(') && str_contains($receiptLibSrc,'catch(Exception $smtpFailure)'),'Receipt email send wraps SMTP exceptions so the PHP mail fallback always runs');
+emailCheck(substr_count($route,"\$result['method']")>=2,'Web success messages expose the real delivery method for receipt and group');
+emailCheck(substr_count($webhook,"\$result['method']")>=3,'Telegram receipt and group replies expose the real delivery method');
+emailCheck(str_contains($smtpModuleSrc,'[smtp] DATA ditolak server') && str_contains($smtpModuleSrc,'Server SMTP menolak pengirim'),'SMTP client logs DATA rejection and refuses a rejected envelope sender');
+emailCheck(str_contains($receiptLibSrc,'[receipt-email] SMTP tidak berhasil'),'Fallback to PHP mail is logged with the SMTP host for evidence');
 
 echo "Receipt email: $passed passed; 0 failed.".PHP_EOL;

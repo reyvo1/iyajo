@@ -532,9 +532,13 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
         }
     }
 
-    // Mail FROM
+    // Mail FROM — envelope sender must be accepted before RCPT/DATA.
     fwrite($socket, "MAIL FROM: <$from_email>\r\n");
-    fgets($socket, 515);
+    $fromRes = fgets($socket, 515);
+    if (!preg_match('/^2\d\d/', (string)$fromRes)) {
+        fclose($socket);
+        throw new Exception("Server SMTP menolak pengirim <$from_email>: " . trim((string)$fromRes));
+    }
 
     // RCPT TO
     fwrite($socket, "RCPT TO: <$to>\r\n");
@@ -580,11 +584,15 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
 
     fwrite($socket, $headers . "\r\n" . $escaped_message . "\r\n.\r\n");
     $dataRes = fgets($socket, 515);
+    $accepted = strpos((string)$dataRes, '250') !== false;
 
     fwrite($socket, "QUIT\r\n");
     fclose($socket);
 
-    return strpos($dataRes, '250') !== false;
+    if (!$accepted) {
+        error_log('[smtp] DATA ditolak server: ' . trim((string)$dataRes) . ' | tujuan=sha256:' . substr(hash('sha256', $to), 0, 12));
+    }
+    return $accepted;
 }
 
 /** Source line 4532: parseTelegramChatIds */

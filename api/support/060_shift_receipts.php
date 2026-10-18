@@ -852,7 +852,7 @@ function tamasyaSendReceiptEmail(PDO $pdo,array $actor,string $to,string $subjec
     $conf=$confStmt?($confStmt->fetch(PDO::FETCH_ASSOC)?:[]):[];
     $sent=false;$method='';
     if(trim((string)($conf['smtp_host']??''))!==''){try{$sent=sendSmtpMail($to,$subject,$html,$conf,[]);}catch(Exception $smtpFailure){$sent=false;error_log('[receipt-email] SMTP exception, fallback PHP mail(): '.$smtpFailure->getMessage());}if($sent)$method='SMTP';}
-    if(!$sent&&function_exists('tamasyaPhpMailWithAttachments')){$sent=tamasyaPhpMailWithAttachments($to,$subject,$html,[],$conf);if($sent)$method='PHP mail()';}
+    if(!$sent&&function_exists('tamasyaPhpMailWithAttachments')){error_log('[receipt-email] SMTP tidak berhasil (host='.trim((string)($conf['smtp_host']??'')).'), fallback PHP mail() untuk sha256:'.substr(hash('sha256',$to),0,12));$sent=tamasyaPhpMailWithAttachments($to,$subject,$html,[],$conf);if($sent)$method='PHP mail()';}
     if(!$sent)throw new RuntimeException('Email tidak berhasil dikirim. Periksa konfigurasi SMTP/email hosting di Pengaturan.');
     $masked=function_exists('tamasyaMaskEmailAddress')?tamasyaMaskEmailAddress($to):(preg_replace('/(^.).*(@.*$)/','$1***$2',$to)?:'[email]');
     $auditData['recipientHash']=hash('sha256',$to);

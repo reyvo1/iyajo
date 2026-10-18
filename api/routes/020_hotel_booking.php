@@ -56,7 +56,7 @@ switch ($action) {
                 $stmt=$pdo->prepare('SELECT * FROM bookings WHERE id=? LIMIT 1');$stmt->execute([$bookingId]);$booking=$stmt->fetch(PDO::FETCH_ASSOC);
                 if(!$booking)throw new InvalidArgumentException('Booking tidak ditemukan.');
                 $result=tamasyaSendBookingReceiptEmail($pdo,$loggedInStaff,$booking,$email,'web',(string)($GLOBALS['tamasya_request_operation_id']??''));
-                echo tamasyaJsonEncode(['success'=>true,'invoiceNumber'=>$result['invoiceNumber'],'masked'=>$result['masked'],'message'=>'Nota '.$result['invoiceNumber'].' terkirim ke '.$result['masked'].'.']);
+                echo tamasyaJsonEncode(['success'=>true,'invoiceNumber'=>$result['invoiceNumber'],'masked'=>$result['masked'],'message'=>'Nota '.$result['invoiceNumber'].' terkirim ke '.$result['masked'].' ('.$result['method'].').']);
             }else{
                 tamasyaGrowthRequireReady($pdo,'group');
                 $groupId=trim((string)($input['groupId']??''));
@@ -66,7 +66,7 @@ switch ($action) {
                     $stmt->execute([$groupId]);$email=trim((string)($stmt->fetchColumn()?:''));
                 }
                 $result=tamasyaSendGroupReportEmail($pdo,$loggedInStaff,$groupId,$email,'web',(string)($GLOBALS['tamasya_request_operation_id']??''));
-                echo tamasyaJsonEncode(['success'=>true,'reportReference'=>$result['reportReference'],'masked'=>$result['masked'],'message'=>'Laporan '.$result['reportReference'].' terkirim ke '.$result['masked'].'.']);
+                echo tamasyaJsonEncode(['success'=>true,'reportReference'=>$result['reportReference'],'masked'=>$result['masked'],'message'=>'Laporan '.$result['reportReference'].' terkirim ke '.$result['masked'].' ('.$result['method'].').']);
             }
         }catch(Throwable $e){http_response_code($e instanceof DomainException&&in_array($e->getCode(),[403,409],true)?$e->getCode():422);echo tamasyaJsonEncode(['success'=>false,'error'=>clientExceptionMessage('Email resmi gagal dikirim',$e)]);}
         break;
