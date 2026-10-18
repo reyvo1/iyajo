@@ -3,9 +3,21 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (HEAD `40fd223`, CI 9/9 success, tree bersih)
+## 1. Status saat ini (HEAD `e5e0f88`, CI 9/9 success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `e5e0f88` **Status kirim email jujur + bukti akar masalah** (tindak lanjut
+  keluhan "status terkirim tapi tidak masuk"): semua pesan sukses kini
+  menampilkan jalur nyata `(SMTP)` atau `(PHP mail())` — web nota, web laporan
+  grup, Telegram nota ×2, Telegram laporan grup. `sendSmtpMail` sekarang:
+  verifikasi balasan MAIL FROM (tolak + pesan jelas bila envelope sender
+  ditolak), dan `error_log('[smtp] DATA ditolak server: …')` saat server
+  menolak di tahap DATA (sebelumnya gagal SENYAP). `tamasyaSendReceiptEmail`
+  mencatat `[receipt-email] SMTP tidak berhasil (host=…), fallback PHP mail()`
+  tiap kali jalur fallback dipakai. Cara pakai untuk diagnosis: kirim nota →
+  lihat teks jalur di notifikasi → cek cPanel Metrics/Errors untuk baris
+  `[smtp]`/`[receipt-email]`, dan cPanel Track Delivery untuk nasib akhir
+  pesan. Test `tests/receipt-email-regression.php` naik 36 → 40 cek.
 - `40fd223` **Seragamkan warna Housekeeping = kuning** sesuai keputusan pemilik:
   kartu kamar (sudah kuning sejak awal) + chip "Housekeeping / QC" + titik
   legend + donut dashboard kini semua amber/kuning; Servis/Blocker tetap merah.
@@ -31,9 +43,10 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261018-1952.zip` (374 files,
-  berisi fix nota email + dot legend + penyeragaman warna kuning housekeeping).
-  ZIP lama (…1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
+- ZIP produksi terbaru: `tamasya-production-prod-20261018-2032.zip` (374 files,
+  berisi fix nota email + dot legend + warna kuning housekeeping + jalur kirim
+  jujur (SMTP/PHP mail) + log penolakan SMTP). ZIP lama (…1952, …1907, …1738,
+  …1630, …1349, …1835, dst.) usang, jangan dipakai.
 - Fakta database (audit 18 Okt): `database_setup.sql` = 116 CREATE TABLE,
   SHA-256 `604f7d466b4e07de4e6f854c2f03a7609b52a08e5cf8b94efacf186aabfc263e`;
   `migrations/` = 21 file. Dokumen rilis lama (HANDOFF.md P0/R3,
@@ -52,8 +65,9 @@ Kerjaan terakhir (sudah push + ZIP):
   (`booking-receipt.js`) dan form laporan di detail grup (`multi-room.js`).
   Audit wajib per kirim (event id hash `receipt_email_*` /
   `group_report_email_*`, email penerima di-hash, metode SMTP/PHP mail).
-  Test baru: `php tests/receipt-email-regression.php` (kini 36 cek, termasuk
-  fallback exception SMTP).
+  Test baru: `php tests/receipt-email-regression.php` (kini 40 cek, termasuk
+  fallback exception SMTP, jalur kirim di pesan sukses, dan log penolakan
+  server).
 
 - **Perbaikan 18 Okt (nota email tidak terkirim padahal laporan keuangan masuk):**
   akar masalah di klien SMTP `sendSmtpMail`: jalur TANPA lampiran mengirim HTML
@@ -184,6 +198,12 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
   `assets/chunks/dashboard.js` (donut Housekeeping → `#f59e0b`),
   `tests/cosmetic-legend-dots-regression.php` (baru, 8 cek, ekspektasi amber),
   registrasi di CI workflow + `scripts/verify-release.sh`.
+- Fix 18 Okt (status kirim jujur, `e5e0f88`): `api/routes/020_hotel_booking.php`
+  + `api/routes/080_telegram_webhook.php` (pesan sukses memuat `$result['method']`),
+  `api/modules/comms/050_integrations_telegram_mail.php` (MAIL FROM diverifikasi;
+  log `[smtp] DATA ditolak server`), `api/support/060_shift_receipts.php`
+  (log penggunaan fallback PHP mail), `tests/receipt-email-regression.php`
+  (+4 cek, kini 40).
 - `FILE_CHECKSUMS.sha256` — WAJIB refresh tiap ada file berubah atau CI
   merah (pelajaran: commit kode dan checksum boleh beda run; run yang lolos
   adalah yang membawa checksum baru).
