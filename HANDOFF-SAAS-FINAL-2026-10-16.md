@@ -3,9 +3,31 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (rilis kode `db89177` = isi ZIP 1633; commit dokumen di atasnya; CI success, tree bersih)
+## 1. Status saat ini (rilis kode `1add609` = isi ZIP 1845; commit dokumen di atasnya; CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `1add609` **Fix mobile R16 (lanjutan audit kosmetik 18 Okt) — arahan pemilik
+  "selesaikan semuanya"**: (1) panel Aksi/Tambah Kamar kini **bottom-sheet** di
+  <lg — class `tamasya-room-detail-sheet` dipasang kondisional di `rooms.js` +
+  CSS fixed 82dvh/safe-area/animasi/prefers-reduced-motion di
+  `responsive-polish.css`; (2) halaman **Operasional <640px**: grup aksi jadi
+  strip geser-horizontal agar panel konten yang dibuka tetap dekat tombol
+  (sebelumnya ~1000px di bawah). Playwright before/after: sheet y152 h692,
+  tombol tutup berfungsi, desktop tetap kolom sidebar statis (x956, tidak
+  berubah); strip daily 1582px scrollable, panelTop terlihat; overflowX 0.
+  Anggaran graf modul statis sempat terlampaui +1637B → komentar ROOT7/8
+  (`ui-core.css`) + komentar legacy `responsive-polish.css` dipadatkan
+  (fungsional tidak berubah); graf akhir **969883/970000**. Bump aset
+  `?v=20261019-mobile-sheet1` (chunk `rooms.js`, `responsive-polish.css`,
+  `app-core.js`/`index.html`/`pos.html`/`sw.js`) — **deviasi pertama dari
+  "app-core byte-identik" sejak Fase 3: HANYA string versi chunk rooms.js**
+  (disengaja utk cache-bust; `app-core.js?v=20261014-nego-core1` sendiri tetap
+  agar pin tes UAT tidak putus). FILE_CHECKSUMS regen; verify-release 56 suite
+  hijau; CI `39238467267` hijau; ZIP `tamasya-production-prod-20261019-1845.zip`.
+  Bonus (arahan pemilik): **DB dump produksi** `tamasya-production-db-20261019.sql`
+  (117 tabel + 5 trigger, admin sementara `Tamasya-Import!2026`,
+  property "Nama Hotel Anda") untuk tes server produksi — detail di bullet
+  "Deliverable DB" di bawah.
 - `ad8b311` + `db89177` **Fase 3 audit kapabilitas — sisa Batch 2/3 (arahan
   pemilik "lanjut sampe final")**: 3 capability baru → registry 19 → 22 +
   centangan/label di panel Kelola Jabatan (`staff.js`; `app-core.js` tetap
@@ -157,13 +179,20 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261019-1633.zip` (378 entri,
-  berisi Fase 3 kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan
+- ZIP produksi terbaru: `tamasya-production-prod-20261019-1845.zip` (378 entri,
+  berisi fix mobile R16 `1add609` + Fase 3 kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan
   `a514025` + migrasi capability Batch 1+2
   `7f81438`+`a8f34e5` + audit total
   capability `38b7025` + fix beku perpanjangan `4b14d0b` + email tersimpan
-  otomatis + semua di bawahnya). ZIP lama (…1525, …1318, …1305, …1137, …1101, …2032,
+  otomatis + semua di bawahnya). ZIP lama (…1633, …1525, …1318, …1305, …1137, …1101, …2032,
   …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
+- Deliverable DB (arahan pemilik "biar tinggal import"): `tamasya-production-db-20261019.sql`
+  di Desktop mesin dev (189K; tanpa data transaksi; tanpa DEFINER; 5 trigger
+  disimpan). Admin: `s_afa60c9ce5495be0649a9070` (username `admin`), password
+  sementara `Tamasya-Import!2026`, `require_password_change=1`; property
+  "Nama Hotel Anda" (`property-01`/`PROPERTY01`); 9 preset jabatan ikut.
+  Langkah pemilik: import via phpMyAdmin → login → ganti password → Wizard
+  Setup. Tervalidasi import di MariaDB low-priv + login E2E.
 - Fakta database (audit 18 Okt): `database_setup.sql` = 116 CREATE TABLE,
   SHA-256 `604f7d466b4e07de4e6f854c2f03a7609b52a08e5cf8b94efacf186aabfc263e`;
   `migrations/` = 23 file (Fase 3 `db89177` menambah 1 migrasi data; tanpa
@@ -227,8 +256,17 @@ Kerjaan terakhir (sudah push + ZIP):
   File: `assets/chunks/rooms.js` + `assets/chunks/dashboard.js`.
   Verifikasi: `node --check` SYNTAX_OK, Playwright before/after screenshots.
   Audit mobile (390×844): charts render, tables scroll, room grid stack OK;
-  **gap mobile**: room detail bottom-sheet TIDAK ADA (klik room tidak buka
-  apapun — desktop pakai sidebar), Operasional nav items campur konten.
+  **gap mobile = SELESAI (R16, commit `1add609`)**: (1) panel Aksi/Tambah
+  Kamar di <lg kini bottom-sheet fixed (82dvh + safe-area + animasi; class
+  `tamasya-room-detail-sheet` dipasang kondisional di `rooms.js`) — Playwright:
+  tap kartu → sheet tampil (y152 h692), tombol tutup berfungsi, desktop tetap
+  kolom sidebar statis (x956); (2) halaman Operasional <640px: grup aksi jadi
+  strip geser-horizontal (`responsive-polish.css`) agar panel konten yang
+  dibuka tetap dekat tombol (sebelumnya ~1000px di bawah tombol); nav domain
+  sendiri sudah sehat (fixed z120 opaque). Anggaran graf modul statis sempat
+  +1637B di atas ceiling → komentar ROOT7/8 (`ui-core.css`) + komentar legacy
+  `responsive-polish.css` dipadatkan; graf akhir 969883/970000, verify 56 suite
+  hijau.
   "Perlu perhatian" panel amber biarkan (mixed alerts, per-item coloring
   butuh refactor minified code).
 
