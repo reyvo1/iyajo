@@ -3,7 +3,7 @@
 if (!defined('TAMASYA_API_ENTRY')) { http_response_code(404); exit; }
 if (!in_array((string)($action ?? ''), ['public-support-inbox','public-support-reply','public-support-close'], true)) { return; }
 $routeHandled = true;
-requireCapability($loggedInStaff,'manage_public_inbox',['admin','manager','receptionist']);
+requireCapability($loggedInStaff,'view_support_inbox',['admin','manager','receptionist']);
 
 switch ($action) {
     case 'public-support-inbox':

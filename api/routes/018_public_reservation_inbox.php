@@ -3,7 +3,7 @@
 if (!defined('TAMASYA_API_ENTRY')) { http_response_code(404); exit; }
 if ((string)($action ?? '') !== 'public-reservation-review') { return; }
 $routeHandled = true;
-requireCapability($loggedInStaff, 'manage_public_inbox', ['admin','manager','receptionist']);
+requireCapability($loggedInStaff, 'view_support_inbox', ['admin','manager','receptionist']);
 
 if (($_SERVER['REQUEST_METHOD'] ?? 'GET') !== 'POST') {
     http_response_code(405);
