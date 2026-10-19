@@ -31,6 +31,11 @@ Kerjaan terakhir (sudah push + ZIP):
   night audit, dan `assertShiftNightAuditReady` (060) dipanggil dari jalur
   ber-try/completed-then-reset (080:4279, 080:5186) + pesan error web 090:299 —
   tidak ada jalur freeze.
+- `AUDIT-KAPABILITAS-ROLE-2026-10-19.md` — **inventaris lengkap izin** (334
+  cek role keras di 48 file + 19 registry capability + by-design vs kandidat +
+  peta jalan fase 0–3). Dibuat atas permintaan pemilik saat mengeluh "role
+  masih statis". Bukan perubahan runtime → tidak ada ZIP baru; Batch 1 fase 1
+  menunggu prioritas pemilik.
 - `4b14d0b` **Fix beku Telegram saat perpanjangan kamar oleh role tercantang**
   (laporan produksi: finance/role centangan klik "1 malam" → bot diam total).
   Akar: gate masuk alur perpanjangan sudah capability-aware
