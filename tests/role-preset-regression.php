@@ -107,6 +107,8 @@ presetCheck(str_contains($baseline, 'CREATE TABLE IF NOT EXISTS `role_capability
 presetCheck(substr_count($baseline, 'CREATE TABLE') === 117, 'Baseline = 117 CREATE TABLE (116 + role_capability_presets)');
 $staffChunk = file_get_contents(dirname(__DIR__).'/assets/chunks/staff.js');
 presetCheck(str_contains($staffChunk, 'function RolePresetPanel(') && str_contains($staffChunk, 'export {QleBridge as Qle};') && str_contains($staffChunk, 'function Qle({currentRole:e,onRefreshData:a})'), 'UI: panel Kelola Jabatan + bridge Qle tanpa mengubah Qle asli');
+presetCheck(str_contains($staffChunk, 'const[rpOpen,setRpOpen]=f.useState(!1);') && str_contains($staffChunk, 'rpOpen?"":"hidden"'), 'UI: panel Kelola Jabatan terlipat default agar centangan tidak tampil dobel dengan form akun');
+presetCheck(str_contains($staffChunk, 'Default Semua Akun') && str_contains($staffChunk, 'Izin Khusus Akun Ini') && str_contains($staffChunk, 'HANYA berlaku untuk akun ini'), 'UI: label pembeda jelas antara paket jabatan (semua akun) dan izin khusus akun');
 presetCheck(str_contains($staffChunk, 'action=role-preset') && str_contains($staffChunk, '"role-preset-apply"') && str_contains($staffChunk, '"role-preset-save"'), 'UI memanggil endpoint 052 (list/save/preview/apply)');
 $authPolicy = file_get_contents(dirname(__DIR__).'/api/support/017_authorization_policy.php');
 presetCheck(str_contains($authPolicy, "function hasCapability(\$user, \$capability, \$fallbackRoles = [])") && str_contains($authPolicy, "tamasyaPermissionOverride(\$user['permissions']??null,'capabilities',(string)\$capability)"), 'Enforcement 017 tidak berubah (override lalu fallback role)');
