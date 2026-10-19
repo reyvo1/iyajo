@@ -42,6 +42,7 @@ php tests/receipt-projection-regression.php
 php tests/receipt-email-regression.php
 php tests/smtp-line-length-regression.php
 php tests/cosmetic-legend-dots-regression.php
+php tests/telegram-extension-capability-regression.php
 node --experimental-vm-modules tests/multi-room-ui-regression.mjs
 php tests/telegram-charge-payment-regression.php
 php tests/telegram-shift-regression.php

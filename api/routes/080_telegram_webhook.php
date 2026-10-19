@@ -5938,34 +5938,45 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                     }
                     $stateProcessed = true;
                 } elseif ($currentState === 'waiting_for_extend_nights') {
-                    $roomNumber = trim($currentCtx);
-                    $nights = preg_match('/^[1-9][0-9]*$/',trim((string)$command)) ? (int)$command : 0;
-                    if ($nights <= 0 || $nights > 3650) {
-                        $replyText = "⚠️ Input tidak valid! Harap ketik jumlah malam perpanjangan dengan angka bulat positif (contoh: `1` atau `2`):\n\n" .
-                                     "Kamar: *{$roomNumber}*";
+                    // Kegagalan apa pun di sini tidak boleh membuat sesi beku:
+                    // selalu balas pesan yang bisa ditindaklanjuti.
+                    try {
+                        $roomNumber = trim($currentCtx);
+                        $nights = preg_match('/^[1-9][0-9]*$/',trim((string)$command)) ? (int)$command : 0;
+                        if ($nights <= 0 || $nights > 3650) {
+                            $replyText = "⚠️ Input tidak valid! Harap ketik jumlah malam perpanjangan dengan angka bulat positif (contoh: `1` atau `2`):\n\n" .
+                                         "Kamar: *{$roomNumber}*";
+                            $replyMarkup = [
+                                "inline_keyboard" => [
+                                    [["text" => "❌ Batalkan Proses", "callback_data" => "cancel_booking_process"]]
+                                ]
+                            ];
+                        } else {
+                            // Get active booking
+                            $stmtBooking = $pdo->prepare("SELECT * FROM bookings WHERE roomNumber = ? AND status = 'active' LIMIT 1");
+                            $stmtBooking->execute([$roomNumber]);
+                            $booking = $stmtBooking->fetch();
+
+                            $stmtRoom = $pdo->prepare("SELECT * FROM rooms WHERE number = ? LIMIT 1");
+                            $stmtRoom->execute([$roomNumber]);
+                            $room = $stmtRoom->fetch();
+
+                            if ($booking && $room) {
+                                $selection=tamasyaTelegramExtensionQuote($pdo,$loggedInStaff,$booking,$room,$nights,$telegramUpdateOperationId);
+                                $replyText=$selection['text'];$replyMarkup=$selection['markup'];
+                            } else {
+                                $replyText = "❌ Booking atau Kamar {$roomNumber} tidak ditemukan. Proses dibatalkan.";
+                                $stmtClear = $pdo->prepare("UPDATE staff SET telegram_state = NULL, telegram_context = NULL WHERE id = ?");
+                                $stmtClear->execute([$loggedInStaff['id']]);
+                            }
+                        }
+                    } catch (Throwable $extensionError) {
+                        $replyText = "⚠️ ".clientExceptionMessage('Perpanjangan belum dapat diproses',$extensionError)."\n\nKetik ulang jumlah malam, atau batalkan.";
                         $replyMarkup = [
                             "inline_keyboard" => [
                                 [["text" => "❌ Batalkan Proses", "callback_data" => "cancel_booking_process"]]
                             ]
                         ];
-                    } else {
-                        // Get active booking
-                        $stmtBooking = $pdo->prepare("SELECT * FROM bookings WHERE roomNumber = ? AND status = 'active' LIMIT 1");
-                        $stmtBooking->execute([$roomNumber]);
-                        $booking = $stmtBooking->fetch();
-
-                        $stmtRoom = $pdo->prepare("SELECT * FROM rooms WHERE number = ? LIMIT 1");
-                        $stmtRoom->execute([$roomNumber]);
-                        $room = $stmtRoom->fetch();
-
-                        if ($booking && $room) {
-                            $selection=tamasyaTelegramExtensionQuote($pdo,$loggedInStaff,$booking,$room,$nights,$telegramUpdateOperationId);
-                            $replyText=$selection['text'];$replyMarkup=$selection['markup'];
-                        } else {
-                            $replyText = "❌ Booking atau Kamar {$roomNumber} tidak ditemukan. Proses dibatalkan.";
-                            $stmtClear = $pdo->prepare("UPDATE staff SET telegram_state = NULL, telegram_context = NULL WHERE id = ?");
-                            $stmtClear->execute([$loggedInStaff['id']]);
-                        }
                     }
                     $stateProcessed = true;
                 } elseif ($currentState === 'waiting_for_extend_nego_amount' || $currentState === 'waiting_for_extend_nego_reason') {

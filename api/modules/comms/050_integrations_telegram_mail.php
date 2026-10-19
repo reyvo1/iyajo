@@ -990,6 +990,13 @@ function tamasyaTelegramChargeMoney(float $amount): string {
     return 'Rp '.tamasyaTelegramFormatAmount($amount);
 }
 function tamasyaTelegramChargeAssertRole(array $actor): void {
+    // Selaras gate menu Telegram: baseline role ATAU centangan manage_stay_access
+    // (owner read-only tetap ditolak). Daftar role keras lama melempar eksepsi
+    // untuk peran non-baseline yang dicentang sehingga sesi perpanjangan beku.
+    if(function_exists('hasCapability')){
+        if(hasCapability($actor,'manage_stay_access',['admin','manager','receptionist']))return;
+        throw new RuntimeException('Peran akun tidak berhak menambah biaya booking.');
+    }
     if(!in_array(strtolower((string)($actor['role']??'')),['admin','manager','receptionist'],true))throw new RuntimeException('Peran akun tidak berhak menambah biaya booking.');
 }
 function tamasyaTelegramChargeMarkup(array $ctx): array {
