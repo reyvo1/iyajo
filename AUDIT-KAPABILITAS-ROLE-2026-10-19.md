@@ -105,7 +105,7 @@ Batch 2 — ✅ SELESAI `7f81438`+`a8f34e5` (disetujui pemilik "kerjakan semuany
 | 090 lost-found-secure/review pembatalan/hold open-release | `manage_room_access` fallback admin/manager |
 | 090 shift open/close web + smart-lock manual-complete | `receive_payment_access` / `override_key_checkout` |
 | 090:1193 night-audit toggle | TIDAK dimigrasi — by design dipin kontrak R16.4 |
-| 095 laporan canonical, 017/018 inbox | ditunda — butuh capability BARU → Fase 3 (desain dulu) |
+| 095 laporan canonical, 017/018 inbox, config 096 | selesai Fase 3 (`ad8b311`/`db89177`) — `view_reports`, `view_support_inbox`, `manage_facilities`; fallback daftar role lama identik |
 
 Catatan: situs pemisahan tugas keuangan yang sengaja tetap keras — 080:138
 (telegram-clear), 806 (keyboard admin), 3348/3436/3579/3642 (pemasukan/
@@ -119,7 +119,8 @@ create/link-payment, 112 (48 titik).
 - **Fase 1 (selesai)**: Batch 1+2 dikerjakan (`7f81438`, `a8f34e5`); tes
   diperluas 16 → 37 cek; fallback role dipertahankan (perilaku akun
   non-centangan TIDAK berubah); pesan penolakan tidak diubah. Sisa kandidat
-  (095/017/018, maintenance 096) butuh capability baru → Fase 3.
+  (095/017/018, maintenance 096) butuh capability baru → dikerjakan di Fase 3
+  (selesai — `db89177`).
 - **Fase 2 (selesai — `a514025`)**: disetujui pemilik ("Setujui —
   implementasikan sekarang"), diimplementasikan sesuai §7: tabel
   `role_capability_presets` + migrasi `20261019_ROLE_CAPABILITY_PRESETS.sql`
@@ -133,8 +134,19 @@ create/link-payment, 112 (48 titik).
   verify-release 55 → 56 suite hijau; CI `39210729652` hijau; ZIP
   `tamasya-production-prod-20261019-1525.zip`. Default perilaku belum
   berubah sampai admin menekan "Terapkan".
-- **Fase 3**: hapus bertahap cek keras Batch 2/3 per fitur, masing-masing
-  dengan tes regresi + audit log, setelah Fase 2 stabil.
+- **Fase 3 (selesai — `ad8b311`, fix owner-read `db89177`)**: sisa Batch 2/3
+  sesuai §7.6 — capability baru registry 19 → 22 + centangan di `staff.js`
+  (`app-core.js` tetap byte-identik): `view_reports` (095 laporan kanonik ×3),
+  `view_support_inbox` (017/018 kotak masuk; prefix `view_` wajib agar kontrak
+  UAT "owner bisa membaca" tetap; owner POST tetap ditolak global
+  `api.php:1160`), `manage_facilities` (hanya 2 situs simpan config 096; baca
+  & booking tetap keras by design). Seed preset cermin fallback; self-heal
+  `tamasyaRolePresetBackfill` (19 → 22 saat dibaca); migrasi
+  `20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql` (JSON_MERGE_PATCH ber-guard,
+  idempoten; edit admin dipertahankan — tervalidasi scratch MariaDB);
+  `database_setup.sql` sinkron (paritas terbukti). Tes: role-preset 39 → 50,
+  facility 37; verify-release 56 suite hijau; CI `39222461546` hijau; ZIP
+  `tamasya-production-prod-20261019-1633.zip`.
 
 ## 6. Aturan keselamatan (tidak boleh dilanggar)
 
@@ -191,6 +203,10 @@ baru di jalur izin. Nol perubahan perilaku sebelum pemilik menekan "Terapkan".
    sisa `app-core.js` 192 B tidak cukup untuk key preset baru → saat DB mati,
    prefill cap baru kosong (server tetap fallback role); bila pemilik ingin
    fallback 100%, perlu renegosiasi budget `app-core.js`.
+   **Terealisasi di Fase 3 (`ad8b311`/`db89177`)** — nama final
+   `view_reports`/`view_support_inbox`/`manage_facilities`; budget
+   `app-core.js` TIDAK direnegosiasi (DB mati → prefill cap baru kosong,
+   server tetap fallback role).
 
 **Keputusan yang diminta dari pemilik:** (a) setuju tabel + migrasi baru;
 (b) setuju semantik "paket diterapkan lewat aksi Terapkan" (bukan auto-inherit

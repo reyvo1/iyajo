@@ -3,9 +3,27 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (HEAD `a514025`, CI success, tree bersih)
+## 1. Status saat ini (HEAD `db89177`, CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `ad8b311` + `db89177` **Fase 3 audit kapabilitas — sisa Batch 2/3 (arahan
+  pemilik "lanjut sampe final")**: 3 capability baru → registry 19 → 22 +
+  centangan/label di panel Kelola Jabatan (`staff.js`; `app-core.js` tetap
+  byte-identik): `view_reports` (095 laporan kanonik, 3 command; fallback
+  admin/manager/finance), `view_support_inbox` (017/018 kotak masuk publik;
+  fallback admin/manager/receptionist; nama sengaja ber-prefix `view_` —
+  kontrak UAT "owner bisa membaca" & owner tetap read-only), `manage_facilities`
+  (HANYA 2 situs simpan config 096; baca & booking 096 sengaja tetap keras).
+  Seed preset 9 jabatan = cermin fallback; `tamasyaRolePresetBackfill`
+  menambal baris lama 19 → 22 kunci saat dibaca; migrasi
+  `migrations/20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql` (JSON_MERGE_PATCH
+  ber-guard, idempoten, edit admin tak tertimpa) + `database_setup.sql`
+  disinkronkan (paritas seed terbukti). Tes: role-preset 39 → 50 cek,
+  facility 37; verify-release 56 suite hijau. CI `ad8b311` merah di UAT
+  8.4/8.5 (owner GET support 403 karena capability non-`view_`) → `db89177`
+  rename `manage_public_inbox` → `view_support_inbox`; CI `39222461546`
+  hijau (UAT 1522/1522). ZIP `tamasya-production-prod-20261019-1633.zip`.
+  Perilaku akun tanpa centangan TIDAK berubah (fallback daftar role lama).
 - `a514025` **Fase 2 "Kelola Jabatan" (disetujui pemilik "Setujui —
   implementasikan sekarang"; desain §7 `AUDIT-KAPABILITAS-ROLE-2026-10-19.md`)**:
   tabel `role_capability_presets` + migrasi `20261019_ROLE_CAPABILITY_PRESETS.sql`
@@ -137,15 +155,17 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261019-1525.zip` (377 entri,
-  berisi Fase 2 Kelola Jabatan `a514025` + migrasi capability Batch 1+2
+- ZIP produksi terbaru: `tamasya-production-prod-20261019-1633.zip` (378 entri,
+  berisi Fase 3 kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan
+  `a514025` + migrasi capability Batch 1+2
   `7f81438`+`a8f34e5` + audit total
   capability `38b7025` + fix beku perpanjangan `4b14d0b` + email tersimpan
-  otomatis + semua di bawahnya). ZIP lama (…1318, …1305, …1137, …1101, …2032,
+  otomatis + semua di bawahnya). ZIP lama (…1525, …1318, …1305, …1137, …1101, …2032,
   …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
 - Fakta database (audit 18 Okt): `database_setup.sql` = 116 CREATE TABLE,
   SHA-256 `604f7d466b4e07de4e6f854c2f03a7609b52a08e5cf8b94efacf186aabfc263e`;
-  `migrations/` = 22 file. (Per `a514025`: kini **117 CREATE TABLE** —
+  `migrations/` = 23 file (Fase 3 `db89177` menambah 1 migrasi data; tanpa
+  tabel baru). (Per `a514025`: kini **117 CREATE TABLE** —
   `+role_capability_presets`; SHA berubah, cek `FILE_CHECKSUMS.sha256` /
   `sha256sum database_setup.sql`.) Dokumen rilis lama (HANDOFF.md P0/R3,
   CANONICAL_REPORT_ENGINE.md, PRODUCTION_FULL_AUDIT_R4.md) yang menulis
@@ -221,6 +241,9 @@ Server harus sudah menjalankan ZIP terbaru.
 | `sell_room_access` | Jual Kamar & Reservasi (Telegram & Web) | Jual, Reservasi, grup (`mr_*`) |
 | `manage_stay_access` | Perpanjang, Pindah & Check-out (Telegram & Web) | Perpanjang, Layanan, Pindah, Checkout |
 | `receive_payment_access` | Terima Panjar/DP (Telegram & Web) | Panjar (`panjar_menu`, `dp_*`, `/panjar`) |
+| `view_reports` | Lihat & Kirim Laporan Kanonik | 095 laporan kanonik (fallback admin/manager/finance) |
+| `view_support_inbox` | Kelola Kotak Masuk Publik (Bantuan & Reservasi) | 017/018 inbox publik (fallback admin/manager/receptionist) |
+| `manage_facilities` | Kelola Master Fasilitas (Tipe & Unit) | Simpan config 096 saja (fallback admin/manager) |
 
 Aturan: role = baseline; centang true = tambah akses;
 centang false eksplisit = cabut akses; **owner selalu read-only**
