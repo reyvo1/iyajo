@@ -1,6 +1,6 @@
 <?php
 /**
- * TAMASYA Fase 2 "Kelola Jabatan": registry paket + nilai default per jabatan.
+ * TAMASYA Fase 2/3 "Kelola Jabatan": registry paket + nilai default per jabatan.
  *
  * Enforcement izin tidak berubah: hasCapability/requireCapability (017) tetap
  * membaca override akun lalu fallback role. File ini hanya menyediakan registry
@@ -16,10 +16,12 @@ function tamasyaRolePresetRoles(): array {
     return ['admin','manager','finance','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'];
 }
 
-/** Registry 19 capability: cermin tamasyaSessionPermissions (017) dan grid
- *  centangan editor staf (assets/chunks/staff.js). Urutan = urutan seed. */
+/** Registry 22 capability: cermin tamasyaSessionPermissions (017) dan grid
+ *  centangan editor staf (assets/chunks/staff.js). Urutan = urutan seed.
+ *  Fase 3 menambahkan view_reports (095 laporan kanonik), manage_public_inbox
+ *  (017/018 kotak masuk publik), dan manage_facilities (096 master fasilitas). */
 function tamasyaCapabilityRegistry(): array {
-    return ['approve_sensitive_actions','manage_sessions','resolve_sync_conflict','manage_tax_rules','manage_backup','view_audit_log','reconcile_payments','correct_booking_audit','view_guest_identity','manage_room_access','sell_room_access','manage_stay_access','receive_payment_access','perform_night_audit','perform_housekeeping','resolve_night_audit','manage_operational_settings','override_key_checkout','manage_public_website'];
+    return ['approve_sensitive_actions','manage_sessions','resolve_sync_conflict','manage_tax_rules','manage_backup','view_audit_log','reconcile_payments','correct_booking_audit','view_guest_identity','manage_room_access','sell_room_access','manage_stay_access','receive_payment_access','perform_night_audit','perform_housekeeping','resolve_night_audit','manage_operational_settings','override_key_checkout','manage_public_website','view_reports','manage_public_inbox','manage_facilities'];
 }
 
 /** Registry 15 tab workspace (= array `db` app-core.js; editor staf memakai daftar
@@ -41,47 +43,47 @@ function tamasyaRolePresetSeed(): array {
         'admin' => [
             'desktopTabs' => ['dashboard'=>true, 'rooms'=>true, 'finance'=>true, 'savings'=>true, 'report'=>true, 'operations'=>true, 'website'=>true, 'support'=>true, 'telegram'=>true, 'staff'=>true, 'config'=>true, 'db_config'=>true, 'inventory'=>true, 'leaves'=>true, 'attendance'=>true],
             'telegramNotifications' => ['bookings'=>true, 'finance'=>true, 'inventory'=>true, 'operations'=>true, 'hr'=>true, 'system'=>true],
-            'capabilities' => ['approve_sensitive_actions'=>true, 'manage_sessions'=>true, 'resolve_sync_conflict'=>true, 'manage_tax_rules'=>true, 'manage_backup'=>true, 'view_audit_log'=>true, 'reconcile_payments'=>true, 'correct_booking_audit'=>true, 'view_guest_identity'=>true, 'manage_room_access'=>true, 'sell_room_access'=>true, 'manage_stay_access'=>true, 'receive_payment_access'=>true, 'perform_night_audit'=>true, 'perform_housekeeping'=>true, 'resolve_night_audit'=>true, 'manage_operational_settings'=>true, 'override_key_checkout'=>true, 'manage_public_website'=>true],
+            'capabilities' => ['approve_sensitive_actions'=>true, 'manage_sessions'=>true, 'resolve_sync_conflict'=>true, 'manage_tax_rules'=>true, 'manage_backup'=>true, 'view_audit_log'=>true, 'reconcile_payments'=>true, 'correct_booking_audit'=>true, 'view_guest_identity'=>true, 'manage_room_access'=>true, 'sell_room_access'=>true, 'manage_stay_access'=>true, 'receive_payment_access'=>true, 'perform_night_audit'=>true, 'perform_housekeeping'=>true, 'resolve_night_audit'=>true, 'manage_operational_settings'=>true, 'override_key_checkout'=>true, 'manage_public_website'=>true, 'view_reports'=>true, 'manage_public_inbox'=>true, 'manage_facilities'=>true],
         ],
         'manager' => [
             'desktopTabs' => ['dashboard'=>true, 'rooms'=>true, 'finance'=>false, 'savings'=>true, 'report'=>true, 'operations'=>true, 'website'=>true, 'support'=>true, 'telegram'=>true, 'staff'=>false, 'config'=>false, 'db_config'=>false, 'inventory'=>true, 'leaves'=>true, 'attendance'=>true],
             'telegramNotifications' => ['bookings'=>true, 'finance'=>true, 'inventory'=>true, 'operations'=>true, 'hr'=>true, 'system'=>true],
-            'capabilities' => ['approve_sensitive_actions'=>true, 'manage_sessions'=>true, 'resolve_sync_conflict'=>true, 'manage_tax_rules'=>true, 'manage_backup'=>false, 'view_audit_log'=>true, 'reconcile_payments'=>true, 'correct_booking_audit'=>true, 'view_guest_identity'=>true, 'manage_room_access'=>true, 'sell_room_access'=>true, 'manage_stay_access'=>true, 'receive_payment_access'=>true, 'perform_night_audit'=>true, 'perform_housekeeping'=>true, 'resolve_night_audit'=>true, 'manage_operational_settings'=>true, 'override_key_checkout'=>true, 'manage_public_website'=>true],
+            'capabilities' => ['approve_sensitive_actions'=>true, 'manage_sessions'=>true, 'resolve_sync_conflict'=>true, 'manage_tax_rules'=>true, 'manage_backup'=>false, 'view_audit_log'=>true, 'reconcile_payments'=>true, 'correct_booking_audit'=>true, 'view_guest_identity'=>true, 'manage_room_access'=>true, 'sell_room_access'=>true, 'manage_stay_access'=>true, 'receive_payment_access'=>true, 'perform_night_audit'=>true, 'perform_housekeeping'=>true, 'resolve_night_audit'=>true, 'manage_operational_settings'=>true, 'override_key_checkout'=>true, 'manage_public_website'=>true, 'view_reports'=>true, 'manage_public_inbox'=>true, 'manage_facilities'=>true],
         ],
         'finance' => [
             'desktopTabs' => ['dashboard'=>true, 'rooms'=>false, 'finance'=>true, 'savings'=>true, 'report'=>true, 'operations'=>true, 'website'=>false, 'support'=>false, 'telegram'=>true, 'staff'=>false, 'config'=>false, 'db_config'=>false, 'inventory'=>true, 'leaves'=>true, 'attendance'=>true],
             'telegramNotifications' => ['bookings'=>false, 'finance'=>true, 'inventory'=>false, 'operations'=>false, 'hr'=>false, 'system'=>false],
-            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>true, 'reconcile_payments'=>true, 'correct_booking_audit'=>true, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>true, 'perform_night_audit'=>true, 'perform_housekeeping'=>true, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false],
+            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>true, 'reconcile_payments'=>true, 'correct_booking_audit'=>true, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>true, 'perform_night_audit'=>true, 'perform_housekeeping'=>true, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false, 'view_reports'=>true, 'manage_public_inbox'=>false, 'manage_facilities'=>false],
         ],
         'receptionist' => [
             'desktopTabs' => ['dashboard'=>false, 'rooms'=>true, 'finance'=>false, 'savings'=>true, 'report'=>false, 'operations'=>true, 'website'=>false, 'support'=>true, 'telegram'=>true, 'staff'=>false, 'config'=>false, 'db_config'=>false, 'inventory'=>true, 'leaves'=>true, 'attendance'=>true],
             'telegramNotifications' => ['bookings'=>true, 'finance'=>false, 'inventory'=>true, 'operations'=>true, 'hr'=>false, 'system'=>false],
-            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>true, 'manage_room_access'=>true, 'sell_room_access'=>true, 'manage_stay_access'=>true, 'receive_payment_access'=>true, 'perform_night_audit'=>true, 'perform_housekeeping'=>true, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false],
+            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>true, 'manage_room_access'=>true, 'sell_room_access'=>true, 'manage_stay_access'=>true, 'receive_payment_access'=>true, 'perform_night_audit'=>true, 'perform_housekeeping'=>true, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false, 'view_reports'=>false, 'manage_public_inbox'=>true, 'manage_facilities'=>false],
         ],
         'cleaning_service' => [
             'desktopTabs' => ['dashboard'=>false, 'rooms'=>false, 'finance'=>false, 'savings'=>true, 'report'=>false, 'operations'=>true, 'website'=>false, 'support'=>false, 'telegram'=>true, 'staff'=>false, 'config'=>false, 'db_config'=>false, 'inventory'=>true, 'leaves'=>true, 'attendance'=>true],
             'telegramNotifications' => ['bookings'=>false, 'finance'=>false, 'inventory'=>true, 'operations'=>true, 'hr'=>false, 'system'=>false],
-            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>false, 'perform_housekeeping'=>true, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false],
+            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>false, 'perform_housekeeping'=>true, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false, 'view_reports'=>false, 'manage_public_inbox'=>false, 'manage_facilities'=>false],
         ],
         'keamanan' => [
             'desktopTabs' => ['dashboard'=>false, 'rooms'=>false, 'finance'=>false, 'savings'=>true, 'report'=>false, 'operations'=>true, 'website'=>false, 'support'=>false, 'telegram'=>true, 'staff'=>false, 'config'=>false, 'db_config'=>false, 'inventory'=>false, 'leaves'=>true, 'attendance'=>true],
             'telegramNotifications' => ['bookings'=>false, 'finance'=>false, 'inventory'=>false, 'operations'=>true, 'hr'=>false, 'system'=>false],
-            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>true, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>true, 'perform_housekeeping'=>false, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false],
+            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>true, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>true, 'perform_housekeeping'=>false, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false, 'view_reports'=>false, 'manage_public_inbox'=>false, 'manage_facilities'=>false],
         ],
         'koki' => [
             'desktopTabs' => ['dashboard'=>false, 'rooms'=>false, 'finance'=>false, 'savings'=>true, 'report'=>false, 'operations'=>true, 'website'=>false, 'support'=>false, 'telegram'=>true, 'staff'=>false, 'config'=>false, 'db_config'=>false, 'inventory'=>true, 'leaves'=>true, 'attendance'=>true],
             'telegramNotifications' => ['bookings'=>false, 'finance'=>false, 'inventory'=>true, 'operations'=>false, 'hr'=>false, 'system'=>false],
-            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>false, 'perform_housekeeping'=>false, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false],
+            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>false, 'perform_housekeeping'=>false, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false, 'view_reports'=>false, 'manage_public_inbox'=>false, 'manage_facilities'=>false],
         ],
         'tukang_kebun' => [
             'desktopTabs' => ['dashboard'=>false, 'rooms'=>false, 'finance'=>false, 'savings'=>true, 'report'=>false, 'operations'=>true, 'website'=>false, 'support'=>false, 'telegram'=>true, 'staff'=>false, 'config'=>false, 'db_config'=>false, 'inventory'=>false, 'leaves'=>true, 'attendance'=>true],
             'telegramNotifications' => ['bookings'=>false, 'finance'=>false, 'inventory'=>false, 'operations'=>false, 'hr'=>false, 'system'=>false],
-            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>false, 'perform_housekeeping'=>false, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false],
+            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>false, 'perform_housekeeping'=>false, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false, 'view_reports'=>false, 'manage_public_inbox'=>false, 'manage_facilities'=>false],
         ],
         'lain_lain' => [
             'desktopTabs' => ['dashboard'=>false, 'rooms'=>false, 'finance'=>false, 'savings'=>true, 'report'=>false, 'operations'=>true, 'website'=>false, 'support'=>false, 'telegram'=>true, 'staff'=>false, 'config'=>false, 'db_config'=>false, 'inventory'=>false, 'leaves'=>true, 'attendance'=>true],
             'telegramNotifications' => ['bookings'=>false, 'finance'=>false, 'inventory'=>false, 'operations'=>false, 'hr'=>false, 'system'=>false],
-            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>false, 'perform_housekeeping'=>false, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false],
+            'capabilities' => ['approve_sensitive_actions'=>false, 'manage_sessions'=>false, 'resolve_sync_conflict'=>false, 'manage_tax_rules'=>false, 'manage_backup'=>false, 'view_audit_log'=>false, 'reconcile_payments'=>false, 'correct_booking_audit'=>false, 'view_guest_identity'=>false, 'manage_room_access'=>false, 'sell_room_access'=>false, 'manage_stay_access'=>false, 'receive_payment_access'=>false, 'perform_night_audit'=>false, 'perform_housekeeping'=>false, 'resolve_night_audit'=>false, 'manage_operational_settings'=>false, 'override_key_checkout'=>false, 'manage_public_website'=>false, 'view_reports'=>false, 'manage_public_inbox'=>false, 'manage_facilities'=>false],
         ],
     ];
 }
@@ -154,6 +156,27 @@ function tamasyaRolePresetCoerce($raw): array {
     return $coerced;
 }
 
+/** Tambal paket baris lama dengan kunci registry yang belum ada (mis. baris yang
+ *  dibuat sebelum migrasi Fase 3): kunci absen diisi nilai seed jabatan, kunci
+ *  dan centangan yang sudah tersimpan tidak pernah diubah. Murni; pemanggil
+ *  membandingkan hasil untuk menentukan perlu tidaknya tulis-balik. */
+function tamasyaRolePresetBackfill(array $preset, string $role): array {
+    $seed = tamasyaRolePresetDefault($role) ?: [];
+    $groups = [
+        'desktopTabs' => tamasyaDesktopTabRegistry(),
+        'telegramNotifications' => tamasyaTelegramNotificationRegistry(),
+        'capabilities' => tamasyaCapabilityRegistry(),
+    ];
+    foreach ($groups as $group => $keys) {
+        $current = (isset($preset[$group]) && is_array($preset[$group])) ? $preset[$group] : [];
+        foreach ($keys as $key) {
+            if (!array_key_exists($key, $current)) $current[$key] = ($seed[$group][$key] ?? false) === true;
+        }
+        $preset[$group] = $current;
+    }
+    return $preset;
+}
+
 /** Gabungkan paket (target) ke override akun: pertahankan kunci lain yang sudah
  *  ada (mis. readOnly), timpa tiga grup paket dengan nilai preset eksplisit. */
 function tamasyaRolePresetBuildOverride(array $preset, $currentPermissions): array {
@@ -189,11 +212,14 @@ function tamasyaRolePresetAccountDiff(array $preset, string $role, $currentPermi
 
 /** Baris paket dari DB dalam urutan jabatan kanonik. Tabel yang belum ada (install
  *  lama sebelum migrasi) ditolak dengan pesan yang bisa ditindaklanjuti; jabatan
- *  yang belum punya baris langsung di-seed dari nilai default (idempoten). */
+ *  yang belum punya baris langsung di-seed dari nilai default (idempoten), dan
+ *  baris lama yang belum memuat kunci registry terbaru ditambal dari seed saat
+ *  dibaca (idempoten) supaya penerapan tidak pernah menuliskan false diam-diam
+ *  untuk capability yang baru ada. */
 function tamasyaRolePresetRows(PDO $pdo): array {
     $exists = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'role_capability_presets'")->fetchColumn();
     if ($exists === 0) {
-        throw new InvalidArgumentException('Tabel role_capability_presets belum ada di database ini. Backup dulu, lalu jalankan migrasi migrations/20261019_ROLE_CAPABILITY_PRESETS.sql.');
+        throw new InvalidArgumentException('Tabel role_capability_presets belum ada di database ini. Backup dulu, lalu jalankan migrasi migrations/20261019_ROLE_CAPABILITY_PRESETS.sql dan migrations/20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql.');
     }
     $load = static function () use ($pdo): array {
         $rows = $pdo->query("SELECT role, permissions, updated_by, updated_at FROM role_capability_presets ORDER BY role")->fetchAll(PDO::FETCH_ASSOC) ?: [];
@@ -210,6 +236,18 @@ function tamasyaRolePresetRows(PDO $pdo): array {
         $insert->execute([$role, json_encode($seed[$role] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
     }
     if ($insert !== null) $byRole = $load();
+    $healed = false;
+    $update = null;
+    foreach ($byRole as $role => $row) {
+        $current = is_string($row['permissions'] ?? null) ? json_decode((string)$row['permissions'], true) : null;
+        if (!is_array($current)) continue;
+        $merged = tamasyaRolePresetBackfill($current, (string)$role);
+        if ($merged === $current) continue;
+        if ($update === null) $update = $pdo->prepare("UPDATE role_capability_presets SET permissions=? WHERE role=?");
+        $update->execute([json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $role]);
+        $healed = true;
+    }
+    if ($healed) $byRole = $load();
     $ordered = [];
     foreach (tamasyaRolePresetRoles() as $role) {
         if (isset($byRole[$role])) $ordered[] = $byRole[$role];

@@ -70,7 +70,7 @@ try {
             echo tamasyaJsonEncode(['success'=>true,'types'=>$fetchAll($pdo,"SELECT * FROM facility_types ORDER BY active DESC,name")]);
             break;
         case 'facility-type-save':
-            requireRoles($loggedInStaff,['admin','manager']);
+            requireCapability($loggedInStaff,'manage_facilities',['admin','manager']);
             $code=strtolower(trim((string)($input['code']??'')));$name=trim((string)($input['name']??''));
             $capacityModel=strtolower(trim((string)($input['capacityModel']??'open')));
             $pricingModel=strtolower(trim((string)($input['pricingModel']??'visit')));
@@ -98,7 +98,7 @@ try {
             echo tamasyaJsonEncode(['success'=>true,'facilities'=>$fetchAll($pdo,"SELECT f.*,t.code AS type_code,t.name AS type_name,t.capacity_model,t.pricing_model,t.requires_staff AS type_requires_staff FROM facilities f LEFT JOIN facility_types t ON t.id=f.facility_type_id ORDER BY f.active DESC,f.name")]);
             break;
         case 'facility-save':
-            requireRoles($loggedInStaff,['admin','manager']);
+            requireCapability($loggedInStaff,'manage_facilities',['admin','manager']);
             $code=strtolower(trim((string)($input['code']??'')));$name=trim((string)($input['name']??''));
             $typeId=trim((string)($input['facilityTypeId']??''));$capacity=max(0,(int)($input['capacity']??0));
             $openTime=trim((string)($input['openTime']??''));$closeTime=trim((string)($input['closeTime']??''));

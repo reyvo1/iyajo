@@ -6,14 +6,14 @@ $routeHandled=true;
 
 switch((string)$action){
     case 'canonical-report-types':
-        requireRoles($loggedInStaff,['admin','manager','finance']);
+        requireCapability($loggedInStaff,'view_reports',['admin','manager','finance']);
         requireDesktopTabAccess($loggedInStaff,'report',['admin','manager','finance']);
         if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET'){http_response_code(405);echo tamasyaJsonEncode(['success'=>false,'error'=>'Method Not Allowed']);break;}
         echo tamasyaJsonEncode(['success'=>true,'types'=>tamasyaCanonicalReportTypes(),'formats'=>['pdf','xlsx','csv','json'],'engineVersion'=>TAMASYA_CANONICAL_REPORT_VERSION]);
         break;
 
     case 'canonical-report':
-        requireRoles($loggedInStaff,['admin','manager','finance']);
+        requireCapability($loggedInStaff,'view_reports',['admin','manager','finance']);
         requireDesktopTabAccess($loggedInStaff,'report',['admin','manager','finance']);
         if(($_SERVER['REQUEST_METHOD']??'GET')!=='GET'){http_response_code(405);echo tamasyaJsonEncode(['success'=>false,'error'=>'Method Not Allowed']);break;}
         try{
@@ -37,7 +37,7 @@ switch((string)$action){
         break;
 
     case 'canonical-report-email':
-        requireRoles($loggedInStaff,['admin','manager','finance']);
+        requireCapability($loggedInStaff,'view_reports',['admin','manager','finance']);
         requireDesktopTabAccess($loggedInStaff,'report',['admin','manager','finance']);
         if(($_SERVER['REQUEST_METHOD']??'GET')!=='POST'){http_response_code(405);echo tamasyaJsonEncode(['success'=>false,'error'=>'Method Not Allowed']);break;}
         try{

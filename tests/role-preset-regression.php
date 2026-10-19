@@ -1,8 +1,9 @@
 <?php
-// Regresi Fase 2 "Kelola Jabatan": registry paket, seed default per jabatan (cermin
+// Regresi Fase 2/3 "Kelola Jabatan": registry paket, seed default per jabatan (cermin
 // preset editor staf app-core.js), normalisasi entri paket, pembangunan override akun,
-// dan penjagaan jalur rilis (migrasi, route, UI). Murni fungsi + cek statis, tanpa
-// DB/server: penerapan ke akun hanya lewat route 052 dan tidak diuji di sini.
+// penambalan baris lama (Fase 3), dan penjagaan jalur rilis (migrasi, route, UI).
+// Murni fungsi + cek statis, tanpa DB/server: penerapan ke akun hanya lewat route 052
+// dan tidak diuji di sini.
 if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 define('TAMASYA_API_ENTRY', true);
 require dirname(__DIR__).'/api/support/017_authorization_policy.php';
@@ -24,7 +25,7 @@ $seed = tamasyaRolePresetSeed();
 
 presetCheck($roles === ['admin','manager','finance','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'], 'Daftar jabatan = 9 non-owner (urutan kanonik)');
 presetCheck(!in_array('owner', $roles, true), 'Owner tidak termasuk jabatan yang dapat dikelola');
-presetCheck(count($caps) === 19 && count($tabs) === 15 && count($notifs) === 6, 'Registry 19 capability / 15 tab / 6 notifikasi');
+presetCheck(count($caps) === 22 && count($tabs) === 15 && count($notifs) === 6, 'Registry 22 capability / 15 tab / 6 notifikasi');
 presetCheck(count($seed) === 9 && !isset($seed['owner']), 'Seed mencakup 9 jabatan, tanpa owner');
 presetCheck(array_keys($seed['admin']['desktopTabs']) === $tabs, 'Urutan kunci tab seed = registry (cermin app-core db)');
 presetCheck(array_keys($seed['admin']['telegramNotifications']) === $notifs, 'Urutan kunci notifikasi seed = registry');
@@ -44,6 +45,9 @@ presetCheck($seed['receptionist']['capabilities']['sell_room_access'] === true &
 presetCheck($seed['keamanan']['capabilities']['perform_night_audit'] === true && $seed['keamanan']['capabilities']['reconcile_payments'] === false && $seed['keamanan']['desktopTabs']['inventory'] === false, 'Seed keamanan: night audit saja, tanpa rekon/inventaris');
 presetCheck($seed['cleaning_service']['capabilities']['perform_housekeeping'] === true && $seed['cleaning_service']['desktopTabs']['inventory'] === true && $seed['koki']['capabilities']['perform_housekeeping'] === false && $seed['koki']['desktopTabs']['inventory'] === true, 'Seed cleaning service & koki sesuai preset app-core');
 presetCheck($seed['admin']['telegramNotifications'] === ['bookings'=>true,'finance'=>true,'inventory'=>true,'operations'=>true,'hr'=>true,'system'=>true] && $seed['cleaning_service']['telegramNotifications']['bookings'] === false && $seed['cleaning_service']['telegramNotifications']['inventory'] === true, 'Seed notifikasi Telegram: admin semua, cleaning service inventaris/operasional saja');
+
+// Spot-check capability Fase 3 (default = fallback route: 095/017/018/096).
+presetCheck($seed['admin']['capabilities']['view_reports'] === true && $seed['manager']['capabilities']['manage_public_inbox'] === true && $seed['manager']['capabilities']['manage_facilities'] === true && $seed['finance']['capabilities']['view_reports'] === true && $seed['finance']['capabilities']['manage_public_inbox'] === false && $seed['finance']['capabilities']['manage_facilities'] === false && $seed['receptionist']['capabilities']['manage_public_inbox'] === true && $seed['receptionist']['capabilities']['view_reports'] === false && $seed['keamanan']['capabilities']['manage_facilities'] === false, 'Seed Fase 3: admin/manager penuh, finance laporan, resepsionis inbox, sisanya tertutup');
 
 // Normalisasi entri dari klien.
 $roundtrip = tamasyaRolePresetNormalize(json_encode($seed['admin']));
@@ -78,6 +82,12 @@ presetCheck(count($overrideWins) === 1 && $overrideWins['capabilities']['receive
 $fallback = tamasyaRolePresetAccountDiff(array_merge($seed['manager'], ['capabilities'=>array_merge($seed['manager']['capabilities'], ['perform_housekeeping'=>false])]), 'manager', json_encode(['capabilities'=>[]]));
 presetCheck(count($fallback) === 1 && $fallback['capabilities']['perform_housekeeping'] === ['before'=>true,'after'=>false], 'Override tanpa kunci jatuh ke seed jabatan sebagai nilai sebelum');
 
+// Penambalan baris lama (Fase 3): kunci baru diisi seed, centangan lama tak tersentuh.
+$oldRow = ['capabilities'=>['manage_backup'=>true], 'desktopTabs'=>['dashboard'=>true], 'telegramNotifications'=>['finance'=>true]];
+$healedRow = tamasyaRolePresetBackfill($oldRow, 'finance');
+presetCheck(count($healedRow['capabilities']) === 22 && $healedRow['capabilities']['manage_backup'] === true && $healedRow['capabilities']['view_reports'] === true && $healedRow['capabilities']['manage_public_inbox'] === false && $healedRow['capabilities']['sell_room_access'] === false && count($healedRow['desktopTabs']) === 15 && $healedRow['desktopTabs']['dashboard'] === true && $healedRow['desktopTabs']['rooms'] === false && $healedRow['telegramNotifications']['finance'] === true, 'Backfill Fase 3: kunci lama dipertahankan, kunci baru diisi seed jabatan (22 kunci penuh)');
+presetCheck(tamasyaRolePresetBackfill($seed['admin'], 'admin') === $seed['admin'] && tamasyaRolePresetBackfill($seed['lain_lain'], 'lain_lain') === $seed['lain_lain'], 'Backfill idempoten pada paket yang sudah lengkap');
+
 // Jalur rilis: route, router, require boot, migrasi, baseline setup, UI.
 $route = file_get_contents(dirname(__DIR__).'/api/routes/052_role_presets.php');
 presetCheck(str_contains($route, "!== 'role-preset'") && str_contains($route, "requireRoles(\$loggedInStaff,['admin']);") && str_contains($route, 'tamasyaEnforceOwnerReadOnly($loggedInStaff,(string)$action);'), 'Route 052 admin-only + owner read-only');
@@ -100,5 +110,27 @@ presetCheck(str_contains($staffChunk, 'function RolePresetPanel(') && str_contai
 presetCheck(str_contains($staffChunk, 'action=role-preset') && str_contains($staffChunk, '"role-preset-apply"') && str_contains($staffChunk, '"role-preset-save"'), 'UI memanggil endpoint 052 (list/save/preview/apply)');
 $authPolicy = file_get_contents(dirname(__DIR__).'/api/support/017_authorization_policy.php');
 presetCheck(str_contains($authPolicy, "function hasCapability(\$user, \$capability, \$fallbackRoles = [])") && str_contains($authPolicy, "tamasyaPermissionOverride(\$user['permissions']??null,'capabilities',(string)\$capability)"), 'Enforcement 017 tidak berubah (override lalu fallback role)');
+presetCheck(str_contains($authPolicy, "'view_guest_identity','view_reports','manage_public_inbox','manage_facilities']"), 'Owner session 017 memuat capability Fase 3 (view_* tetap read-only)');
 
-echo "Role preset (Fase 2 Kelola Jabatan): {$passed} passed; 0 failed.".PHP_EOL;
+// Fase 3: route yang dikonversi ke capability + jalur rilisnya.
+$reportRoute = file_get_contents(dirname(__DIR__).'/api/routes/095_canonical_reports.php');
+presetCheck(substr_count($reportRoute, "requireCapability(\$loggedInStaff,'view_reports',['admin','manager','finance']);") === 3 && substr_count($reportRoute, "requireDesktopTabAccess(\$loggedInStaff,'report',['admin','manager','finance']);") === 3, '095: tiga aksi via view_reports, tab report tetap');
+$supportInbox = file_get_contents(dirname(__DIR__).'/api/routes/017_public_support_inbox.php');
+presetCheck(str_contains($supportInbox, "requireCapability(\$loggedInStaff,'manage_public_inbox',['admin','manager','receptionist']);") && !str_contains($supportInbox, 'requireRoles('), '017: kotak masuk bantuan via manage_public_inbox');
+$reservationInbox = file_get_contents(dirname(__DIR__).'/api/routes/018_public_reservation_inbox.php');
+presetCheck(str_contains($reservationInbox, "requireCapability(\$loggedInStaff, 'manage_public_inbox', ['admin','manager','receptionist']);") && !str_contains($reservationInbox, 'requireRoles('), '018: review reservasi via manage_public_inbox');
+$facilityRoute = file_get_contents(dirname(__DIR__).'/api/routes/096_facility_management.php');
+presetCheck(substr_count($facilityRoute, "requireCapability(\$loggedInStaff,'manage_facilities',['admin','manager']);") === 2 && substr_count($facilityRoute, "requireRoles(\$loggedInStaff,['admin','manager','receptionist','finance']);") === 3 && substr_count($facilityRoute, "requireRoles(\$loggedInStaff,['admin','manager','receptionist']);") === 4, '096: hanya simpan master fasilitas via capability; baca & booking tetap keras');
+presetCheck(str_contains($staffChunk, '["view_reports","Lihat & Kirim Laporan Kanonik"]') && str_contains($staffChunk, '["manage_facilities","Kelola Master Fasilitas (Tipe & Unit)"]') && substr_count($staffChunk, '["manage_public_inbox",') === 2, 'UI: grid editor & panel memuat 3 label Fase 3 (22 centangan)');
+$migration3 = file_get_contents(dirname(__DIR__).'/migrations/20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql');
+presetCheck(str_contains($migration3, 'JSON_MERGE_PATCH') && str_contains($migration3, "view_reports') IS NULL") && str_contains($migration3, "'admin','manager'") && str_contains($migration3, "'finance'") && str_contains($migration3, "'receptionist'") && str_contains($migration3, "'cleaning_service','keamanan','koki','tukang_kebun','lain_lain'"), 'Migrasi Fase 3 idempoten + sembilan jabatan ter-cover');
+preg_match_all('/^\\(\'([a-z_]+)\', \'(\{.*\})\'\\)[,;]$/m', $baseline, $baselineRows, PREG_SET_ORDER);
+$baselineSeed = [];
+foreach ($baselineRows as $row) {
+    $decoded = json_decode($row[2], true);
+    if (!is_array($decoded) || !isset($decoded['desktopTabs'])) continue;
+    if (in_array($row[1], $roles, true)) $baselineSeed[$row[1]] = $decoded;
+}
+presetCheck(count($baselineSeed) === 9 && $baselineSeed === $seed, 'Seed database_setup.sql = tamasyaRolePresetSeed() (paritas penuh 22 kunci, 9 jabatan)');
+
+echo "Role preset (Fase 2/3 Kelola Jabatan): {$passed} passed; 0 failed.".PHP_EOL;

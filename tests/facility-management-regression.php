@@ -73,7 +73,7 @@ checkFacility($route !== false && strpos($route, "tamasyaFacilitySlotConflicts(\
 checkFacility($route !== false && strpos($route, 'tamasyaFacilityQuotaRemaining($pdo,$facilityId,$useDate') !== false, 'quota model checks remaining headcount');
 checkFacility($route !== false && strpos($route, "throw new DomainException('Slot fasilitas sudah terisi") !== false, 'a taken slot fails closed as a conflict');
 checkFacility($route !== false && strpos($route, "payment_status']==='paid'") !== false && strpos($route, 'refund, bukan pembatalan slot') !== false, 'a paid usage can only leave through refund, never slot cancel');
-checkFacility($route !== false && strpos($route, "requireRoles(\$loggedInStaff,['admin','manager']);") !== false, 'master data stays admin and manager');
+checkFacility($route !== false && substr_count($route, "requireCapability(\$loggedInStaff,'manage_facilities',['admin','manager']);") === 2, 'master data saves are capability-gated (manage_facilities, fallback admin/manager)');
 checkFacility($route !== false && strpos($route, "requireRoles(\$loggedInStaff,['admin','manager','receptionist']);") !== false, 'booking stays operable by receptionists');
 checkFacility($route !== false && strpos($route, 'operation_id=? LIMIT 1 FOR UPDATE') !== false, 'booking is idempotent per operation id');
 
