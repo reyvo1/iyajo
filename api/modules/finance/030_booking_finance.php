@@ -2060,7 +2060,13 @@ function createCanonicalBookingWorkflow(PDO $pdo, array $actor, array $payload, 
  * notification, and commit. External Telegram broadcast remains caller-side.
  */
 function applyCanonicalTelegramBookingChargeWorkflow($pdo,$actor,array $payload,string $operationId) {
-    if(!in_array(strtolower((string)($actor['role']??'')),['admin','manager','receptionist'],true))throw new RuntimeException('Peran akun tidak berhak menambah biaya booking.');
+    // Selaras gate Telegram (r_extend/r_layanan): baseline role ATAU centangan
+    // manage_stay_access (owner read-only tetap ditolak). Daftar role keras lama
+    // memblokir peran non-baseline yang dicentang pada commit biaya canonical.
+    if(function_exists('hasCapability')){
+        if(!hasCapability($actor,'manage_stay_access',['admin','manager','receptionist']))throw new RuntimeException('Peran akun tidak berhak menambah biaya booking.');
+    }
+    elseif(!in_array(strtolower((string)($actor['role']??'')),['admin','manager','receptionist'],true))throw new RuntimeException('Peran akun tidak berhak menambah biaya booking.');
     tamasyaRequirePropertyReadyForLiveMutation($pdo,'biaya/perpanjangan booking via Telegram');
     $bookingId=trim((string)($payload['bookingId']??''));
     $roomNumber=trim((string)($payload['roomNumber']??''));
@@ -2330,7 +2336,12 @@ function tamasyaBookingNegotiationQuote(PDO $pdo,array $booking): array {
 }
 
 function tamasyaApplyBookingNegotiatedPrice(PDO $pdo,array $actor,string $bookingId,array $input,string $source,string $operationId): array {
-    if(!in_array(strtolower((string)($actor['role']??'')),['admin','manager','receptionist'],true))throw new DomainException('Peran ini tidak berhak menetapkan harga nego.',403);
+    // Selaras gate tab Kamar/Telegram: baseline role ATAU centangan
+    // manage_stay_access (owner read-only tetap ditolak).
+    if(function_exists('hasCapability')){
+        if(!hasCapability($actor,'manage_stay_access',['admin','manager','receptionist']))throw new DomainException('Peran ini tidak berhak menetapkan harga nego.',403);
+    }
+    elseif(!in_array(strtolower((string)($actor['role']??'')),['admin','manager','receptionist'],true))throw new DomainException('Peran ini tidak berhak menetapkan harga nego.',403);
     tamasyaRequirePropertyReadyForLiveMutation($pdo,'harga nego booking');
     $reason=trim((string)($input['reason']??''));
     if(tamasyaStringLength($reason)<5)throw new InvalidArgumentException('Alasan harga nego minimal 5 karakter wajib diisi.');

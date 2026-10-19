@@ -74,7 +74,7 @@ switch ($action) {
         requireDesktopTabAccess($loggedInStaff,'rooms',['admin','manager','receptionist']);
         $method=$_SERVER['REQUEST_METHOD'];$id=trim((string)($input['bookingId']??($_GET['id']??'')));
         try{
-            if(!in_array(strtolower((string)($loggedInStaff['role']??'')),['admin','manager','receptionist'],true))throw new DomainException('Peran ini tidak berhak menetapkan harga nego.',403);
+            if(!hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist']))throw new DomainException('Peran ini tidak berhak menetapkan harga nego.',403);
             if($method==='GET'){
                 $q=$pdo->prepare('SELECT * FROM bookings WHERE id=? LIMIT 1');$q->execute([$id]);$booking=$q->fetch(PDO::FETCH_ASSOC);
                 if(!$booking)throw new RuntimeException('Booking tidak ditemukan.');

@@ -1641,7 +1641,12 @@ function finalizeTelegramRoomTransfer(
     $keyDisposition=normalizeCheckoutKeyDisposition($keyDisposition);
     $keyReason=trim($keyReason);
     $role=strtolower(trim((string)($staff['role']??'')));
-    if(!in_array($role,['admin','manager','receptionist'],true))throw new RuntimeException('Role ini tidak diizinkan memindahkan kamar tamu.');
+    // Selaras gate Telegram r_transfer: baseline role ATAU centangan
+    // manage_stay_access (owner read-only tetap ditolak).
+    if(function_exists('hasCapability')){
+        if(!hasCapability($staff,'manage_stay_access',['admin','manager','receptionist']))throw new RuntimeException('Role ini tidak diizinkan memindahkan kamar tamu.');
+    }
+    elseif(!in_array($role,['admin','manager','receptionist'],true))throw new RuntimeException('Role ini tidak diizinkan memindahkan kamar tamu.');
     if($roomNumber===''||$targetRoomNumber===''||$roomNumber===$targetRoomNumber)throw new InvalidArgumentException('Kamar asal dan tujuan pindah tidak valid.');
     if(!is_finite($cost)||$cost<0||$cost>1000000000000)throw new InvalidArgumentException('Biaya pindah kamar tidak valid.');
     // Pindah kamar adalah mutasi folio NON-CASH. Callback lama yang pernah

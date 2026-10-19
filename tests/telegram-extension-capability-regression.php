@@ -40,4 +40,13 @@ $webhook = file_get_contents(dirname(__DIR__).'/api/routes/080_telegram_webhook.
 extensionCheck(preg_match("/waiting_for_extend_nights'\)\s*\{[\s\S]{0,300}?try\s*\{/",$webhook)===1,'State perpanjangan malam dibungkus try/catch agar tidak pernah beku');
 extensionCheck(str_contains($webhook,"clientExceptionMessage('Perpanjangan belum dapat diproses',\$extensionError)"),'Kegagalan perpanjangan selalu membalas pesan yang bisa ditindaklanjuti');
 
+$finance = file_get_contents(dirname(__DIR__).'/api/modules/finance/030_booking_finance.php');
+extensionCheck(str_contains($finance,"hasCapability(\$actor,'manage_stay_access',['admin','manager','receptionist'])"),'Commit biaya canonical 030 ikut capability, bukan daftar role keras');
+extensionCheck(str_contains($finance,"throw new DomainException('Peran ini tidak berhak menetapkan harga nego.',403)"),'Pesan tolak nego 030 dipertahankan untuk pemanggil lama');
+$frontOffice = file_get_contents(dirname(__DIR__).'/api/modules/front_office/040_rooms_checkout_housekeeping.php');
+extensionCheck(str_contains($frontOffice,"hasCapability(\$staff,'manage_stay_access',['admin','manager','receptionist'])"),'Pindah kamar 040 ikut capability, bukan daftar role keras');
+extensionCheck(str_contains($frontOffice,"throw new RuntimeException('Role ini tidak diizinkan memindahkan kamar tamu.')"),'Pesan tolak pindah kamar 040 dipertahankan');
+$bookingRoute = file_get_contents(dirname(__DIR__).'/api/routes/020_hotel_booking.php');
+extensionCheck(str_contains($bookingRoute,"hasCapability(\$loggedInStaff,'manage_stay_access',['admin','manager','receptionist'])"),'Route harga nego web 020 ikut capability, bukan daftar role keras');
+
 echo "Telegram extension capability: {$passed} passed; 0 failed.".PHP_EOL;
