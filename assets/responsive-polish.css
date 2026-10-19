@@ -1,15 +1,6 @@
-/* TAMASYA FIX48: lapisan poles responsif global (additive-only).
-   Aturan di sini sengaja tidak menimpa komponen; hanya higienitas mobile
-   yang aman untuk seluruh halaman (app, POS, guest-center, ESS). */
 *{-webkit-tap-highlight-color:transparent}
 img,svg,video{max-width:100%}
-@media(max-width:640px){
-  /* Cegah auto-zoom keyboard iOS: input di bawah 16px memicu zoom. */
-  input,select,textarea{font-size:16px}
-  /* Dialog tidak melebihi viewport di layar kecil. */
-  dialog{max-width:calc(100vw - 16px)}
-}
-/* R6: containers grow with their content; exact amounts are never ellipsized. */
+@media(max-width:640px){input,select,textarea{font-size:16px}dialog{max-width:calc(100vw - 16px)}}
 #root :where(.grid,.flex)>:where(div,section,article,label){min-width:0}
 #root :where(input,select,textarea){min-width:0;max-width:100%;box-sizing:border-box}
 #root .glass-card{min-width:0;overflow-wrap:anywhere}
@@ -33,14 +24,12 @@ body:has(.tamasya-viewport-layer) :where(#tamasya-report-center-btn,#tamasya-ess
 .ui-master-summary>div{min-width:0;overflow-wrap:anywhere}
 .ui-guest-center-result{grid-template-columns:34px minmax(0,1fr) auto}
 .ui-guest-center-result :where(strong,small),.ess-core-card{overflow-wrap:anywhere}
-@media(max-width:640px){
-  .tamasya-viewport-layer{padding:12px!important}
-  .tamasya-viewport-layer>*{padding:16px;max-height:calc(100dvh - 24px)}
-  .tamasya-viewport-layer .flex.gap-2{flex-wrap:wrap}
-}
+@media(max-width:640px){.tamasya-viewport-layer{padding:12px!important}.tamasya-viewport-layer>*{padding:16px;max-height:calc(100dvh - 24px)}.tamasya-viewport-layer .flex.gap-2{flex-wrap:wrap}}
 @media print{.tamasya-viewport-layer{display:none!important}}
-
-/* R8: dialog scroll/focus is immediate; floated menus live outside the nav rail. */
 html:has(.tamasya-viewport-layer){scroll-behavior:auto!important}
 .tamasya-viewport-layer,.tamasya-viewport-layer>*{scroll-behavior:auto!important;overflow-anchor:none;scroll-padding-block:16px}
 .tamasya-react-nav-dropdown{overscroll-behavior:contain}
+@media(max-width:1023.98px){.tamasya-room-detail-sheet{position:fixed;left:0;right:0;bottom:0;z-index:70;max-height:82dvh;overflow-y:auto;overscroll-behavior:contain;padding-bottom:calc(1.5rem + env(safe-area-inset-bottom,0px));border-radius:1.5rem 1.5rem 0 0!important;box-shadow:0 -18px 48px rgba(2,6,23,.6);animation:tsheet .18s ease-out}}
+@keyframes tsheet{from{transform:translateY(100%)}}
+@media (prefers-reduced-motion:reduce){.tamasya-room-detail-sheet{animation:none!important}}
+@media(max-width:639.98px){.tamasya-operations-native-group>.grid{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 6px}.tamasya-operations-native-group>.grid::-webkit-scrollbar{display:none}.tamasya-operations-native-action{flex:0 0 auto;white-space:nowrap}}

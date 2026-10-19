@@ -34,7 +34,7 @@ const ASSETS_TO_CACHE = [
   "./assets/chunks/app-shell.js?v=20261008-r15",
   "./assets/chunks/feature-shared.js?v=20261008-r15",
   "./assets/chunks/dashboard.js?v=20261008-r15",
-  "./assets/chunks/rooms.js?v=20261014-nego-collected-now1",
+  "./assets/chunks/rooms.js?v=20261019-mobile-sheet1",
   "./assets/chunks/booking-negotiation.js?v=20261014-nego-collected-now1",
   // PERF(offline-ops-1): chunk modul jarang-dipakai tidak lagi diprecache saat
   // install (menghemat ~410 KB pada first load). Semua chunk tetap di-cache saat
@@ -54,7 +54,7 @@ const ASSETS_TO_CACHE = [
   "./assets/flexible-maintenance-addon.js?v=20261008-r15",
   "./assets/date-display-id.js?v=20260829-fix39-refsafe",
   "./assets/ui-core.css?v=20261008-r15",
-  "./assets/responsive-polish.css?v=20261008-r15",
+  "./assets/responsive-polish.css?v=20261019-mobile-sheet1",
   "./assets/chunks/viewport-layer.js?v=20261008-r15",
   "./assets/growth-suite.css?v=20261008-r15",
   "./assets/growth-suite.js?v=20261008-r15",
