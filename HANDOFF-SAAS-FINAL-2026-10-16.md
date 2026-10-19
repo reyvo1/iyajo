@@ -3,7 +3,7 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (HEAD `db89177`, CI success, tree bersih)
+## 1. Status saat ini (rilis kode `db89177` = isi ZIP 1633; commit dokumen di atasnya; CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
 - `ad8b311` + `db89177` **Fase 3 audit kapabilitas — sisa Batch 2/3 (arahan
@@ -24,6 +24,8 @@ Kerjaan terakhir (sudah push + ZIP):
   rename `manage_public_inbox` → `view_support_inbox`; CI `39222461546`
   hijau (UAT 1522/1522). ZIP `tamasya-production-prod-20261019-1633.zip`.
   Perilaku akun tanpa centangan TIDAK berubah (fallback daftar role lama).
+  Dokumen ini + AUDIT diperbarui di commit dokumen setelah `db89177`
+  (`5a77ff8` dst.; ZIP tidak memuat kedua dokumen — hanya `docs/archive/`).
 - `a514025` **Fase 2 "Kelola Jabatan" (disetujui pemilik "Setujui —
   implementasikan sekarang"; desain §7 `AUDIT-KAPABILITAS-ROLE-2026-10-19.md`)**:
   tabel `role_capability_presets` + migrasi `20261019_ROLE_CAPABILITY_PRESETS.sql`
