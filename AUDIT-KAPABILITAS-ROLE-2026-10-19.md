@@ -120,12 +120,11 @@ create/link-payment, 112 (48 titik).
   diperluas 16 → 37 cek; fallback role dipertahankan (perilaku akun
   non-centangan TIDAK berubah); pesan penolakan tidak diubah. Sisa kandidat
   (095/017/018, maintenance 096) butuh capability baru → Fase 3.
-- **Fase 2 (butuh persetujuan — menyentuh skema DB & UI)**: halaman
-  "Kelola Jabatan" (role = paket preset 19 capability + tab + notifikasi),
-  disimpan di tabel/JSON setting baru; `hasCapability` membaca preset ketika
-  akun tidak punya override. Data awal = preset default hari ini sehingga
-  perilaku identik. UI baru di chunk terpisah — `app-core.js` byte-identik
-  (budget 969.808/970.000 B) tidak boleh dibesarkan tanpa renegosiasi budget.
+- **Fase 2 (desain diajukan — §7, menunggu persetujuan pemilik)**: halaman
+  "Kelola Jabatan" (role = paket preset capability + tab + notifikasi),
+  disimpan di tabel baru; perilaku default TIDAK berubah oleh deploy fitur
+  (paket berlaku lewat aksi "Terapkan"). UI di `assets/chunks/staff.js` —
+  `app-core.js` byte-identik (budget 969.808/970.000 B) tidak disentuh.
 - **Fase 3**: hapus bertahap cek keras Batch 2/3 per fitur, masing-masing
   dengan tes regresi + audit log, setelah Fase 2 stabil.
 
@@ -140,3 +139,51 @@ create/link-payment, 112 (48 titik).
    hanya berubah dengan persetujuan eksplisit pemilik.
 5. Setiap batch baru menambah cek di
    `tests/telegram-extension-capability-regression.php` atau suite baru.
+
+## 7. Desain Fase 2 — "Kelola Jabatan" (draf untuk persetujuan)
+
+Prinsip: **017 `hasCapability` tidak diubah** (murni array, tanpa PDO — dipakai
+banyak modul & test CLI). Paket jabatan = data + aksi eksplisit, bukan logika
+baru di jalur izin. Nol perubahan perilaku sebelum pemilik menekan "Terapkan".
+
+1. **Model data** — tabel baru `role_capability_presets` (`role` PK,
+   `permissions` JSON, `updated_by`, `updated_at`), migrasi
+   `migrations/20261019_ROLE_CAPABILITY_PRESETS.sql` + update
+   `database_setup.sql` (116 → 117 tabel). Seed awal = nilai `Eh(role)` +
+   `W_(role)` di app-core.js apa adanya (termasuk special-case finance
+   `perform_night_audit=true` dari `PA()`); role `owner` TIDAK di-seed (paket
+   tetap read-only) dan dikecualikan dari apply. Paritas seed vs `Eh()/W_()`
+   dibuktikan tes statis.
+2. **Semantik** — override akun (`staff.permissions`) tetap menang; paket
+   berlaku lewat aksi **"Terapkan ke jabatan"** yang menulis override lengkap
+   (desktopTabs+capabilities+telegramNotifications) ke tiap akun role
+   tersebut (skip owner, skip baris korup — perbaiki dulu via repair). Karena
+   `requireAuth` memuat `staff.*` segar per request (020_identity:1484),
+   efeknya langsung pada request berikutnya tanpa login ulang.
+   *Alasan bukan "hasCapability membaca preset":* situs pemanggil punya
+   fallback berbeda per fitur (contoh nyata `manage_room_access`: 080:1024
+   termasuk finance vs 090 lost-found hanya admin/manager) → preset global
+   tunggal justru mengubah perilaku default. Auto-inherit dicatat sebagai
+   kandidat Fase 3 per-fitur (setelah paket stabil & disetujui).
+3. **Endpoint** — file baru `api/routes/052_role_presets.php` (+ include di
+   `router.php`): `role-preset-list`, `role-preset-save` (validasi 19 cap +
+   whitelist tab), `role-preset-apply` (dry-run diff → konfirmasi → batch
+   update; audit log per akun + ringkasan). Guard `requireRoles(['admin'])`;
+   owner otomatis ditolak `tamasyaEnforceOwnerReadOnly`.
+4. **UI** — panel "Kelola Jabatan" di halaman Staf (`assets/chunks/staff.js`;
+   file ini boleh berubah, hanya `app-core.js` yang byte-identik). Prefill
+   editor staf beralih ke endpoint preset dengan fallback otomatis ke
+   `Eh()/PA()` bila DB kosong/gagal; diff preview wajib sebelum apply.
+5. **Tes & rilis** — suite baru `tests/role-preset-regression.php` (struktur,
+   seed, guard endpoint, paritas preset) masuk daftar
+   `scripts/verify-release.sh` (55 → 56 suite); alur rilis baku + ZIP baru.
+6. **Dampak ke Fase 3** — capability baru (095 laporan → mis. `view_report`,
+   017/018 inbox → mis. `view_support_inbox`, 096 fasilitas) cukup menambah
+   registry 19 → 22 + checkbox di staff.js + seed preset DB. Catatan budget:
+   sisa `app-core.js` 192 B tidak cukup untuk key preset baru → saat DB mati,
+   prefill cap baru kosong (server tetap fallback role); bila pemilik ingin
+   fallback 100%, perlu renegosiasi budget `app-core.js`.
+
+**Keputusan yang diminta dari pemilik:** (a) setuju tabel + migrasi baru;
+(b) setuju semantik "paket diterapkan lewat aksi Terapkan" (bukan auto-inherit
+di `hasCapability`); (c) guard admin-only; (d) eksekusi sekarang atau tunda.
