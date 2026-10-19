@@ -3,9 +3,34 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (HEAD `38b7025`, CI success, tree bersih)
+## 1. Status saat ini (HEAD `a8f34e5`, CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `a8f34e5` + `7f81438` **Migrasi cek role statis → centangan capability
+  (Batch 1+2 dari `AUDIT-KAPABILITAS-ROLE-2026-10-19.md`)** atas arahan pemilik
+  "kerjakan semuanya". Semua pesan penolakan & alur dipertahankan; akun tanpa
+  centangan berperilaku identik (fallback daftar role lama). Cakupan:
+  `080` Telegram (tombol & gerbang kas/shift → `receive_payment_access`;
+  baca kamar `/update_status` + gerbang roomRead → `manage_room_access`, owner
+  read-only tetap; tombol/handler/state layanan tamu → `perform_housekeeping`;
+  override selisih kas → `approve_sensitive_actions`; `/buka_shift`,
+  `/tutup_shift`, menu, pending state, diagnostik → satu predikat
+  `tamasyaCanOperateShift()||centangan receive_payment_access`), `044` `$write`
+  multi-room → `sell_room_access`+workspace, `090` (lost-found-secure, review
+  pembatalan maintenance, hold open/release → `manage_room_access`; shift
+  open/close → `receive_payment_access`; smart-lock manual-complete →
+  `override_key_checkout`; status blacklist 090:922 + override booking
+  blacklist 030:1802 → `approve_sensitive_actions`), `110` po-status
+  approved/received → `approve_sensitive_actions`, `010`
+  node-sync-conflict-resolve → `resolve_sync_conflict` (satu-satunya capability
+  yang tadinya belum ditegakkan di titik mana pun; referensi audit lama
+  "040:1185" keliru — situs asli 010:218, sudah dikoreksi di dokumen audit).
+  **Night audit tetap admin-only by design** (kontrak R16.4 dipin
+  `tests/night-audit-mode-regression.php`; sengaja tidak dimigrasi). Pemisahan
+  tugas keuangan (pemasukan/pengeluaran manual, laporan kas, po-create/link)
+  sengaja tetap keras. Tes `telegram-extension-capability-regression.php`
+  16 → 37 cek; verify-release 55 suite hijau; CI `39201844092` +
+  `39202966117` hijau; ZIP `tamasya-production-prod-20261019-1318.zip`.
 - `38b7025` **Audit total kelas bug beku perpanjangan: 3 dinding role keras +
   1 route web kini capability-aware** (respon pertanyaan pemilik "apakah hanya
   situ salahnya"). Setelah assert 050 diperbaiki, masih ada dinding role keras
@@ -34,8 +59,8 @@ Kerjaan terakhir (sudah push + ZIP):
 - `AUDIT-KAPABILITAS-ROLE-2026-10-19.md` — **inventaris lengkap izin** (334
   cek role keras di 48 file + 19 registry capability + by-design vs kandidat +
   peta jalan fase 0–3). Dibuat atas permintaan pemilik saat mengeluh "role
-  masih statis". Bukan perubahan runtime → tidak ada ZIP baru; Batch 1 fase 1
-  menunggu prioritas pemilik.
+  masih statis". Batch 1+2 dieksekusi pada `7f81438`+`a8f34e5` (lihat butir di
+  atas); sisa kandidat butuh capability baru → Fase 3 (desain dulu).
 - `4b14d0b` **Fix beku Telegram saat perpanjangan kamar oleh role tercantang**
   (laporan produksi: finance/role centangan klik "1 malam" → bot diam total).
   Akar: gate masuk alur perpanjangan sudah capability-aware
@@ -96,12 +121,11 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261019-1137.zip` (379 entri,
-  berisi audit total capability `38b7025` + fix beku perpanjangan `4b14d0b` +
-  email tersimpan otomatis + semua di bawahnya: fix nota email + dot legend +
-  warna kuning housekeeping + jalur kirim jujur (SMTP/PHP mail) + log
-  penolakan SMTP). ZIP lama (…1101, …2032, …1952, …1907, …1738, …1630, …1349,
-  …1835, dst.) usang, jangan dipakai.
+- ZIP produksi terbaru: `tamasya-production-prod-20261019-1318.zip` (374 entri,
+  berisi migrasi capability Batch 1+2 `7f81438`+`a8f34e5` + audit total
+  capability `38b7025` + fix beku perpanjangan `4b14d0b` + email tersimpan
+  otomatis + semua di bawahnya). ZIP lama (…1305, …1137, …1101, …2032, …1952,
+  …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
 - Fakta database (audit 18 Okt): `database_setup.sql` = 116 CREATE TABLE,
   SHA-256 `604f7d466b4e07de4e6f854c2f03a7609b52a08e5cf8b94efacf186aabfc263e`;
   `migrations/` = 21 file. Dokumen rilis lama (HANDOFF.md P0/R3,
