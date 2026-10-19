@@ -1,0 +1,104 @@
+<?php
+// Regresi Fase 2 "Kelola Jabatan": registry paket, seed default per jabatan (cermin
+// preset editor staf app-core.js), normalisasi entri paket, pembangunan override akun,
+// dan penjagaan jalur rilis (migrasi, route, UI). Murni fungsi + cek statis, tanpa
+// DB/server: penerapan ke akun hanya lewat route 052 dan tidak diuji di sini.
+if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
+define('TAMASYA_API_ENTRY', true);
+require dirname(__DIR__).'/api/support/017_authorization_policy.php';
+require dirname(__DIR__).'/api/support/021_role_presets.php';
+
+$passed = 0;
+function presetCheck(bool $ok, string $name): void {
+    global $passed;
+    if (!$ok) throw new RuntimeException('FAIL '.$name);
+    $passed++;
+    echo 'PASS '.$name.PHP_EOL;
+}
+
+$roles = tamasyaRolePresetRoles();
+$caps = tamasyaCapabilityRegistry();
+$tabs = tamasyaDesktopTabRegistry();
+$notifs = tamasyaTelegramNotificationRegistry();
+$seed = tamasyaRolePresetSeed();
+
+presetCheck($roles === ['admin','manager','finance','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'], 'Daftar jabatan = 9 non-owner (urutan kanonik)');
+presetCheck(!in_array('owner', $roles, true), 'Owner tidak termasuk jabatan yang dapat dikelola');
+presetCheck(count($caps) === 19 && count($tabs) === 15 && count($notifs) === 6, 'Registry 19 capability / 15 tab / 6 notifikasi');
+presetCheck(count($seed) === 9 && !isset($seed['owner']), 'Seed mencakup 9 jabatan, tanpa owner');
+presetCheck(array_keys($seed['admin']['desktopTabs']) === $tabs, 'Urutan kunci tab seed = registry (cermin app-core db)');
+presetCheck(array_keys($seed['admin']['telegramNotifications']) === $notifs, 'Urutan kunci notifikasi seed = registry');
+presetCheck(array_keys($seed['admin']['capabilities']) === $caps, 'Urutan kunci capability seed = registry');
+$allBool = true;
+foreach ($seed as $preset) {
+    foreach (['desktopTabs','telegramNotifications','capabilities'] as $group) {
+        foreach ($preset[$group] as $value) { if (!is_bool($value)) $allBool = false; }
+    }
+}
+presetCheck($allBool, 'Semua nilai seed boolean tegas');
+
+// Spot-check paritas dengan preset editor staf (PA(role,null)/Eh(role) app-core.js).
+presetCheck($seed['manager']['desktopTabs']['staff'] === false && $seed['manager']['desktopTabs']['finance'] === false && $seed['manager']['capabilities']['manage_backup'] === false && $seed['manager']['capabilities']['approve_sensitive_actions'] === true, 'Seed manager: staf/finance tertutup, backup tertutup, approve terbuka');
+presetCheck($seed['finance']['capabilities']['receive_payment_access'] === true && $seed['finance']['capabilities']['perform_night_audit'] === true && $seed['finance']['capabilities']['sell_room_access'] === false && $seed['finance']['desktopTabs']['rooms'] === false, 'Seed finance: kas & night audit terbuka, jual kamar/kamar tertutup');
+presetCheck($seed['receptionist']['capabilities']['sell_room_access'] === true && $seed['receptionist']['capabilities']['manage_stay_access'] === true && $seed['receptionist']['capabilities']['approve_sensitive_actions'] === false && $seed['receptionist']['desktopTabs']['support'] === true && $seed['receptionist']['desktopTabs']['report'] === false, 'Seed resepsionis: jual/inap terbuka, approve & laporan tertutup');
+presetCheck($seed['keamanan']['capabilities']['perform_night_audit'] === true && $seed['keamanan']['capabilities']['reconcile_payments'] === false && $seed['keamanan']['desktopTabs']['inventory'] === false, 'Seed keamanan: night audit saja, tanpa rekon/inventaris');
+presetCheck($seed['cleaning_service']['capabilities']['perform_housekeeping'] === true && $seed['cleaning_service']['desktopTabs']['inventory'] === true && $seed['koki']['capabilities']['perform_housekeeping'] === false && $seed['koki']['desktopTabs']['inventory'] === true, 'Seed cleaning service & koki sesuai preset app-core');
+presetCheck($seed['admin']['telegramNotifications'] === ['bookings'=>true,'finance'=>true,'inventory'=>true,'operations'=>true,'hr'=>true,'system'=>true] && $seed['cleaning_service']['telegramNotifications']['bookings'] === false && $seed['cleaning_service']['telegramNotifications']['inventory'] === true, 'Seed notifikasi Telegram: admin semua, cleaning service inventaris/operasional saja');
+
+// Normalisasi entri dari klien.
+$roundtrip = tamasyaRolePresetNormalize(json_encode($seed['admin']));
+presetCheck($roundtrip === $seed['admin'], 'Normalisasi roundtrip seed admin utuh (JSON string diterima)');
+$partial = tamasyaRolePresetNormalize(['desktopTabs'=>['dashboard'=>true], 'telegramNotifications'=>[], 'capabilities'=>['view_audit_log'=>'1']]);
+presetCheck($partial['desktopTabs']['dashboard'] === true && $partial['desktopTabs']['rooms'] === false && $partial['capabilities']['view_audit_log'] === true && $partial['capabilities']['manage_backup'] === false && $partial['telegramNotifications']['finance'] === false, 'Kunci absen = false dan 1/"1" diterima (eksplisit, tanpa warisan)');
+$rejectedUnknown = false;
+try { tamasyaRolePresetNormalize(['desktopTabs'=>[], 'telegramNotifications'=>[], 'capabilities'=>['capability_palsu'=>true]]); } catch (InvalidArgumentException $e) { $rejectedUnknown = true; }
+presetCheck($rejectedUnknown, 'Kunci di luar registry ditolak');
+$rejectedMissing = false;
+try { tamasyaRolePresetNormalize(['desktopTabs'=>[]]); } catch (InvalidArgumentException $e) { $rejectedMissing = true; }
+presetCheck($rejectedMissing, 'Grup paket yang hilang ditolak');
+$rejectedValue = false;
+try { tamasyaRolePresetNormalize(['desktopTabs'=>[], 'telegramNotifications'=>[], 'capabilities'=>['manage_backup'=>'ya']]); } catch (InvalidArgumentException $e) { $rejectedValue = true; }
+presetCheck($rejectedValue, 'Nilai non-boolean ditolak (bukan diam-diam false)');
+
+// Pembacaan toleran + pembangunan override.
+$coerced = tamasyaRolePresetCoerce(['desktopTabs'=>['dashboard'=>1,'rooms'=>'true','alien'=>true], 'telegramNotifications'=>['finance'=>'sampah'], 'capabilities'=>['view_audit_log'=>'1']]);
+presetCheck(count($coerced['desktopTabs']) === 15 && $coerced['desktopTabs']['dashboard'] === true && $coerced['desktopTabs']['rooms'] === true && $coerced['telegramNotifications']['finance'] === false && $coerced['capabilities']['view_audit_log'] === true && $coerced['capabilities']['manage_backup'] === false, 'Coerce toleran: kunci asing diabaikan, nilai ganjil jadi false');
+$override = tamasyaRolePresetBuildOverride($seed['manager'], ['readOnly'=>true,'capabilities'=>['manage_backup'=>true]]);
+presetCheck($override['readOnly'] === true && $override['capabilities'] === $seed['manager']['capabilities'] && $override['desktopTabs'] === $seed['manager']['desktopTabs'], 'Override gabungan: kunci lain (readOnly) dipertahankan, tiga grup ditimpa penuh');
+$overrideFromJunk = tamasyaRolePresetBuildOverride($seed['finance'], '{bukan json');
+presetCheck($overrideFromJunk['capabilities'] === $seed['finance']['capabilities'] && !isset($overrideFromJunk['readOnly']), 'Override dari permissions korup tetap aman (mulai basis kosong)');
+
+// Diff pratinjau: acuan sebelum = override akun, jatuh ke seed jabatan bila tidak ada.
+$noDiff = tamasyaRolePresetAccountDiff($seed['admin'], 'admin', null);
+presetCheck($noDiff === [], 'Akun tanpa override tidak berubah bila paket = seed jabatan');
+$flip = tamasyaRolePresetAccountDiff(array_merge($seed['finance'], ['capabilities'=>array_merge($seed['finance']['capabilities'], ['manage_backup'=>true])]), 'finance', null);
+presetCheck(count($flip) === 1 && $flip['capabilities']['manage_backup'] === ['before'=>false,'after'=>true], 'Perubahan tunggal terdeteksi dengan before dari seed jabatan');
+$overrideWins = tamasyaRolePresetAccountDiff(array_merge($seed['finance'], ['capabilities'=>array_merge($seed['finance']['capabilities'], ['receive_payment_access'=>false])]), 'finance', json_encode(['capabilities'=>['receive_payment_access'=>true]]));
+presetCheck(count($overrideWins) === 1 && $overrideWins['capabilities']['receive_payment_access'] === ['before'=>true,'after'=>false], 'Override akun menang sebagai nilai sebelum');
+$fallback = tamasyaRolePresetAccountDiff(array_merge($seed['manager'], ['capabilities'=>array_merge($seed['manager']['capabilities'], ['perform_housekeeping'=>false])]), 'manager', json_encode(['capabilities'=>[]]));
+presetCheck(count($fallback) === 1 && $fallback['capabilities']['perform_housekeeping'] === ['before'=>true,'after'=>false], 'Override tanpa kunci jatuh ke seed jabatan sebagai nilai sebelum');
+
+// Jalur rilis: route, router, require boot, migrasi, baseline setup, UI.
+$route = file_get_contents(dirname(__DIR__).'/api/routes/052_role_presets.php');
+presetCheck(str_contains($route, "!== 'role-preset'") && str_contains($route, "requireRoles(\$loggedInStaff,['admin']);") && str_contains($route, 'tamasyaEnforceOwnerReadOnly($loggedInStaff,(string)$action);'), 'Route 052 admin-only + owner read-only');
+presetCheck(str_contains($route, 'role-preset-list') && str_contains($route, 'role-preset-save') && str_contains($route, 'role-preset-preview') && str_contains($route, 'role-preset-apply'), 'Empat command paket jabatan tersedia');
+presetCheck(str_contains($route, "tamasyaRolePresetNormalize(\$input['preset']??null)") && str_contains($route, "SELECT role,permissions,updated_at FROM role_capability_presets WHERE role=? FOR UPDATE"), 'Simpan tervalidasi; penerapan membaca paket tersimpan (bukan kiriman klien)');
+presetCheck(str_contains($route, "(\$input['confirm']??null)!==true") && substr_count($route, 'writeRequiredEnterpriseAudit') >= 3, 'Terapkan butuh confirm=true dan tercatat audit (per akun + ringkasan)');
+$router = file_get_contents(dirname(__DIR__).'/api/router.php');
+presetCheck(str_contains($router, "routes/052_role_presets.php"), 'Router memuat route 052');
+$apiBoot = file_get_contents(dirname(__DIR__).'/api.php');
+presetCheck(str_contains($apiBoot, "'021_role_presets.php';"), 'Boot api.php memuat support 021');
+$migration = file_get_contents(dirname(__DIR__).'/migrations/20261019_ROLE_CAPABILITY_PRESETS.sql');
+presetCheck(str_contains($migration, 'CREATE TABLE IF NOT EXISTS `role_capability_presets`') && str_contains($migration, 'INSERT IGNORE INTO `role_capability_presets`'), 'Migrasi idempoten: tabel + seed INSERT IGNORE');
+preg_match_all("/^\('([a-z_]+)', '/m", $migration, $seedRows);
+presetCheck(count($seedRows[1]) === 9 && !in_array('owner', $seedRows[1], true) && $seedRows[1] === $roles, 'Migrasi men-seed 9 jabatan kanonik tanpa owner');
+$baseline = file_get_contents(dirname(__DIR__).'/database_setup.sql');
+presetCheck(str_contains($baseline, 'CREATE TABLE IF NOT EXISTS `role_capability_presets`') && str_contains($baseline, 'INSERT IGNORE INTO `role_capability_presets`'), 'database_setup.sql memuat tabel + seed paket jabatan');
+presetCheck(substr_count($baseline, 'CREATE TABLE') === 117, 'Baseline = 117 CREATE TABLE (116 + role_capability_presets)');
+$staffChunk = file_get_contents(dirname(__DIR__).'/assets/chunks/staff.js');
+presetCheck(str_contains($staffChunk, 'function RolePresetPanel(') && str_contains($staffChunk, 'export {QleBridge as Qle};') && str_contains($staffChunk, 'function Qle({currentRole:e,onRefreshData:a})'), 'UI: panel Kelola Jabatan + bridge Qle tanpa mengubah Qle asli');
+presetCheck(str_contains($staffChunk, 'action=role-preset') && str_contains($staffChunk, '"role-preset-apply"') && str_contains($staffChunk, '"role-preset-save"'), 'UI memanggil endpoint 052 (list/save/preview/apply)');
+$authPolicy = file_get_contents(dirname(__DIR__).'/api/support/017_authorization_policy.php');
+presetCheck(str_contains($authPolicy, "function hasCapability(\$user, \$capability, \$fallbackRoles = [])") && str_contains($authPolicy, "tamasyaPermissionOverride(\$user['permissions']??null,'capabilities',(string)\$capability)"), 'Enforcement 017 tidak berubah (override lalu fallback role)');
+
+echo "Role preset (Fase 2 Kelola Jabatan): {$passed} passed; 0 failed.".PHP_EOL;

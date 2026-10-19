@@ -25,6 +25,8 @@ try {
     if ($routeHandled) { return; }
     require __DIR__ . '/routes/050_auth_staff.php';
     if ($routeHandled) { return; }
+    require __DIR__ . '/routes/052_role_presets.php';
+    if ($routeHandled) { return; }
     require __DIR__ . '/routes/058_biometric_attendance.php';
     if ($routeHandled) { return; }
     require __DIR__ . '/routes/060_workforce_inventory.php';
