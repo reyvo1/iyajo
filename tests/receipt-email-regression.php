@@ -4,6 +4,7 @@ if (PHP_SAPI !== 'cli') { http_response_code(404); exit; }
 define('TAMASYA_API_ENTRY', true);
 if (!defined('TAMASYA_RECEIPT_EMAIL_LIBRARY')) define('TAMASYA_RECEIPT_EMAIL_LIBRARY', true);
 require dirname(__DIR__).'/api/support/060_shift_receipts.php';
+require dirname(__DIR__).'/api/support/023_smtp_diagnostics.php';
 
 $GLOBALS['fake_side_effects'] = true;
 $GLOBALS['fake_smtp_ok'] = false;
@@ -26,8 +27,16 @@ function tamasyaMaskEmailAddress(string $email): string {
 function tamasyaExternalSideEffectsAllowed(): bool { return (bool)$GLOBALS['fake_side_effects']; }
 function sendSmtpMail($to, $subject, $html, $conf, $attachments = []): bool {
     $GLOBALS['fake_mail_log'][] = ['via'=>'smtp','to'=>$to,'subject'=>$subject];
-    if (!empty($GLOBALS['fake_smtp_throws'])) throw new RuntimeException('simulated smtp transport failure');
-    return (bool)$GLOBALS['fake_smtp_ok'];
+    if (!empty($GLOBALS['fake_smtp_throws'])) {
+        $GLOBALS['tamasya_smtp_last'] = ['ok'=>false,'stage'=>'connect','response'=>'','queueId'=>'','error'=>'Koneksi ke smtp.uji.test:587 gagal: Connection refused (111)'];
+        throw new RuntimeException('simulated smtp transport failure');
+    }
+    if ((bool)$GLOBALS['fake_smtp_ok']) {
+        $GLOBALS['tamasya_smtp_last'] = ['ok'=>true,'stage'=>'accepted','response'=>'250 OK id=1a2b3c-4d5e','queueId'=>'1a2b3c-4d5e','error'=>''];
+        return true;
+    }
+    $GLOBALS['tamasya_smtp_last'] = ['ok'=>false,'stage'=>'auth','response'=>'535 Incorrect authentication data','queueId'=>'','error'=>'Otentikasi SMTP ditolak: 535 Incorrect authentication data'];
+    return false;
 }
 function tamasyaPhpMailWithAttachments($to, $subject, $html, $attachments = [], $conf = []): bool {
     $GLOBALS['fake_mail_log'][] = ['via'=>'php','to'=>$to,'subject'=>$subject];
@@ -123,10 +132,12 @@ $GLOBALS['fake_smtp_ok'] = true;
 $auditCount = count($GLOBALS['fake_audits']);
 $sent = tamasyaSendBookingReceiptEmail($pdo,$actor,$booking,'Tamu@Uji.test','web','op-1');
 emailCheck($sent['method']==='SMTP' && $sent['masked']==='ta***@uji.test','SMTP path reports method and masked recipient');
+emailCheck($sent['verified']===true && $sent['queueId']==='1a2b3c-4d5e' && $sent['smtpError']==='' && str_contains($sent['deliveryNote'],'diterima server SMTP (antrean 1a2b3c-4d5e)'),'Verified SMTP send reports queue id and delivery note');
 emailCheck(count($GLOBALS['fake_audits'])===$auditCount+1,'Every successful send writes one enterprise audit row');
 $audit = $GLOBALS['fake_audits'][array_key_last($GLOBALS['fake_audits'])];
 emailCheck($audit['action']==='Mengirim nota kamar via email' && $audit['entityType']==='booking' && $audit['entityId']===$booking['id'],'Guest audit records action scope and booking id');
 emailCheck(preg_match('/^receipt_email_[0-9a-f]{40}$/',(string)$audit['after']['eventId'])===1 && $audit['after']['recipientHash']===hash('sha256','tamu@uji.test') && $audit['after']['method']==='SMTP' && $audit['after']['channel']==='web','Guest audit hashes recipient and pins method channel and event id');
+emailCheck($audit['after']['verified']===true && ($audit['after']['queueId']??'')==='1a2b3c-4d5e' && !isset($audit['after']['smtpError']),'Guest audit stores the verified flag and SMTP queue id without an error');
 $sentAgain = tamasyaSendBookingReceiptEmail($pdo,$actor,$booking,'tamu@uji.test','web','op-1');
 $auditAgain = $GLOBALS['fake_audits'][array_key_last($GLOBALS['fake_audits'])];
 emailCheck($sentAgain['invoiceNumber']===$sent['invoiceNumber'] && $auditAgain['after']['eventId']===$audit['after']['eventId'],'Same operation replays the same invoice and audit event id');
@@ -142,10 +153,14 @@ $GLOBALS['fake_smtp_ok'] = false;
 $GLOBALS['fake_php_mail_ok'] = true;
 $fallbackSend = tamasyaSendBookingReceiptEmail($pdo,$actor,$booking,'tamu@uji.test','telegram','op-2');
 emailCheck($fallbackSend['method']==='PHP mail()','SMTP failure falls back to PHP mail like canonical reports');
+emailCheck($fallbackSend['verified']===false && str_contains($fallbackSend['deliveryNote'],'BELUM terverifikasi') && str_contains($fallbackSend['deliveryNote'],'Otentikasi SMTP ditolak'),'Fallback send is honestly labeled unverified with the real SMTP reason');
+$fallbackAudit = $GLOBALS['fake_audits'][array_key_last($GLOBALS['fake_audits'])];
+emailCheck($fallbackAudit['after']['verified']===false && str_contains((string)($fallbackAudit['after']['smtpError']??''),'Otentikasi SMTP ditolak'),'Fallback audit keeps verified=false and the SMTP error evidence');
 $GLOBALS['fake_smtp_ok'] = true;
 $GLOBALS['fake_smtp_throws'] = true;
 $thrownFallback = tamasyaSendBookingReceiptEmail($pdo,$actor,$booking,'tamu@uji.test','web','op-2b');
 emailCheck($thrownFallback['method']==='PHP mail()','SMTP exception also falls back to PHP mail without aborting');
+emailCheck($thrownFallback['verified']===false && str_contains($thrownFallback['deliveryNote'],'Koneksi ke smtp.uji.test:587 gagal'),'SMTP exception fallback carries the transport error into the delivery note');
 $GLOBALS['fake_smtp_throws'] = false;
 $GLOBALS['fake_php_mail_ok'] = false;
 $GLOBALS['fake_smtp_host'] = '';
@@ -182,5 +197,11 @@ emailCheck(substr_count($route,"\$result['method']")>=2,'Web success messages ex
 emailCheck(substr_count($webhook,"\$result['method']")>=3,'Telegram receipt and group replies expose the real delivery method');
 emailCheck(str_contains($smtpModuleSrc,'[smtp] DATA ditolak server') && str_contains($smtpModuleSrc,'Server SMTP menolak pengirim'),'SMTP client logs DATA rejection and refuses a rejected envelope sender');
 emailCheck(str_contains($receiptLibSrc,'[receipt-email] SMTP tidak berhasil'),'Fallback to PHP mail is logged with the SMTP host for evidence');
+emailCheck(substr_count($smtpModuleSrc,"\$GLOBALS['tamasya_smtp_last']")>=6,'SMTP client records a stage trace for every failure path');
+emailCheck(str_contains($receiptLibSrc,"\$GLOBALS['tamasya_smtp_last']") && str_contains($receiptLibSrc,'BELUM terverifikasi') && str_contains($receiptLibSrc,"'verified'=>\$verified"),'Receipt email exposes verified status and the honest fallback note');
+emailCheck(substr_count($route,"\$result['deliveryNote']")>=2,'Web success messages carry the delivery verification note');
+emailCheck(substr_count($webhook,"\$result['deliveryNote']")>=3,'Telegram receipt and group replies carry the delivery verification note');
+emailCheck(str_contains($multiTelegram,"\$result['deliveryNote']"),'Telegram group report reply carries the delivery verification note');
+emailCheck(str_contains(file_get_contents($root.'/assets/chunks/booking-receipt.js'),'Y.verified===false?"err":"ok"'),'Web receipt dialog colors unverified sends as a warning');
 
 echo "Receipt email: $passed passed; 0 failed.".PHP_EOL;

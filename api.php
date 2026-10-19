@@ -64,6 +64,7 @@ require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'supp
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '016_approval_policy.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '017_authorization_policy.php';
 require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '021_role_presets.php';
+require_once __DIR__ . DIRECTORY_SEPARATOR . 'api' . DIRECTORY_SEPARATOR . 'support' . DIRECTORY_SEPARATOR . '023_smtp_diagnostics.php';
 $__f = tamasyaResolveDomainSupportFile('018_canonical_business_policy.php'); if ($__f) { require_once $__f; } unset($__f);
 $__f = tamasyaResolveDomainSupportFile('0185_finance_catalog_identity.php'); if ($__f) { require_once $__f; } unset($__f);
 require_once __DIR__ . '/api/modules/finance/021_universal_catalog.php';

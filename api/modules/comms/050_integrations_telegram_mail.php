@@ -441,6 +441,7 @@ function logActivity($pdo, $actionType, $description, $staffId = null, $staffNam
 /** Source line 4421: sendSmtpMail */
 function sendSmtpMail($to, $subject, $message, $config, array $attachments = []) {
     if (!tamasyaExternalSideEffectsAllowed()) {
+        $GLOBALS['tamasya_smtp_last'] = ['ok'=>false,'stage'=>'gate','host'=>'','port'=>0,'secure'=>'','error'=>'Node bukan Primary aktif (lease tidak valid).'];
         error_log('[api.php] SMTP side effect suppressed because this node is not the active Primary with a valid lease.');
         return false;
     }
@@ -451,7 +452,13 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
     $smtp_secure = strtolower($config['smtpSecure'] ?? $config['smtp_secure'] ?? 'tls');
     $from_email = $config['smtpFrom'] ?? $config['smtp_from'] ?? '';
 
+    // Jejak hasil SMTP terakhir: dipakai audit nota & panel "Tes Email SMTP" agar
+    // kegagalan nyata (auth/TLS/sender/DATA) tidak tersembunyi di error_log saja.
+    $GLOBALS['tamasya_smtp_last'] = ['ok'=>false,'stage'=>'init','host'=>(string)$smtp_host,'port'=>$smtp_port,'secure'=>$smtp_secure,'error'=>''];
+
     if (empty($smtp_host)) {
+        $GLOBALS['tamasya_smtp_last']['stage'] = 'config';
+        $GLOBALS['tamasya_smtp_last']['error'] = 'Host SMTP belum diisi.';
         return false;
     }
     if (!filter_var($from_email, FILTER_VALIDATE_EMAIL)) {
@@ -480,6 +487,8 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
     $endpoint = $transport . $smtp_host . ':' . $smtp_port;
     $socket = @stream_socket_client($endpoint, $errno, $errstr, 15, STREAM_CLIENT_CONNECT, $tlsContext);
     if (!$socket) {
+        $GLOBALS['tamasya_smtp_last']['stage'] = 'connect';
+        $GLOBALS['tamasya_smtp_last']['error'] = "Koneksi ke {$smtp_host}:{$smtp_port} gagal: {$errstr} ({$errno})";
         throw new Exception("Koneksi SMTP ke {$smtp_host}:{$smtp_port} gagal: {$errstr} ({$errno})");
     }
     stream_set_timeout($socket, 20);
@@ -500,10 +509,15 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
         fwrite($socket, "STARTTLS\r\n");
         $tlsGreet = fgets($socket, 515);
         if (strpos($tlsGreet, '220') === false) {
+            $GLOBALS['tamasya_smtp_last']['stage'] = 'starttls';
+            $GLOBALS['tamasya_smtp_last']['response'] = substr(trim((string)$tlsGreet), 0, 300);
+            $GLOBALS['tamasya_smtp_last']['error'] = 'STARTTLS ditolak server: ' . trim((string)$tlsGreet);
             fclose($socket);
             throw new Exception("STARTTLS ditolak oleh server SMTP: " . trim($tlsGreet));
         }
         if (!stream_socket_enable_crypto($socket, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+            $GLOBALS['tamasya_smtp_last']['stage'] = 'tls';
+            $GLOBALS['tamasya_smtp_last']['error'] = 'Gagal mengaktifkan enkripsi TLS pada soket.';
             fclose($socket);
             throw new Exception("Gagal mengaktifkan enkripsi TLS pada soket.");
         }
@@ -527,6 +541,9 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
         $passRes = fgets($socket, 515);
         
         if (strpos($passRes, '235') === false) {
+            $GLOBALS['tamasya_smtp_last']['stage'] = 'auth';
+            $GLOBALS['tamasya_smtp_last']['response'] = substr(trim((string)$passRes), 0, 300);
+            $GLOBALS['tamasya_smtp_last']['error'] = 'Otentikasi SMTP ditolak: ' . trim((string)$passRes);
             fclose($socket);
             throw new Exception("Otentikasi SMTP gagal: Username atau password salah. Respon server: " . trim($passRes));
         }
@@ -536,6 +553,9 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
     fwrite($socket, "MAIL FROM: <$from_email>\r\n");
     $fromRes = fgets($socket, 515);
     if (!preg_match('/^2\d\d/', (string)$fromRes)) {
+        $GLOBALS['tamasya_smtp_last']['stage'] = 'from_rejected';
+        $GLOBALS['tamasya_smtp_last']['response'] = substr(trim((string)$fromRes), 0, 300);
+        $GLOBALS['tamasya_smtp_last']['error'] = "Pengirim <$from_email> ditolak server: " . trim((string)$fromRes);
         fclose($socket);
         throw new Exception("Server SMTP menolak pengirim <$from_email>: " . trim((string)$fromRes));
     }
@@ -544,6 +564,9 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
     fwrite($socket, "RCPT TO: <$to>\r\n");
     $rcptRes = fgets($socket, 515);
     if (strpos($rcptRes, '250') === false && strpos($rcptRes, '251') === false) {
+        $GLOBALS['tamasya_smtp_last']['stage'] = 'rcpt_rejected';
+        $GLOBALS['tamasya_smtp_last']['response'] = substr(trim((string)$rcptRes), 0, 300);
+        $GLOBALS['tamasya_smtp_last']['error'] = 'Tujuan ditolak server: ' . trim((string)$rcptRes);
         fclose($socket);
         throw new Exception("Email tujuan <$to> ditolak oleh server SMTP: " . trim($rcptRes));
     }
@@ -585,6 +608,17 @@ function sendSmtpMail($to, $subject, $message, $config, array $attachments = [])
     fwrite($socket, $headers . "\r\n" . $escaped_message . "\r\n.\r\n");
     $dataRes = fgets($socket, 515);
     $accepted = strpos((string)$dataRes, '250') !== false;
+
+    $GLOBALS['tamasya_smtp_last']['ok'] = $accepted;
+    $GLOBALS['tamasya_smtp_last']['stage'] = $accepted ? 'accepted' : 'data_rejected';
+    $GLOBALS['tamasya_smtp_last']['response'] = substr(trim((string)$dataRes), 0, 300);
+    $GLOBALS['tamasya_smtp_last']['ehlo'] = substr(trim((string)$res), 0, 400);
+    if ($accepted && function_exists('tamasyaSmtpExtractQueueId')) {
+        $GLOBALS['tamasya_smtp_last']['queueId'] = tamasyaSmtpExtractQueueId((string)$dataRes);
+    }
+    if (!$accepted) {
+        $GLOBALS['tamasya_smtp_last']['error'] = 'Server menolak DATA: ' . trim((string)$dataRes);
+    }
 
     fwrite($socket, "QUIT\r\n");
     fclose($socket);

@@ -41,6 +41,7 @@ php tests/multi-room-regression.php
 php tests/receipt-projection-regression.php
 php tests/receipt-email-regression.php
 php tests/smtp-line-length-regression.php
+php tests/smtp-diagnostics-regression.php
 php tests/cosmetic-legend-dots-regression.php
 php tests/telegram-extension-capability-regression.php
 node --experimental-vm-modules tests/multi-room-ui-regression.mjs
@@ -76,4 +77,4 @@ php tests/facility-management-regression.php
 php tests/money-precision-regression.php
 php tests/database-tls-regression.php
 php tests/role-preset-regression.php
-printf "All source checks and 56 regression suites passed.\n"
+printf "All source checks and 57 regression suites passed.\n"

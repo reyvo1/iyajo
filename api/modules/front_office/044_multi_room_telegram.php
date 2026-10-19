@@ -100,7 +100,7 @@ function tamasyaMultiRoomTelegramCallback(PDO $pdo,array $actor,string $callback
         $result=tamasyaSendGroupReportEmail($pdo,$actor,$d['group']['id'],$companyEmail,'telegram',$operationId);
         $pdo->prepare('UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?')->execute([$actor['id']]);
         $reply=tamasyaMultiRoomTelegramDetail($pdo,$actor,$d['group']['id']);
-        $reply['text']="✅ Laporan ".$result['reportReference']." terkirim ke ".$result['masked'].". \n\n".$reply['text'];
+        $reply['text']="✅ Laporan ".$result['reportReference']." terkirim ke ".$result['masked'].". \n\n".($result['deliveryNote']??'')."\n\n".$reply['text'];
         return $reply;
     }
     $nonce=end($parts);$ctx=tamasyaMultiRoomTelegramContext($actor,$nonce);$state=(string)($actor['telegram_state']??'');

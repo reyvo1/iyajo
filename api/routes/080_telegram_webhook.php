@@ -2805,7 +2805,7 @@ Ketik bagian *Tunai* saja. Contoh: `40000`. Sisa otomatis menjadi Transfer/QRIS.
                         if ($target === '' || !filter_var($target, FILTER_VALIDATE_EMAIL)) throw new InvalidArgumentException('Email tamu belum tersimpan. Ketik alamat email tujuan terlebih dahulu.');
                         $result = tamasyaSendBookingReceiptEmail($pdo, $loggedInStaff, $booking, $target, 'telegram', $telegramCallbackOperationId);
                         $pdo->prepare("UPDATE staff SET telegram_state = NULL, telegram_context = NULL WHERE id = ?")->execute([$loggedInStaff['id']]);
-                        $replyText = "✅ *NOTA TERKIRIM*\n\nNota ".$result['invoiceNumber']." sudah dikirim ke ".$result['masked']." (via ".$result['method'].").\nJika tamu belum menerima, minta cek folder spam atau periksa konfigurasi email hotel.";
+                        $replyText = "✅ *NOTA TERKIRIM*\n\nNota ".$result['invoiceNumber']." sudah dikirim ke ".$result['masked']." (via ".$result['method'].").\n".($result['deliveryNote']??'')."\nJika tamu belum menerima, minta cek folder spam atau periksa konfigurasi email hotel.";
                         $replyMarkup = ['inline_keyboard'=>[[['text'=>'🧾 Cetak Nota Thermal','callback_data'=>'print_receipt:'.$bookingId]]]];
                         $alertText = "Nota terkirim";
                     } catch (Throwable $emailError) {
@@ -5921,7 +5921,7 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                         if (($ctx['mode'] ?? '') === 'company') {
                             $result = tamasyaSendGroupReportEmail($pdo, $loggedInStaff, (string)($ctx['groupId'] ?? ''), $target, 'telegram', $telegramUpdateOperationId);
                             $pdo->prepare("UPDATE staff SET telegram_state = NULL, telegram_context = NULL WHERE id = ?")->execute([$loggedInStaff['id']]);
-                            $replyText = "✅ *LAPORAN GRUP TERKIRIM*\n\nLaporan ".$result['reportReference']." sudah dikirim ke ".$result['masked']." (via ".$result['method'].").";
+                            $replyText = "✅ *LAPORAN GRUP TERKIRIM*\n\nLaporan ".$result['reportReference']." sudah dikirim ke ".$result['masked']." (via ".$result['method'].").\n".($result['deliveryNote']??'');
                             $replyMarkup = ['inline_keyboard'=>[[['text'=>'🏨 Buka Detail Grup','callback_data'=>'mr_detail:'.(string)($ctx['groupId'] ?? '')]]]];
                         } else {
                             $bookingId = (string)($ctx['bookingId'] ?? '');
@@ -5931,7 +5931,7 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                             if (!$booking) throw new InvalidArgumentException('Data sewa tidak ditemukan.');
                             $result = tamasyaSendBookingReceiptEmail($pdo, $loggedInStaff, $booking, $target, 'telegram', $telegramUpdateOperationId);
                             $pdo->prepare("UPDATE staff SET telegram_state = NULL, telegram_context = NULL WHERE id = ?")->execute([$loggedInStaff['id']]);
-                            $replyText = "✅ *NOTA TERKIRIM*\n\nNota ".$result['invoiceNumber']." sudah dikirim ke ".$result['masked']." (via ".$result['method'].").";
+                            $replyText = "✅ *NOTA TERKIRIM*\n\nNota ".$result['invoiceNumber']." sudah dikirim ke ".$result['masked']." (via ".$result['method'].").\n".($result['deliveryNote']??'');
                             $replyMarkup = ['inline_keyboard'=>[[['text'=>'🧾 Cetak Nota Thermal','callback_data'=>'print_receipt:'.$bookingId]]]];
                         }
                     } catch (Throwable $emailStateError) {

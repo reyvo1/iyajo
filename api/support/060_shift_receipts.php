@@ -850,18 +850,47 @@ function tamasyaSendReceiptEmail(PDO $pdo,array $actor,string $to,string $subjec
     if(function_exists('tamasyaExternalSideEffectsAllowed')&&!tamasyaExternalSideEffectsAllowed())throw new RuntimeException('Pengiriman email resmi hanya boleh dilakukan dari node Primary yang aktif.');
     $confStmt=$pdo->query("SELECT * FROM config WHERE id='system_default' LIMIT 1");
     $conf=$confStmt?($confStmt->fetch(PDO::FETCH_ASSOC)?:[]):[];
-    $sent=false;$method='';
-    if(trim((string)($conf['smtp_host']??''))!==''){try{$sent=sendSmtpMail($to,$subject,$html,$conf,[]);}catch(Exception $smtpFailure){$sent=false;error_log('[receipt-email] SMTP exception, fallback PHP mail(): '.$smtpFailure->getMessage());}if($sent)$method='SMTP';}
+    $sent=false;$method='';$smtpError='';
+    if(trim((string)($conf['smtp_host']??''))!==''){
+        try{$sent=sendSmtpMail($to,$subject,$html,$conf,[]);}catch(Exception $smtpFailure){$sent=false;error_log('[receipt-email] SMTP exception, fallback PHP mail(): '.$smtpFailure->getMessage());}
+        if($sent){$method='SMTP';}
+        else{
+            // Alasan kegagalan SMTP nyata (auth/TLS/sender/DATA) dari jejak terakhir,
+            // dipakai audit + pesan agar kegagalan tidak lagi tersembunyi diam-diam.
+            $trace=is_array($GLOBALS['tamasya_smtp_last']??null)?$GLOBALS['tamasya_smtp_last']:[];
+            $smtpError=trim((string)($trace['error']??''));
+            if($smtpError==='')$smtpError='SMTP tidak berhasil tanpa detail (lihat log server).';
+        }
+    }else{
+        $smtpError='Host SMTP belum diisi di Pengaturan.';
+    }
     if(!$sent&&function_exists('tamasyaPhpMailWithAttachments')){error_log('[receipt-email] SMTP tidak berhasil (host='.trim((string)($conf['smtp_host']??'')).'), fallback PHP mail() untuk sha256:'.substr(hash('sha256',$to),0,12));$sent=tamasyaPhpMailWithAttachments($to,$subject,$html,[],$conf);if($sent)$method='PHP mail()';}
     if(!$sent)throw new RuntimeException('Email tidak berhasil dikirim. Periksa konfigurasi SMTP/email hosting di Pengaturan.');
+    // "Terkirim" hanya terverifikasi bila server SMTP benar-benar menerima pesan.
+    // Jalur cadangan PHP mail() hanya berarti MTA lokal menerima titipan — belum tentu terantar.
+    $verified=($method==='SMTP');
+    $queueId='';
+    if($verified){
+        $trace=is_array($GLOBALS['tamasya_smtp_last']??null)?$GLOBALS['tamasya_smtp_last']:[];
+        $queueId=trim((string)($trace['queueId']??''));
+    }
+    if($verified){
+        $deliveryNote='Status pengiriman: diterima server SMTP'.($queueId!==''?' (antrean '.$queueId.')':'').'.';
+    }else{
+        $smtpReason=function_exists('tamasyaSmtpSanitizeResponse')?tamasyaSmtpSanitizeResponse($smtpError!==''?$smtpError:'SMTP tidak tersedia.',200):(trim((string)preg_replace('/\s+/',' ',$smtpError))?:'SMTP tidak tersedia.');
+        $deliveryNote='PENTING: dikirim lewat cadangan PHP mail() hosting — pengiriman BELUM terverifikasi. SMTP gagal: '.$smtpReason.' Perbaiki di Pengaturan > Konfigurasi Server Email.';
+    }
     $masked=function_exists('tamasyaMaskEmailAddress')?tamasyaMaskEmailAddress($to):(preg_replace('/(^.).*(@.*$)/','$1***$2',$to)?:'[email]');
     $auditData['recipientHash']=hash('sha256',$to);
     $auditData['method']=$method;
     $auditData['channel']=$channel;
+    $auditData['verified']=$verified;
+    if($smtpError!=='')$auditData['smtpError']=function_exists('tamasyaSmtpSanitizeResponse')?tamasyaSmtpSanitizeResponse($smtpError,300):substr($smtpError,0,300);
+    if($queueId!=='')$auditData['queueId']=$queueId;
     if(function_exists('writeRequiredEnterpriseAudit')){
         writeRequiredEnterpriseAudit($pdo,$actor,$auditAction,$entityType,$entityId,null,$auditData,$channel);
     }
-    return ['masked'=>$masked,'method'=>$method];
+    return ['masked'=>$masked,'method'=>$method,'verified'=>$verified,'queueId'=>$queueId,'smtpError'=>$smtpError,'deliveryNote'=>$deliveryNote];
 }
 
 /** Nota resmi satu booking via email (dipakai web & Telegram). */

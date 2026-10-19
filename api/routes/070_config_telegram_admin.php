@@ -4,9 +4,10 @@ if (!defined('TAMASYA_API_ENTRY')) { http_response_code(404); exit; }
 if (!in_array((string)($action ?? ''), array (
   0 => 'config',
   1 => 'gemini-test',
-  2 => 'telegram-set-webhook',
-  3 => 'telegram-webhook-info',
-  4 => 'telegram-delete-webhook',
+  2 => 'email-diagnostics',
+  3 => 'telegram-set-webhook',
+  4 => 'telegram-webhook-info',
+  5 => 'telegram-delete-webhook',
 ), true)) { return; }
 $routeHandled = true;
 switch ($action) {
@@ -445,6 +446,88 @@ switch ($action) {
         } catch (Throwable $e) {
             tamasyaApplyExceptionHttpStatus($e, 500);
             echo json_encode(["success" => false, "error" => clientExceptionMessage("Uji Gemini gagal", $e)]);
+        }
+        break;
+
+    // ----------------------------------------------------------------
+    // POST /api/email-diagnostics
+    // Diagnostik jalur email hotel: probe SMTP bertahap (koneksi, TLS,
+    // AUTH, MAIL FROM, RCPT, DATA) memakai secret yang SUDAH tersimpan,
+    // plus kirim email uji nyata. Password tidak pernah dikembalikan.
+    // POST agar resolver cluster mengarahkannya ke Primary aktif.
+    // ----------------------------------------------------------------
+    case 'email-diagnostics':
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            http_response_code(405);
+            echo json_encode(["success" => false, "error" => "Method Not Allowed"]);
+            break;
+        }
+        if (($loggedInStaff['role'] ?? '') !== 'admin') {
+            http_response_code(403);
+            echo json_encode(["success" => false, "error" => "Hanya Admin yang dapat menjalankan tes email SMTP."]);
+            break;
+        }
+        if (function_exists('tamasyaExternalSideEffectsAllowed') && !tamasyaExternalSideEffectsAllowed()) {
+            http_response_code(409);
+            echo json_encode([
+                "success" => false,
+                "error" => "Tes email hanya dijalankan oleh Primary aktif dengan lease valid."
+            ]);
+            break;
+        }
+        try {
+            if (!function_exists('tamasyaSmtpProbeExchange')) {
+                throw new RuntimeException('Modul diagnostik SMTP belum tersedia pada deployment ini. Deploy versi terbaru terlebih dahulu.');
+            }
+            $stmt = $pdo->query("SELECT * FROM config WHERE id = 'system_default' LIMIT 1");
+            $conf = $stmt ? ($stmt->fetch(PDO::FETCH_ASSOC) ?: []) : [];
+            $to = trim((string)($input['to'] ?? ''));
+            if ($to === '') {
+                $to = trim((string)($conf['smtp_from'] ?? ''));
+            }
+            if (strlen($to) > 320) $to = '';
+            $targetValid = ($to !== '' && filter_var($to, FILTER_VALIDATE_EMAIL) !== false);
+            $probe = tamasyaSmtpProbeExchange($conf, $targetValid ? $to : '', $targetValid);
+            $pass = decryptStoredSecret($conf['smtp_password'] ?? '');
+            $testEmailSent = false;
+            foreach (($probe['steps'] ?? []) as $step) {
+                if (($step['stage'] ?? '') === 'data' && ($step['status'] ?? '') === 'ok') { $testEmailSent = true; break; }
+            }
+            $message = function_exists('tamasyaSmtpVerdictMessage') ? tamasyaSmtpVerdictMessage((string)$probe['verdict']) : '';
+            if (!$targetValid) {
+                $message .= ' Email uji tidak dikirim karena alamat tujuan kosong/tidak valid; isi kolom alamat uji lalu jalankan lagi.';
+            }
+            if (function_exists('writeRequiredEnterpriseAudit')) {
+                writeRequiredEnterpriseAudit($pdo, $loggedInStaff, 'Menjalankan diagnostik SMTP', 'config', 'system_default', null, [
+                    'verdict' => (string)$probe['verdict'],
+                    'ok' => (bool)$probe['ok'],
+                    'testEmailSent' => $testEmailSent,
+                    'targetHash' => $targetValid ? hash('sha256', strtolower($to)) : null,
+                    'queueId' => $probe['queueId'] !== '' ? $probe['queueId'] : null,
+                    'latencyMs' => (int)$probe['latencyMs'],
+                ], 'web');
+            }
+            echo json_encode([
+                'success' => true,
+                'ok' => (bool)$probe['ok'],
+                'verdict' => (string)$probe['verdict'],
+                'message' => $message,
+                'steps' => $probe['steps'],
+                'findings' => tamasyaSmtpConfigFindings($conf, (string)$pass),
+                'testEmailSent' => $testEmailSent,
+                'targetMasked' => $targetValid ? (function_exists('tamasyaMaskEmailAddress') ? tamasyaMaskEmailAddress($to) : '') : '',
+                'queueId' => (string)$probe['queueId'],
+                'acceptedResponse' => (string)$probe['acceptedResponse'],
+                'latencyMs' => (int)$probe['latencyMs'],
+                'smtpHostConfigured' => trim((string)($conf['smtp_host'] ?? '')) !== '',
+                'node' => [
+                    'id' => function_exists('tamasyaNodeId') ? tamasyaNodeId() : '',
+                    'role' => function_exists('tamasyaNodeRole') ? tamasyaNodeRole() : ''
+                ]
+            ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        } catch (Throwable $e) {
+            tamasyaApplyExceptionHttpStatus($e, 500);
+            echo json_encode(["success" => false, "error" => clientExceptionMessage("Diagnostik email gagal", $e)]);
         }
         break;
 
