@@ -3,9 +3,22 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (rilis kode `990915c` = isi ZIP 2132; commit dokumen di atasnya; CI success, tree bersih)
+## 1. Status saat ini (rilis kode `bbbb590` = isi ZIP 2224; commit dokumen di atasnya; CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `bbbb590` **R18 — hilangkan centangan tampak dobel di UI Kelola Jabatan
+  (arahan pemilik)**: panel "Kelola Jabatan (Paket Izin) — Default Semua
+  Akun" kini **terlipat default** (state `rpOpen`, header toggle "Buka ▼ /
+  Tutup ▲") sehingga 43 checkbox paket jabatan tidak lagi tampil berdampingan
+  dengan 43 checkbox form akun di layar yang sama; header menjelaskan
+  "Mengubah paket izin untuk SEMUA akun dengan jabatan ini". Bagian checkbox
+  form akun diganti judul **"V. Izin Khusus Akun Ini"** + catatan bahwa
+  centangan di situ HANYA berlaku untuk akun tersebut dan menimpa paket
+  default jabatannya. Playwright live: 44 checkbox terlihat saat terlipat →
+  87 saat dibuka → 44 saat ditutup lagi (bukan duplikasi DOM; 87 = 43 form +
+  43 panel + 1 2FA). Tes `role-preset-regression` +2 assertion → **52 cek**;
+  verify-release **57 suite** hijau; CI `39267208972` hijau; ZIP
+  `tamasya-production-prod-20261019-2224.zip`.
 - `990915c` **Diagnostik SMTP in-app + status pengiriman jujur (R17 — akar
   masalah "email nota dikatakan terkirim padahal tidak sampai")**: modul baru
   `api/support/023_smtp_diagnostics.php` — probe SMTP bertahap (connect→salam→
@@ -202,12 +215,12 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261019-2132.zip` (379 entri,
-  berisi diagnostik SMTP + status jujur `990915c` + fix mobile R16 `1add609` + Fase 3 kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan
+- ZIP produksi terbaru: `tamasya-production-prod-20261019-2224.zip` (379 entri,
+  berisi R18 lipat panel jabatan `bbbb590` + diagnostik SMTP + status jujur `990915c` + fix mobile R16 `1add609` + Fase 3 kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan
   `a514025` + migrasi capability Batch 1+2
   `7f81438`+`a8f34e5` + audit total
   capability `38b7025` + fix beku perpanjangan `4b14d0b` + email tersimpan
-  otomatis + semua di bawahnya). ZIP lama (…1845, …1633, …1525, …1318, …1305, …1137, …1101, …2032,
+  otomatis + semua di bawahnya). ZIP lama (…2132, …1845, …1633, …1525, …1318, …1305, …1137, …1101, …2032,
   …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
 - Deliverable DB (arahan pemilik "biar tinggal import"): `tamasya-production-db-20261019.sql`
   di Desktop mesin dev (189K; tanpa data transaksi; tanpa DEFINER; 5 trigger
