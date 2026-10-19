@@ -3,9 +3,34 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (HEAD `4b14d0b`, CI success, tree bersih)
+## 1. Status saat ini (HEAD `38b7025`, CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `38b7025` **Audit total kelas bug beku perpanjangan: 3 dinding role keras +
+  1 route web kini capability-aware** (respon pertanyaan pemilik "apakah hanya
+  situ salahnya"). Setelah assert 050 diperbaiki, masih ada dinding role keras
+  di jalur yang sama sehingga peran tercantang *lolos gate menu* tapi *ditolak
+  saat aksi* (fitur macet, walau tidak lagi 500):
+  (1) `applyCanonicalTelegramBookingChargeWorkflow`
+  (`api/modules/finance/030_booking_finance.php`) — commit biaya canonical
+  layanan/perpanjangan menolak `'Peran akun tidak berhak menambah biaya
+  booking.'`; (2) `tamasyaApplyBookingNegotiatedPrice` (030) — tolak harga
+  nego; (3) `finalizeTelegramRoomTransfer`
+  (`api/modules/front_office/040_rooms_checkout_housekeeping.php`) — tolak
+  pindah kamar; (4) route web `booking-negotiated-price`
+  (`api/routes/020_hotel_booking.php`) — gate tab Kamar sudah capability tapi
+  cek keras di dalam handler menolak. Semua kini `hasCapability(...,
+  'manage_stay_access', ['admin','manager','receptionist'])` dengan fallback
+  daftar lama bila helper tak dimuat; pesan tolak dipertahankan; owner
+  read-only tetap ditolak. Titik panggil Telegram relevan diverifikasi SUDAH
+  di dalam try/catch (layanan_payment 080:6152, transfer_confirmation
+  080:6297, transfer callback 080:3105) → tidak ada titik 500 baru. Test
+  `tests/telegram-extension-capability-regression.php` diperluas 11 → 16 cek.
+  **Night audit TIDAK terkait**: toggle `night_audit_enabled` di 090 admin-only
+  by design (tidak bisa OFF bila ada run `open`), Telegram tidak punya fitur
+  night audit, dan `assertShiftNightAuditReady` (060) dipanggil dari jalur
+  ber-try/completed-then-reset (080:4279, 080:5186) + pesan error web 090:299 —
+  tidak ada jalur freeze.
 - `4b14d0b` **Fix beku Telegram saat perpanjangan kamar oleh role tercantang**
   (laporan produksi: finance/role centangan klik "1 malam" → bot diam total).
   Akar: gate masuk alur perpanjangan sudah capability-aware
@@ -23,7 +48,7 @@ Kerjaan terakhir (sudah push + ZIP):
   langsung/notifikasi seluruhnya capability-aware dan menolak dengan balasan
   (bukan 500). Test baru `tests/telegram-extension-capability-regression.php`
   (11 cek: behavior finance/keamanan/receptionist/owner ± centang + penjaga
-  statis 050/080).
+  statis 050/080; diperluas ke 16 cek oleh audit `38b7025`).
 - `8de8d50` **Email nota tersimpan otomatis ke booking**: kirim sukses dari web
   (nota/grup) atau Telegram kini menulis `bookings.guestEmail` (normalisasi
   lower/trim, batas kolom varchar(100), tulis hanya bila berubah) → prefill
@@ -66,11 +91,12 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261019-1101.zip` (374 files,
-  berisi fix beku perpanjangan role tercantang + email tersimpan otomatis +
-  semua di bawahnya: fix nota email + dot legend + warna kuning housekeeping +
-  jalur kirim jujur (SMTP/PHP mail) + log penolakan SMTP). ZIP lama (…2032,
-  …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
+- ZIP produksi terbaru: `tamasya-production-prod-20261019-1137.zip` (379 entri,
+  berisi audit total capability `38b7025` + fix beku perpanjangan `4b14d0b` +
+  email tersimpan otomatis + semua di bawahnya: fix nota email + dot legend +
+  warna kuning housekeeping + jalur kirim jujur (SMTP/PHP mail) + log
+  penolakan SMTP). ZIP lama (…1101, …2032, …1952, …1907, …1738, …1630, …1349,
+  …1835, dst.) usang, jangan dipakai.
 - Fakta database (audit 18 Okt): `database_setup.sql` = 116 CREATE TABLE,
   SHA-256 `604f7d466b4e07de4e6f854c2f03a7609b52a08e5cf8b94efacf186aabfc263e`;
   `migrations/` = 21 file. Dokumen rilis lama (HANDOFF.md P0/R3,
@@ -235,6 +261,16 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
   dibungkus try/catch + balasan bisa ditindaklanjuti),
   `tests/telegram-extension-capability-regression.php` (baru, 11 cek),
   registrasi di CI workflow + `scripts/verify-release.sh`.
+- Audit 19 Okt gelombang 2 (`38b7025`): `api/modules/finance/030_booking_finance.php`
+  (charge workflow + nego → `hasCapability` + fallback),
+  `api/modules/front_office/040_rooms_checkout_housekeeping.php`
+  (`finalizeTelegramRoomTransfer` → `hasCapability` + fallback),
+  `api/routes/020_hotel_booking.php` (route nego web → `hasCapability`),
+  `tests/telegram-extension-capability-regression.php` 11 → 16 cek.
+  Temuan by-design yang TIDAK diubah: blacklist override admin/manager
+  (030:1802 + 090:922), assignment service self-only (090:969), absensi
+  workforce admin/manager (060), leave-request approve, loyalty/adapters
+  enterprise admin/manager (112), email resmi leadership-lease (095:44).
 - `FILE_CHECKSUMS.sha256` — WAJIB refresh tiap ada file berubah atau CI
   merah (pelajaran: commit kode dan checksum boleh beda run; run yang lolos
   adalah yang membawa checksum baru).
