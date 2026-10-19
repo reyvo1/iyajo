@@ -3,9 +3,25 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (HEAD `a8f34e5`, CI success, tree bersih)
+## 1. Status saat ini (HEAD `a514025`, CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `a514025` **Fase 2 "Kelola Jabatan" (disetujui pemilik "Setujui —
+  implementasikan sekarang"; desain §7 `AUDIT-KAPABILITAS-ROLE-2026-10-19.md`)**:
+  tabel `role_capability_presets` + migrasi `20261019_ROLE_CAPABILITY_PRESETS.sql`
+  (splice `database_setup.sql` → 117 tabel), `api/support/021_role_presets.php`
+  (registry 19 cap/15 tab/6 notif, seed default per jabatan — cermin preset editor
+  `app-core.js`, paritas `Eh`/`PA` terverifikasi 9 jabatan, normalize/coerce,
+  buildOverride, accountDiff), `api/routes/052_role_presets.php`
+  (list/save/preview/apply, admin-only, owner read-only, audit per akun +
+  ringkasan, `confirm=true` + `updatedAt` optimistik), panel "Kelola Jabatan"
+  di `assets/chunks/staff.js` lewat bridge `Qle` (`app-core.js` tetap
+  byte-identik), suite `tests/role-preset-regression.php` (39 cek).
+  Pin diperbarui: manifest modularisasi + 117 tabel (py/CI/smoke). Perilaku
+  default TIDAK berubah sampai admin menekan "Terapkan" (paket = data + aksi
+  eksplisit; `hasCapability` 017 tidak disentuh). verify-release 55 → 56 suite
+  hijau; CI `39210729652` hijau (rerun 1× flake Playwright mobile POS — desktop
+  & API lulus di run sama); ZIP `tamasya-production-prod-20261019-1525.zip`.
 - `a8f34e5` + `7f81438` **Migrasi cek role statis → centangan capability
   (Batch 1+2 dari `AUDIT-KAPABILITAS-ROLE-2026-10-19.md`)** atas arahan pemilik
   "kerjakan semuanya". Semua pesan penolakan & alur dipertahankan; akun tanpa
@@ -121,14 +137,17 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261019-1318.zip` (374 entri,
-  berisi migrasi capability Batch 1+2 `7f81438`+`a8f34e5` + audit total
+- ZIP produksi terbaru: `tamasya-production-prod-20261019-1525.zip` (377 entri,
+  berisi Fase 2 Kelola Jabatan `a514025` + migrasi capability Batch 1+2
+  `7f81438`+`a8f34e5` + audit total
   capability `38b7025` + fix beku perpanjangan `4b14d0b` + email tersimpan
-  otomatis + semua di bawahnya). ZIP lama (…1305, …1137, …1101, …2032, …1952,
-  …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
+  otomatis + semua di bawahnya). ZIP lama (…1318, …1305, …1137, …1101, …2032,
+  …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
 - Fakta database (audit 18 Okt): `database_setup.sql` = 116 CREATE TABLE,
   SHA-256 `604f7d466b4e07de4e6f854c2f03a7609b52a08e5cf8b94efacf186aabfc263e`;
-  `migrations/` = 21 file. Dokumen rilis lama (HANDOFF.md P0/R3,
+  `migrations/` = 22 file. (Per `a514025`: kini **117 CREATE TABLE** —
+  `+role_capability_presets`; SHA berubah, cek `FILE_CHECKSUMS.sha256` /
+  `sha256sum database_setup.sql`.) Dokumen rilis lama (HANDOFF.md P0/R3,
   CANONICAL_REPORT_ENGINE.md, PRODUCTION_FULL_AUDIT_R4.md) yang menulis
   "13 migration" / SHA `87bebefe…` adalah catatan historis rilis saat itu,
   bukan keadaan sekarang.

@@ -120,11 +120,19 @@ create/link-payment, 112 (48 titik).
   diperluas 16 → 37 cek; fallback role dipertahankan (perilaku akun
   non-centangan TIDAK berubah); pesan penolakan tidak diubah. Sisa kandidat
   (095/017/018, maintenance 096) butuh capability baru → Fase 3.
-- **Fase 2 (desain diajukan — §7, menunggu persetujuan pemilik)**: halaman
-  "Kelola Jabatan" (role = paket preset capability + tab + notifikasi),
-  disimpan di tabel baru; perilaku default TIDAK berubah oleh deploy fitur
-  (paket berlaku lewat aksi "Terapkan"). UI di `assets/chunks/staff.js` —
-  `app-core.js` byte-identik (budget 969.808/970.000 B) tidak disentuh.
+- **Fase 2 (selesai — `a514025`)**: disetujui pemilik ("Setujui —
+  implementasikan sekarang"), diimplementasikan sesuai §7: tabel
+  `role_capability_presets` + migrasi `20261019_ROLE_CAPABILITY_PRESETS.sql`
+  (splice `database_setup.sql` → 117 tabel), `api/support/021_role_presets.php`
+  (seed cermin preset editor `app-core.js`; paritas `Eh`/`PA` terverifikasi
+  untuk 9 jabatan), `api/routes/052_role_presets.php`
+  (list/save/preview/apply admin-only, owner read-only, audit per akun +
+  ringkasan, `confirm=true` + `updatedAt`), panel "Kelola Jabatan" di
+  `assets/chunks/staff.js` via bridge `Qle` (`app-core.js` tetap
+  byte-identik), suite `tests/role-preset-regression.php` (39 cek);
+  verify-release 55 → 56 suite hijau; CI `39210729652` hijau; ZIP
+  `tamasya-production-prod-20261019-1525.zip`. Default perilaku belum
+  berubah sampai admin menekan "Terapkan".
 - **Fase 3**: hapus bertahap cek keras Batch 2/3 per fitur, masing-masing
   dengan tes regresi + audit log, setelah Fase 2 stabil.
 
@@ -140,7 +148,7 @@ create/link-payment, 112 (48 titik).
 5. Setiap batch baru menambah cek di
    `tests/telegram-extension-capability-regression.php` atau suite baru.
 
-## 7. Desain Fase 2 — "Kelola Jabatan" (draf untuk persetujuan)
+## 7. Desain Fase 2 — "Kelola Jabatan" (disetujui & diimplementasikan `a514025`)
 
 Prinsip: **017 `hasCapability` tidak diubah** (murni array, tanpa PDO — dipakai
 banyak modul & test CLI). Paket jabatan = data + aksi eksplisit, bukan logika
