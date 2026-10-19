@@ -3,9 +3,32 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (rilis kode `1add609` = isi ZIP 1845; commit dokumen di atasnya; CI success, tree bersih)
+## 1. Status saat ini (rilis kode `990915c` = isi ZIP 2132; commit dokumen di atasnya; CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `990915c` **Diagnostik SMTP in-app + status pengiriman jujur (R17 — akar
+  masalah "email nota dikatakan terkirim padahal tidak sampai")**: modul baru
+  `api/support/023_smtp_diagnostics.php` — probe SMTP bertahap (connect→salam→
+  EHLO→STARTTLS+cert→AUTH LOGIN→MAIL FROM→RCPT→DATA email uji→QUIT) dengan
+  verdict mesin + findings konfigurasi + ekstraksi Queue ID (Exim/Postfix/
+  Exchange); password tidak pernah ditulis ke hasil. Action admin baru
+  `email-diagnostics` di `070_config_telegram_admin.php` (POST-only, admin-only
+  403, gate primary+lease 409, audit `Menjalankan diagnostik SMTP`; respons
+  steps/findings/queueId/testEmailSent/targetMasked/latencyMs) + panel "Tes
+  Pengiriman Email" di kartu SMTP halaman Konfigurasi (`config.js`).
+  `sendSmtpMail` (050) kini merekam jejak setiap tahap kegagalan
+  (`$GLOBALS['tamasya_smtp_last']`: gate/init/config/connect/starttls/tls/
+  auth/from_rejected/rcpt_rejected/accepted|data_rejected + queueId);
+  `tamasyaSendReceiptEmail` (060) mengembalikan `verified/queueId/smtpError/
+  deliveryNote` — pengiriman via cadangan PHP mail() kini **dilabeli jujur
+  "PENTING … BELUM terverifikasi"** di web (booking-receipt.js; verified=false
+  diwarnai err) dan Telegram (webhook 3 situs + 044 multi-room); audit
+  menyimpan verified + queueId + smtpError tersanitasi. Tes: suite baru
+  `smtp-diagnostics-regression` (34) + perluasan `receipt-email-regression`
+  (54); verify-release **57 suite** hijau; smoke HTTP admin nyata →
+  `host_missing` tanpa menyentuh jaringan + audit row + mutation-attempt log
+  terverifikasi; CI `39259495832` hijau; ZIP
+  `tamasya-production-prod-20261019-2132.zip`.
 - `1add609` **Fix mobile R16 (lanjutan audit kosmetik 18 Okt) — arahan pemilik
   "selesaikan semuanya"**: (1) panel Aksi/Tambah Kamar kini **bottom-sheet** di
   <lg — class `tamasya-room-detail-sheet` dipasang kondisional di `rooms.js` +
@@ -179,12 +202,12 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261019-1845.zip` (378 entri,
-  berisi fix mobile R16 `1add609` + Fase 3 kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan
+- ZIP produksi terbaru: `tamasya-production-prod-20261019-2132.zip` (379 entri,
+  berisi diagnostik SMTP + status jujur `990915c` + fix mobile R16 `1add609` + Fase 3 kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan
   `a514025` + migrasi capability Batch 1+2
   `7f81438`+`a8f34e5` + audit total
   capability `38b7025` + fix beku perpanjangan `4b14d0b` + email tersimpan
-  otomatis + semua di bawahnya). ZIP lama (…1633, …1525, …1318, …1305, …1137, …1101, …2032,
+  otomatis + semua di bawahnya). ZIP lama (…1845, …1633, …1525, …1318, …1305, …1137, …1101, …2032,
   …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
 - Deliverable DB (arahan pemilik "biar tinggal import"): `tamasya-production-db-20261019.sql`
   di Desktop mesin dev (189K; tanpa data transaksi; tanpa DEFINER; 5 trigger
