@@ -1799,7 +1799,7 @@ function createCanonicalBookingWorkflow(PDO $pdo, array $actor, array $payload, 
         if($guestPhone!==''||$guestEmail!==''){
             $blacklistStmt=$pdo->prepare("SELECT id,name,phone,email FROM guest_profiles WHERE blacklisted=1 AND ((?<>'' AND phone=?) OR (?<>'' AND LOWER(email)=LOWER(?))) ORDER BY updated_at DESC LIMIT 1 FOR UPDATE");
             $blacklistStmt->execute([$guestPhone,$guestPhone,$guestEmail,$guestEmail]);$blacklistMatch=$blacklistStmt->fetch(PDO::FETCH_ASSOC)?:null;
-            if($blacklistMatch&&!in_array(strtolower((string)($actor['role']??'')),['admin','manager'],true))throw new RuntimeException('Tamu terdaftar pada blacklist. Booking harus ditinjau dan dilakukan oleh Admin/Manager.');
+            if($blacklistMatch&&!hasCapability($actor,'approve_sensitive_actions',['admin','manager']))throw new RuntimeException('Tamu terdaftar pada blacklist. Booking harus ditinjau dan dilakukan oleh Admin/Manager.');
             if($blacklistMatch){
                 $alertId='alert_blacklist_'.substr(hash('sha256',$bookingId.'|'.(string)$blacklistMatch['id']),0,48);
                 $pdo->prepare("INSERT INTO system_alerts(id,severity,source,title,message,created_at) VALUES (?,'warning','guest-blacklist','Override booking tamu blacklist',?,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE message=VALUES(message),acknowledged_at=NULL,created_at=CURRENT_TIMESTAMP")

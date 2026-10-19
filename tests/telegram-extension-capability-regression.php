@@ -72,5 +72,8 @@ extensionCheck(substr_count($ops090,"requireCapability(\$loggedInStaff,'receive_
 extensionCheck(str_contains($ops090,"!hasCapability(\$loggedInStaff,'approve_sensitive_actions',['admin','manager']) && \$requestedBlacklist"),'Ubah status blacklist memakai approve_sensitive_actions');
 $cluster010 = file_get_contents(dirname(__DIR__).'/api/routes/010_cluster_status.php');
 extensionCheck(str_contains($cluster010,"requireCapability(\$loggedInStaff,'resolve_sync_conflict',['admin'])"),'Resolusi konflik sync cluster memakai resolve_sync_conflict');
+extensionCheck(str_contains($finance,"hasCapability(\$actor,'approve_sensitive_actions',['admin','manager'])"),'Override booking tamu blacklist (030) memakai approve_sensitive_actions');
+$growth110 = file_get_contents(dirname(__DIR__).'/api/routes/110_growth_suite.php');
+extensionCheck(substr_count($growth110,"requireCapability(\$loggedInStaff,'approve_sensitive_actions',['admin','manager'])")>=2,'Approve/receive purchase order memakai approve_sensitive_actions (baseline admin/manager)');
 
 echo "Telegram extension capability: {$passed} passed; 0 failed.".PHP_EOL;
