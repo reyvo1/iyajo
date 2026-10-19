@@ -75,4 +75,4 @@ php tests/growth-schema-inventory-regression.php
 php tests/facility-management-regression.php
 php tests/money-precision-regression.php
 php tests/database-tls-regression.php
-printf "All source checks and 54 regression suites passed.\n"
+printf "All source checks and 55 regression suites passed.\n"

@@ -3,9 +3,32 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (HEAD `e5e0f88`, CI 9/9 success, tree bersih)
+## 1. Status saat ini (HEAD `4b14d0b`, CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `4b14d0b` **Fix beku Telegram saat perpanjangan kamar oleh role tercantang**
+  (laporan produksi: finance/role centangan klik "1 malam" → bot diam total).
+  Akar: gate masuk alur perpanjangan sudah capability-aware
+  (`manage_stay_access`), tetapi `tamasyaTelegramChargeAssertRole`
+  (`api/modules/comms/050_integrations_telegram_mail.php`) masih daftar role
+  keras `admin/manager/receptionist` → melempar `RuntimeException` untuk role
+  tercantang; handler state `waiting_for_extend_nights`
+  (`api/routes/080_telegram_webhook.php`) satu-satunya tanpa try/catch →
+  exception tembus ke catch luar → HTTP 500 → Telegram retry → sesi beku.
+  Fix dua lapis: (1) assert kini `hasCapability(...,'manage_stay_access',…)`
+  dengan fallback daftar role bila `hasCapability` tak dimuat; (2) handler
+  jumlah malam dibungkus try/catch → selalu membalas pesan yang bisa
+  ditindaklanjuti + tombol batal. Audit total: satu-satunya throw role keras
+  yang tersisa di 050 adalah baris fallback assert; gate menu/callback/command
+  langsung/notifikasi seluruhnya capability-aware dan menolak dengan balasan
+  (bukan 500). Test baru `tests/telegram-extension-capability-regression.php`
+  (11 cek: behavior finance/keamanan/receptionist/owner ± centang + penjaga
+  statis 050/080).
+- `8de8d50` **Email nota tersimpan otomatis ke booking**: kirim sukses dari web
+  (nota/grup) atau Telegram kini menulis `bookings.guestEmail` (normalisasi
+  lower/trim, batas kolom varchar(100), tulis hanya bila berubah) → prefill
+  form web + tombol "✉️ Kirim ke" Telegram muncul untuk berikutnya. Test
+  `tests/receipt-email-regression.php` 40 → 43 cek.
 - `e5e0f88` **Status kirim email jujur + bukti akar masalah** (tindak lanjut
   keluhan "status terkirim tapi tidak masuk"): semua pesan sukses kini
   menampilkan jalur nyata `(SMTP)` atau `(PHP mail())` — web nota, web laporan
@@ -43,10 +66,11 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261018-2032.zip` (374 files,
-  berisi fix nota email + dot legend + warna kuning housekeeping + jalur kirim
-  jujur (SMTP/PHP mail) + log penolakan SMTP). ZIP lama (…1952, …1907, …1738,
-  …1630, …1349, …1835, dst.) usang, jangan dipakai.
+- ZIP produksi terbaru: `tamasya-production-prod-20261019-1101.zip` (374 files,
+  berisi fix beku perpanjangan role tercantang + email tersimpan otomatis +
+  semua di bawahnya: fix nota email + dot legend + warna kuning housekeeping +
+  jalur kirim jujur (SMTP/PHP mail) + log penolakan SMTP). ZIP lama (…2032,
+  …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
 - Fakta database (audit 18 Okt): `database_setup.sql` = 116 CREATE TABLE,
   SHA-256 `604f7d466b4e07de4e6f854c2f03a7609b52a08e5cf8b94efacf186aabfc263e`;
   `migrations/` = 21 file. Dokumen rilis lama (HANDOFF.md P0/R3,
@@ -65,9 +89,9 @@ Kerjaan terakhir (sudah push + ZIP):
   (`booking-receipt.js`) dan form laporan di detail grup (`multi-room.js`).
   Audit wajib per kirim (event id hash `receipt_email_*` /
   `group_report_email_*`, email penerima di-hash, metode SMTP/PHP mail).
-  Test baru: `php tests/receipt-email-regression.php` (kini 40 cek, termasuk
-  fallback exception SMTP, jalur kirim di pesan sukses, dan log penolakan
-  server).
+  Test baru: `php tests/receipt-email-regression.php` (kini 43 cek, termasuk
+  fallback exception SMTP, jalur kirim di pesan sukses, log penolakan
+  server, dan penyimpanan otomatis email ke booking).
 
 - **Perbaikan 18 Okt (nota email tidak terkirim padahal laporan keuangan masuk):**
   akar masalah di klien SMTP `sendSmtpMail`: jalur TANPA lampiran mengirim HTML
@@ -203,7 +227,14 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
   `api/modules/comms/050_integrations_telegram_mail.php` (MAIL FROM diverifikasi;
   log `[smtp] DATA ditolak server`), `api/support/060_shift_receipts.php`
   (log penggunaan fallback PHP mail), `tests/receipt-email-regression.php`
-  (+4 cek, kini 40).
+  (+4 cek, kini 43 dengan persistensi email `8de8d50`).
+- Fix 19 Okt (beku perpanjangan role tercantang, `4b14d0b`):
+  `api/modules/comms/050_integrations_telegram_mail.php`
+  (`tamasyaTelegramChargeAssertRole` → `hasCapability` + fallback role),
+  `api/routes/080_telegram_webhook.php` (state `waiting_for_extend_nights`
+  dibungkus try/catch + balasan bisa ditindaklanjuti),
+  `tests/telegram-extension-capability-regression.php` (baru, 11 cek),
+  registrasi di CI workflow + `scripts/verify-release.sh`.
 - `FILE_CHECKSUMS.sha256` — WAJIB refresh tiap ada file berubah atau CI
   merah (pelajaran: commit kode dan checksum boleh beda run; run yang lolos
   adalah yang membawa checksum baru).
@@ -218,6 +249,7 @@ Baseline `perform_housekeeping` kini termasuk role `finance` (permintaan pemilik
    `php tests/receipt-email-regression.php`,
    `php tests/smtp-line-length-regression.php`,
    `php tests/cosmetic-legend-dots-regression.php`,
+   `php tests/telegram-extension-capability-regression.php`,
    `php tests/telegram-key-status-contract-regression.php`.
 3. `sha256sum` file berubah → update `FILE_CHECKSUMS.sha256` (tambah entri
    alfabetis untuk file baru) → `sha256sum -c FILE_CHECKSUMS.sha256`.
