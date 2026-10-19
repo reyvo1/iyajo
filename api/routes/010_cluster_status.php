@@ -216,7 +216,7 @@ switch ($action) {
         break;
 
     case 'node-sync-conflict-resolve':
-        requireRoles($loggedInStaff, ['admin']);
+        requireCapability($loggedInStaff,'resolve_sync_conflict',['admin']);
         if (tamasyaNodeRole()!=='local_backup') {
             http_response_code(409);echo json_encode(['success'=>false,'error'=>'Konflik outbox hanya diselesaikan pada server lokal backup.']);break;
         }

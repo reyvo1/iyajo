@@ -49,4 +49,28 @@ extensionCheck(str_contains($frontOffice,"throw new RuntimeException('Role ini t
 $bookingRoute = file_get_contents(dirname(__DIR__).'/api/routes/020_hotel_booking.php');
 extensionCheck(str_contains($bookingRoute,"hasCapability(\$loggedInStaff,'manage_stay_access',['admin','manager','receptionist'])"),'Route harga nego web 020 ikut capability, bukan daftar role keras');
 
+// Batch statis->centangan (Oktober 2026): Telegram, multi-room, operasional, cluster.
+extensionCheck(str_contains($webhook,"hasCapability(\$staff,'sell_room_access',['admin','manager','receptionist'])&&tamasyaHasRoomsWorkspaceAccess(\$staff)"),'Tombol reservasi multi-kamar Telegram memakai sell_room_access + workspace kamar');
+extensionCheck(str_contains($webhook,"tamasyaCanOperateShift(\$staff)||hasCapability(\$staff,'receive_payment_access',[])"),'Tombol Kas & Shift Telegram memakai receive_payment_access');
+extensionCheck(substr_count($webhook,"hasCapability(\$staff,'perform_housekeeping',['admin','manager'])")>=1,'Tombol Mulai layanan tamu memakai perform_housekeeping (baseline pengawas)');
+extensionCheck(substr_count($webhook,"hasCapability(\$staff,'perform_housekeeping',['admin','manager','receptionist'])")>=1 && substr_count($webhook,"hasCapability(\$loggedInStaff,'perform_housekeeping',['admin','manager','receptionist'])")>=2,'Tutup layanan tamu (tombol, guard, catatan) memakai perform_housekeeping');
+extensionCheck(str_contains($webhook,"\$callbackRole==='owner'||hasCapability(\$loggedInStaff,'manage_room_access',['admin','manager','receptionist','finance'])"),'Gerbang baca kamar Telegram memakai manage_room_access dengan owner read-only');
+extensionCheck(str_contains($webhook,"\$allowedCallback = tamasyaCanOperateShift(\$loggedInStaff)||hasCapability(\$loggedInStaff,'receive_payment_access',[])"),'Gerbang callback Kas & Shift memakai receive_payment_access');
+extensionCheck(substr_count($webhook,"hasCapability(\$loggedInStaff,'approve_sensitive_actions',['admin','manager'])")>=2,'Selisih kas Telegram memakai approve_sensitive_actions (deteksi + guard override)');
+extensionCheck(str_contains($webhook,"if(!hasCapability(\$loggedInStaff,'manage_room_access',['admin','manager','receptionist']))"),'Guard /update_status Telegram memakai manage_room_access');
+extensionCheck(str_contains($webhook,"if(!tamasyaCanOperateShift(\$staff)&&!hasCapability(\$staff,'receive_payment_access',[]))return ["),'Menu tutup shift Telegram memakai receive_payment_access');
+extensionCheck(str_contains($webhook,"\$requiredDirectCap = ['receive_payment_access', tamasyaShiftOperatorRoles()];"),'Command /buka_shift dan /tutup_shift memakai receive_payment_access');
+extensionCheck(substr_count($webhook,"in_array(\$role,['admin','manager','finance','receptionist'],true)")===0,'Tidak ada lagi daftar role shift statis di 080');
+extensionCheck(substr_count($webhook,"\$pendingAllowed = in_array(\$pendingRole,tamasyaShiftOperatorRoles(),true)")===0,'Pending state shift tidak lagi memakai daftar statis');
+$multiRoom = file_get_contents(dirname(__DIR__).'/api/modules/front_office/044_multi_room_telegram.php');
+extensionCheck(str_contains($multiRoom,"hasCapability(\$actor,'sell_room_access',['admin','manager','receptionist'])&&tamasyaHasRoomsWorkspaceAccess(\$actor)"),'Tombol tulis multi-room Telegram memakai sell_room_access + workspace kamar');
+$ops090 = file_get_contents(dirname(__DIR__).'/api/routes/090_operations_communications.php');
+extensionCheck(substr_count($ops090,"requireCapability(\$loggedInStaff,'manage_room_access',['admin','manager'])")>=4,'Lost-found secure, review maintenance, dan hold kamar memakai manage_room_access');
+extensionCheck(str_contains($ops090,"requireCapability(\$loggedInStaff,'override_key_checkout',['admin','manager'])"),'Penyelesaian manual smart-lock memakai override_key_checkout');
+extensionCheck(str_contains($ops090,"requireRoles(\$loggedInStaff,['admin']);") && substr_count($ops090,"requireRoles(\$loggedInStaff,['admin']);")===1,'Mode Night Audit tetap admin-only by design (kontrak R16.4)');
+extensionCheck(substr_count($ops090,"requireCapability(\$loggedInStaff,'receive_payment_access',tamasyaShiftOperatorRoles())")>=2,'Buka/tutup shift web memakai receive_payment_access');
+extensionCheck(str_contains($ops090,"!hasCapability(\$loggedInStaff,'approve_sensitive_actions',['admin','manager']) && \$requestedBlacklist"),'Ubah status blacklist memakai approve_sensitive_actions');
+$cluster010 = file_get_contents(dirname(__DIR__).'/api/routes/010_cluster_status.php');
+extensionCheck(str_contains($cluster010,"requireCapability(\$loggedInStaff,'resolve_sync_conflict',['admin'])"),'Resolusi konflik sync cluster memakai resolve_sync_conflict');
+
 echo "Telegram extension capability: {$passed} passed; 0 failed.".PHP_EOL;

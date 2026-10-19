@@ -263,7 +263,7 @@ switch ($action) {
             }
 
             if ($command === 'shift-open') {
-                requireRoles($loggedInStaff, tamasyaShiftOperatorRoles());
+                requireCapability($loggedInStaff,'receive_payment_access',tamasyaShiftOperatorRoles());
                 $id = generateServerId('shift');
                 $openingInput=$input['openingCash']??0;
                 if(!is_numeric($openingInput)||!is_finite((float)$openingInput)||(float)$openingInput<0)throw new InvalidArgumentException('Kas awal wajib angka valid dan tidak negatif.');
@@ -287,7 +287,7 @@ switch ($action) {
                 writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Membuka shift kas fleksibel','shift_session',$id,null,$afterShift);
                 tamasyaFinancialCommit($pdo);
             } elseif ($command === 'shift-close') {
-                requireRoles($loggedInStaff, tamasyaShiftOperatorRoles());
+                requireCapability($loggedInStaff,'receive_payment_access',tamasyaShiftOperatorRoles());
                 $id = trim((string)($input['shiftId'] ?? ''));
                 $pdo->beginTransaction();
                 $stmt = $pdo->prepare("SELECT * FROM shift_sessions WHERE id=? AND status='open' LIMIT 1 FOR UPDATE");
@@ -919,7 +919,7 @@ switch ($action) {
                 $pdo->beginTransaction();
                 $beforeStmt=$pdo->prepare("SELECT * FROM guest_profiles WHERE id=? LIMIT 1 FOR UPDATE");$beforeStmt->execute([$id]);$before=$beforeStmt->fetch(PDO::FETCH_ASSOC)?:null;
                 $requestedBlacklist=(int)($input['blacklisted']??($before['blacklisted']??0))?1:0;
-                if(!in_array(strtolower((string)($loggedInStaff['role']??'')),['admin','manager'],true) && $requestedBlacklist!==(int)($before['blacklisted']??0))throw new RuntimeException('Status blacklist hanya dapat diubah Admin/Manager.');
+                if(!hasCapability($loggedInStaff,'approve_sensitive_actions',['admin','manager']) && $requestedBlacklist!==(int)($before['blacklisted']??0))throw new RuntimeException('Status blacklist hanya dapat diubah Admin/Manager.');
                 $pdo->prepare("INSERT INTO guest_profiles (id,name,phone,email,identity_number,preferences,notes,blacklisted,retention_until,created_by,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,CURRENT_TIMESTAMP,CURRENT_TIMESTAMP) ON DUPLICATE KEY UPDATE name=VALUES(name),phone=VALUES(phone),email=VALUES(email),identity_number=VALUES(identity_number),preferences=VALUES(preferences),notes=VALUES(notes),blacklisted=VALUES(blacklisted),retention_until=VALUES(retention_until),updated_at=CURRENT_TIMESTAMP")
                     ->execute([$id,$name,$phone,$email,trim((string)($input['identityNumber']??''))?:null,trim((string)($input['preferences']??'')),trim((string)($input['notes']??'')),$requestedBlacklist,$retentionUntil?:null,$loggedInStaff['id']]);
                 $afterStmt=$pdo->prepare("SELECT * FROM guest_profiles WHERE id=? LIMIT 1");$afterStmt->execute([$id]);$after=$afterStmt->fetch(PDO::FETCH_ASSOC)?:['id'=>$id,'blacklisted'=>(int)($input['blacklisted']??0),'retention_until'=>$retentionUntil?:null];
@@ -1019,7 +1019,7 @@ switch ($action) {
                     bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
                 }
             } elseif ($command === 'lost-found-secure') {
-                requireRoles($loggedInStaff, ['admin','manager']);
+                requireCapability($loggedInStaff,'manage_room_access',['admin','manager']);
                 $id=trim((string)($input['id']??''));$note=trim((string)($input['note']??''));$tag=trim((string)($input['custodyTag']??''));
                 if($id==='')throw new InvalidArgumentException('ID Lost & Found wajib diisi.');
                 if(tamasyaStringLength($note)<3)throw new InvalidArgumentException('Lokasi penyimpanan/catatan pengamanan minimal 3 karakter.');
@@ -1099,7 +1099,7 @@ switch ($action) {
                 $roomProjection=tamasyaReconcileRoomOperationalProjection($pdo,$loggedInStaff,(string)$after['room_number'],'lost-found-close');
                 writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Menyelesaikan custody Lost & Found: '.$allowed[$resolution],'lost_found_item',$itemId,$item,array_merge($after,['roomProjection'=>$roomProjection]),'lost-found-close');bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
             } elseif ($command === 'maintenance-cancellation-review') {
-                requireRoles($loggedInStaff, ['admin','manager']);
+                requireCapability($loggedInStaff,'manage_room_access',['admin','manager']);
                 $id=trim((string)($input['id']??''));$decision=strtolower(trim((string)($input['decision']??'')));$note=trim((string)($input['note']??''));
                 if($id==='')throw new InvalidArgumentException('ID review pembatalan maintenance wajib diisi.');
                 $pdo->beginTransaction();$review=tamasyaMaintenanceCancellationReviewByIdentifier($pdo,$id,true);if(!$review)throw new RuntimeException('Review pembatalan maintenance tidak ditemukan. Jalankan migration/backfill R4 bila ini data legacy.');
@@ -1145,14 +1145,14 @@ switch ($action) {
                 $id=trim((string)($input['id']??''));$note=trim((string)($input['note']??''));if($id==='')throw new InvalidArgumentException('ID insiden operasional wajib diisi.');
                 $pdo->beginTransaction();$result=tamasyaResolveOperationalIncident($pdo,$loggedInStaff,$id,$note,'operational-incident-resolve');bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
             } elseif ($command === 'room-hold-open') {
-                requireRoles($loggedInStaff, ['admin','manager']);
+                requireCapability($loggedInStaff,'manage_room_access',['admin','manager']);
                 $roomNumber=trim((string)($input['roomNumber']??''));$holdType=trim((string)($input['holdType']??''));$reason=trim((string)($input['reason']??''));$severity=strtolower(trim((string)($input['severity']??'critical')));
                 if(!in_array($severity,['info','warning','critical'],true))$severity='critical';
                 $pdo->beginTransaction();requireTelegramRoom($pdo,$roomNumber,true);$hold=tamasyaOpenRoomOperationalHold($pdo,$loggedInStaff,$roomNumber,$holdType,$reason,(string)($input['sourceEntityType']??''),(string)($input['sourceEntityId']??''),$severity,'room-hold-open');
                 $roomProjection=tamasyaReconcileRoomOperationalProjection($pdo,$loggedInStaff,$roomNumber,'room-hold-open');
                 writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Membuka operational hold kamar','room_operational_hold',(string)$hold['id'],null,array_merge($hold,['roomProjection'=>$roomProjection]),'room-hold-open');bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
             } elseif ($command === 'room-hold-release') {
-                requireRoles($loggedInStaff, ['admin','manager']);
+                requireCapability($loggedInStaff,'manage_room_access',['admin','manager']);
                 $id=trim((string)($input['id']??''));$note=trim((string)($input['note']??''));if($id===''||tamasyaStringLength($note)<5)throw new InvalidArgumentException('ID hold dan catatan pelepasan minimal 5 karakter wajib diisi.');
                 $pdo->beginTransaction();$stmt=$pdo->prepare("SELECT * FROM room_operational_holds WHERE id=? LIMIT 1 FOR UPDATE");$stmt->execute([$id]);$before=$stmt->fetch(PDO::FETCH_ASSOC);if(!$before)throw new RuntimeException('Operational hold tidak ditemukan.');
                 if(strtolower((string)$before['status'])!=='open'){$roomProjection=tamasyaReconcileRoomOperationalProjection($pdo,$loggedInStaff,(string)$before['room_number'],'room-hold-release-idempotent');tamasyaFinancialCommit($pdo);echo json_encode(['success'=>true,'idempotent'=>true,'message'=>'Operational hold sudah dilepas sebelumnya. Proyeksi kamar telah direkonsiliasi.','data'=>getRoleScopedOperationsData($pdo,$loggedInStaff)]);break;}
@@ -1192,7 +1192,8 @@ switch ($action) {
                 break;
             } elseif ($command === 'night-audit-mode-save') {
                 // R16.4: avoid overloading "Night Audit required to close shift".
-                // Only Admin can change the feature mode, independently per property.
+                // Admin-only BY DESIGN (dipin oleh night-audit-mode-regression.php):
+                // mematikan Night Audit mengubah kontrol finansial, jadi tetap tertutup.
                 requireRoles($loggedInStaff,['admin']);
                 if (!array_key_exists('enabled',$input) || !in_array((string)$input['enabled'],['0','1'],true))
                     throw new InvalidArgumentException('Mode Night Audit wajib 0 (OFF) atau 1 (ON).');
@@ -1405,7 +1406,7 @@ switch ($action) {
                 if(($result['status']??'')==='invalid')throw new RuntimeException((string)($result['message']??'Pekerjaan smart-lock tidak dapat diproses ulang.'));
                 echo json_encode(['success'=>true,'result'=>$result,'message'=>$result['message']??'Pekerjaan smart-lock diproses ulang.','data'=>getRoleScopedOperationsData($pdo,$loggedInStaff)]);break;
             } elseif ($command === 'smart-lock-job-manual-complete') {
-                requireRoles($loggedInStaff,['admin','manager']);
+                requireCapability($loggedInStaff,'override_key_checkout',['admin','manager']);
                 $jobId=trim((string)($input['jobId']??$input['id']??''));
                 $reason=trim((string)($input['reason']??''));
                 $result=completeSmartLockRevokeJobManually($pdo,$loggedInStaff,$jobId,$reason,'web');

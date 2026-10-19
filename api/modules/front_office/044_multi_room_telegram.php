@@ -24,7 +24,7 @@ function tamasyaMultiRoomTelegramContext(array $actor,?string $nonce=null): arra
     return $ctx;
 }
 function tamasyaMultiRoomTelegramDetail(PDO $pdo,array $actor,string $id,int $page=1): array {
-    tamasyaMultiRoomRequire($pdo,$actor);$d=tamasyaMultiRoomDetail($pdo,$id);$buttons=[];$write=in_array($actor['role'],['admin','manager','receptionist'],true);
+    tamasyaMultiRoomRequire($pdo,$actor);$d=tamasyaMultiRoomDetail($pdo,$id);$buttons=[];$write=hasCapability($actor,'sell_room_access',['admin','manager','receptionist'])&&tamasyaHasRoomsWorkspaceAccess($actor);
     $page=max(1,min($page,max(1,(int)ceil(count($d['bookings'])/20))));
     foreach(array_slice($d['bookings'],($page-1)*20,20) as $b){
         if($write&&$b['status']==='reserved')$buttons[]=[['text'=>'Check-in kamar '.$b['roomNumber'],'callback_data'=>'mr_checkin:'.$id.':'.$b['id']]];

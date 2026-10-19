@@ -714,8 +714,8 @@ switch ($action) {
                 if($context)$lines[]='Konteks: *'.implode(' · ',$context).'*';if($needed!=='')$lines[]='Dibutuhkan: `'.$needed.'`';if($detail!=='')$lines[]='Detail: '.$detail;if($assignee!=='')$lines[]='PIC: *'.($assigneeName!==''?$telegramPlainText($assigneeName):$assignee).'*';
                 $buttons=[];
                 if($status==='open')$buttons[]=[['text'=>'📥 Ambil','callback_data'=>'gsa:'.$id]];
-                elseif($status==='assigned'&&($assignee===$staffId||in_array($role,['admin','manager'],true)))$buttons[]=[['text'=>'▶️ Mulai','callback_data'=>'gss:'.$id]];
-                elseif($status==='in_progress'&&($assignee===''||$assignee===$staffId||in_array($role,['admin','manager','receptionist'],true)))$buttons[]=[['text'=>'✅ Selesai','callback_data'=>'gsc:'.$id]];
+                elseif($status==='assigned'&&($assignee===$staffId||hasCapability($staff,'perform_housekeeping',['admin','manager'])))$buttons[]=[['text'=>'▶️ Mulai','callback_data'=>'gss:'.$id]];
+                elseif($status==='in_progress'&&($assignee===''||$assignee===$staffId||hasCapability($staff,'perform_housekeeping',['admin','manager','receptionist'])))$buttons[]=[['text'=>'✅ Selesai','callback_data'=>'gsc:'.$id]];
                 $buttons[]=[['text'=>'🔄 Muat Ulang','callback_data'=>'gsd:'.$id],['text'=>'⬅️ Antrean','callback_data'=>'gsm:p:1']];
                 return ['text'=>implode("\n",$lines),'markup'=>['inline_keyboard'=>$buttons]];
             };
@@ -740,8 +740,8 @@ switch ($action) {
                 }
                 $role=strtolower((string)($staff['role']??''));
                 $buttons[]=[["text"=>"🛏️ Kamar & Tamu","callback_data"=>"guest_ops_menu"]];
-                if(tamasyaGrowthModuleEnabled('group')&&in_array($role,['admin','manager','receptionist'],true))$buttons[]=[['text'=>'🏨 Reservasi Beberapa Kamar','callback_data'=>'mr_start:reserve']];
-                if(in_array($role,['admin','manager','receptionist','finance'],true)||in_array($role,tamasyaShiftOperatorRoles(),true)){
+                if(tamasyaGrowthModuleEnabled('group')&&hasCapability($staff,'sell_room_access',['admin','manager','receptionist'])&&tamasyaHasRoomsWorkspaceAccess($staff))$buttons[]=[['text'=>'🏨 Reservasi Beberapa Kamar','callback_data'=>'mr_start:reserve']];
+                if(tamasyaCanOperateShift($staff)||hasCapability($staff,'receive_payment_access',[])){
                     $buttons[]=[["text"=>"💰 Kas & Shift","callback_data"=>"cash_shift_menu"]];
                 }
                 if(in_array($role,$guestServiceTelegramRoles,true))$buttons[]=[["text"=>"🔔 Permintaan Tamu","callback_data"=>"gsm:p:1"]];
@@ -771,7 +771,7 @@ switch ($action) {
             };
 
             $buildTelegramShiftCloseMenu = static function(PDO $pdo, array $staff): array {
-                if(!tamasyaCanOperateShift($staff))return [
+                if(!tamasyaCanOperateShift($staff)&&!hasCapability($staff,'receive_payment_access',[]))return [
                     'text'=>'🔒 Akun ini tidak memiliki izin menutup shift kas.',
                     'markup'=>['inline_keyboard'=>[[['text'=>'⬅️ Menu Utama','callback_data'=>'main_menu']]]]
                 ];
@@ -1022,7 +1022,8 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                         // Perpanjang/layanan/pindah/checkout: role baseline ATAU centangan manage_stay_access.
                         $allowedCallback = hasCapability($loggedInStaff,'manage_stay_access',['admin','manager','receptionist']);
                     } elseif (in_array($callbackData,$roomReadCallbacks,true) || $matchesPrefix($callbackData,$roomReadPrefixes)) {
-                        $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','owner'],true);
+                        // Baca kamar: pengawas baseline ATAU centangan kelola kamar. Owner read-only tetap boleh.
+                        $allowedCallback = $callbackRole==='owner'||hasCapability($loggedInStaff,'manage_room_access',['admin','manager','receptionist','finance']);
                     } elseif (in_array($callbackData,$vacancyCallbacks,true) || $matchesPrefix($callbackData,$vacancyPrefixes)) {
                         $allowedCallback = in_array($callbackRole,['admin','manager','receptionist','finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'],true);
                     } elseif (in_array($callbackData,$housekeepingCallbacks,true) || $matchesPrefix($callbackData,$housekeepingPrefixes)) {
@@ -1032,7 +1033,8 @@ Daftar diambil langsung dari sesi server yang masih berstatus OPEN. Pilih shift 
                     } elseif (in_array($callbackData,$guestServiceCallbacks,true) || $matchesPrefix($callbackData,$guestServicePrefixes)) {
                         $allowedCallback = in_array($callbackRole,$guestServiceTelegramRoles,true);
                     } elseif (in_array($callbackData,$shiftCallbacks,true) || $matchesPrefix($callbackData,$shiftPrefixes)) {
-                        $allowedCallback = in_array($callbackRole,tamasyaShiftOperatorRoles(),true);
+                        // Kas & shift: operator shift baseline ATAU centangan terima pembayaran.
+                        $allowedCallback = tamasyaCanOperateShift($loggedInStaff)||hasCapability($loggedInStaff,'receive_payment_access',[]);
                     } elseif (in_array($callbackData,$bookingPaymentCallbacks,true) || $matchesPrefix($callbackData,$bookingPaymentPrefixes)) {
                         // Terima panjar: role baseline ATAU centangan receive_payment_access.
                         $allowedCallback = hasCapability($loggedInStaff,'receive_payment_access',['admin','manager','receptionist','finance']);
@@ -1297,7 +1299,7 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                     if(in_array($callbackRole,['admin','manager','receptionist','finance'],true)||hasCapability($loggedInStaff,'receive_payment_access',['admin','manager','receptionist','finance']))$buttons[]=[['text'=>'💵 Terima Panjar','callback_data'=>'panjar_menu']];
                     if(in_array($callbackRole,['admin','manager','finance'],true))$buttons[]=[['text'=>'📥 Input Pemasukan','callback_data'=>'pemasukan_menu']];
                     if(in_array($callbackRole,['admin','manager','finance'],true))$buttons[]=[['text'=>'📤 Input Pengeluaran','callback_data'=>'pengeluaran_menu'],['text'=>'📈 Laporan Kas','callback_data'=>'laporan_kas_refresh']];
-                    if(in_array($callbackRole,tamasyaShiftOperatorRoles(),true))$buttons[]=[['text'=>'🔑 Buka Shift','callback_data'=>'buka_shift_menu'],['text'=>'📝 Tutup Shift','callback_data'=>'tutup_shift_menu']];
+                    if(tamasyaCanOperateShift($loggedInStaff)||hasCapability($loggedInStaff,'receive_payment_access',[]))$buttons[]=[['text'=>'🔑 Buka Shift','callback_data'=>'buka_shift_menu'],['text'=>'📝 Tutup Shift','callback_data'=>'tutup_shift_menu']];
                     if(in_array($callbackRole,['admin','owner','manager','finance'],true))$buttons[]=[['text'=>'📋 Riwayat Shift','callback_data'=>'riwayat_shift_menu']];
                     if($callbackRole==='owner'){
                         // Cermin tombol kas agar terpantau semua; eksekusi
@@ -1331,7 +1333,7 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                         $pdo->beginTransaction();claimTelegramMutation($pdo,$telegramCallbackOperationId,$loggedInStaff['id'],'guest_service_request',$id,['action'=>'in_progress','id'=>$id],'callback');
                         $current=tamasyaGuestServiceRequestByIdentifier($pdo,$id,true);if(!$current)throw new RuntimeException('Permintaan tamu tidak ditemukan.');$state=strtolower((string)($current['status']??''));$assignee=trim((string)($current['assigned_to']??''));$role=strtolower((string)$loggedInStaff['role']);
                         if(in_array($state,['fulfilled','cancelled'],true))throw new RuntimeException('Permintaan sudah selesai/terminal.');
-                        if($assignee!==''&&$assignee!==(string)$loggedInStaff['id']&&!in_array($role,['admin','manager'],true))throw new RuntimeException('Permintaan ini sudah ditugaskan ke staf lain.');
+                        if($assignee!==''&&$assignee!==(string)$loggedInStaff['id']&&!hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager']))throw new RuntimeException('Permintaan ini sudah ditugaskan ke staf lain.');
                         $result=tamasyaProgressGuestServiceRequest($pdo,$loggedInStaff,$id,'in_progress',(string)$loggedInStaff['id'],'telegram-guest-service');completeTelegramMutation($pdo,$telegramCallbackOperationId,['id'=>$id,'status'=>'in_progress']);bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
                         $view=$buildTelegramGuestServiceDetail($pdo,$loggedInStaff,$id);$replyText="▶️ *PERMINTAAN MULAI DIKERJAKAN*\n\n".$view['text'];$replyMarkup=$view['markup'];$alertText='Mulai dikerjakan';
                     }catch(TelegramDuplicateOperationException $duplicate){if($pdo->inTransaction())$pdo->rollBack();$view=$buildTelegramGuestServiceDetail($pdo,$loggedInStaff,$id);$replyText="ℹ️ Tindakan ini sudah diproses.\n\n".$view['text'];$replyMarkup=$view['markup'];$alertText='Sudah diproses';}
@@ -1340,7 +1342,7 @@ Nomor kamar operasional hanya ditampilkan setelah akun staf terhubung.";
                     $id=trim(substr($callbackData,4));$current=tamasyaGuestServiceRequestByIdentifier($pdo,$id,false);$role=strtolower((string)$loggedInStaff['role']);$assignee=trim((string)($current['assigned_to']??''));
                     if(!$current){$replyText='⚠️ Permintaan tamu tidak ditemukan.';$replyMarkup=['inline_keyboard'=>[[['text'=>'⬅️ Antrean','callback_data'=>'gsm:p:1']]]];$alertText='Tidak ditemukan';}
                     elseif(in_array(strtolower((string)$current['status']),['fulfilled','cancelled'],true)){$view=$buildTelegramGuestServiceDetail($pdo,$loggedInStaff,$id);$replyText='ℹ️ Permintaan ini sudah selesai/terminal.\n\n'.$view['text'];$replyMarkup=$view['markup'];$alertText='Sudah selesai';}
-                    elseif($assignee!==''&&$assignee!==(string)$loggedInStaff['id']&&!in_array($role,['admin','manager','receptionist'],true)){$replyText='🔒 Permintaan ini ditugaskan ke staf lain dan tidak dapat diselesaikan oleh akun ini.';$replyMarkup=['inline_keyboard'=>[[['text'=>'🔄 Detail','callback_data'=>'gsd:'.$id]],[['text'=>'⬅️ Antrean','callback_data'=>'gsm:p:1']]]];$alertText='Bukan PIC';}
+                    elseif($assignee!==''&&$assignee!==(string)$loggedInStaff['id']&&!hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist'])){$replyText='🔒 Permintaan ini ditugaskan ke staf lain dan tidak dapat diselesaikan oleh akun ini.';$replyMarkup=['inline_keyboard'=>[[['text'=>'🔄 Detail','callback_data'=>'gsd:'.$id]],[['text'=>'⬅️ Antrean','callback_data'=>'gsm:p:1']]]];$alertText='Bukan PIC';}
                     else{$ctx=json_encode(['requestId'=>$id],JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);$pdo->prepare("UPDATE staff SET telegram_state='waiting_for_guest_service_completion_note',telegram_context=? WHERE id=?")->execute([$ctx,$loggedInStaff['id']]);$replyText="✅ *SELESAIKAN PERMINTAAN TAMU*\n\nKetik catatan hasil layanan minimal 3 karakter.\nContoh: `2 handuk sudah diantar dan diterima tamu`.\n\nKetik `/batal` bila tidak jadi.";$replyMarkup=['inline_keyboard'=>[[['text'=>'⬅️ Kembali ke Detail','callback_data'=>'gsd:'.$id]]]];$alertText='Ketik catatan selesai';}
                 } elseif ($callbackData === 'field_ops_menu') {
                     $pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
@@ -4047,7 +4049,7 @@ Nominal: *Rp ".tamasyaTelegramFormatAmount((float)$ctx['amount']).'*';$alertText
                     if (!$loggedInStaff) {
                         $replyText = "🔒 Sesi Anda telah berakhir. Silakan login kembali.";
                         $alertText = "Sesi Berakhir";
-                    } elseif (!tamasyaCanOperateShift($loggedInStaff)) {
+                    } elseif (!tamasyaCanOperateShift($loggedInStaff)&&!hasCapability($loggedInStaff,'receive_payment_access',[])) {
                         $replyText = "🔒 Hanya Admin, Manajer, Finance, atau Resepsionis yang dapat membuka shift kas.";
                         $alertText = "Akses ditolak";
                     } elseif ($existingOpenShift=getOpenShiftForStaff($pdo,(string)$loggedInStaff['id'])) {
@@ -4079,7 +4081,7 @@ Pilih jadwal shift yang benar. Sistem tidak lagi menetapkan shift pagi secara ot
                     if (!$loggedInStaff) {
                         $replyText = "🔒 Sesi Anda telah berakhir. Silakan login kembali.";
                         $alertText = "Sesi Berakhir";
-                    } elseif (!tamasyaCanOperateShift($loggedInStaff)) {
+                    } elseif (!tamasyaCanOperateShift($loggedInStaff)&&!hasCapability($loggedInStaff,'receive_payment_access',[])) {
                         $replyText = "🔒 Hanya Admin, Manajer, Finance, atau Resepsionis yang dapat membuka shift kas.";
                         $alertText = "Akses ditolak";
                     } elseif ($existingOpenShift=getOpenShiftForStaff($pdo,(string)$loggedInStaff['id'])) {
@@ -4158,7 +4160,7 @@ Ketik nominal kas awal laci, misalnya `500000` atau `0`.";
                     $alertText = "Dibatalkan";
                 } elseif (strpos($callbackData, "tutup_shift_select:") === 0) {
                     if(!$loggedInStaff){$replyText='🔒 Sesi Anda telah berakhir.';$alertText='Sesi Berakhir';}
-                    elseif(!tamasyaCanOperateShift($loggedInStaff)){$replyText='🔒 Akun ini tidak memiliki izin menutup shift kas.';$alertText='Akses ditolak';}
+                    elseif(!tamasyaCanOperateShift($loggedInStaff)&&!hasCapability($loggedInStaff,'receive_payment_access',[])){$replyText='🔒 Akun ini tidak memiliki izin menutup shift kas.';$alertText='Akses ditolak';}
                     else{
                         $shiftId=trim((string)(explode(':',$callbackData,2)[1]??''));$role=strtolower((string)($loggedInStaff['role']??''));
                         $stmt=$pdo->prepare("SELECT * FROM shift_sessions WHERE id=? AND status='open' LIMIT 1");$stmt->execute([$shiftId]);$openShift=$stmt->fetch(PDO::FETCH_ASSOC);
@@ -4167,7 +4169,7 @@ Ketik nominal kas awal laci, misalnya `500000` atau `0`.";
                             $participantIds=getShiftParticipantIds($openShift);
                             if($role==='receptionist'&&!in_array((string)$loggedInStaff['id'],$participantIds,true)){
                                 $replyText='🔒 Resepsionis hanya boleh menutup shift yang diikutinya.';$alertText='Akses ditolak';
-                            }elseif(!in_array($role,['admin','manager','finance','receptionist'],true)){
+                            }elseif(!tamasyaCanOperateShift($loggedInStaff)&&!hasCapability($loggedInStaff,'receive_payment_access',[])){
                                 $replyText='🔒 Peran akun tidak diizinkan menutup shift ini.';$alertText='Akses ditolak';
                             }else{
                                 $selection=['flow'=>'shift_close_select','selectedShiftId'=>$shiftId];
@@ -4188,14 +4190,14 @@ Lanjutkan rekonsiliasi menggunakan sesi database ini.";
                     if (!$loggedInStaff) {
                         $replyText = "🔒 Sesi Anda telah berakhir. Silakan login kembali.";
                         $alertText = "Sesi Berakhir";
-                    } elseif (!tamasyaCanOperateShift($loggedInStaff)) {
+                    } elseif (!tamasyaCanOperateShift($loggedInStaff)&&!hasCapability($loggedInStaff,'receive_payment_access',[])) {
                         $replyText = "🔒 Hanya Admin, Manajer, Finance, atau Resepsionis yang dapat menutup shift kas.";
                         $alertText = "Akses ditolak";
                     } else {
                         $selectionCtx=json_decode((string)($loggedInStaff['telegram_context']??''),true);
                         $selectedShiftId=is_array($selectionCtx)&&($selectionCtx['flow']??'')==='shift_close_select'?trim((string)($selectionCtx['selectedShiftId']??'')):'';
                         $role=strtolower((string)($loggedInStaff['role']??''));$openShift=null;
-                        if($selectedShiftId!==''&&in_array($role,['admin','manager','finance','receptionist'],true)){
+                        if($selectedShiftId!==''&&(tamasyaCanOperateShift($loggedInStaff)||hasCapability($loggedInStaff,'receive_payment_access',[]))){
                             $stmtSelected=$pdo->prepare("SELECT * FROM shift_sessions WHERE id=? AND status='open' LIMIT 1");$stmtSelected->execute([$selectedShiftId]);$candidate=$stmtSelected->fetch(PDO::FETCH_ASSOC);
                             if($candidate){
                                 $participants=getShiftParticipantIds($candidate);
@@ -4638,7 +4640,7 @@ Demi keamanan database multi-user, command, tombol, binding akun, data tamu, AI,
                 } elseif (str_starts_with($pendingState,'waiting_for_dp_')) {
                     $pendingAllowed = hasCapability($loggedInStaff,'receive_payment_access',['admin','manager','receptionist','finance']);
                 } elseif (str_starts_with($pendingState,'waiting_for_buka_shift_') || str_starts_with($pendingState,'waiting_for_tutup_shift_')) {
-                    $pendingAllowed = in_array($pendingRole,tamasyaShiftOperatorRoles(),true);
+                    $pendingAllowed = tamasyaCanOperateShift($loggedInStaff)||hasCapability($loggedInStaff,'receive_payment_access',[]);
                 } elseif (str_starts_with($pendingState,'waiting_mr_') || $pendingState==='mr_done') {
                     $pendingAllowed = hasCapability($loggedInStaff,'sell_room_access',['admin','manager','receptionist']);
                 } elseif ($pendingState !== 'waiting_for_login_password') {
@@ -4748,7 +4750,7 @@ Peran akun Anda tidak lagi berhak melanjutkan proses Telegram ini. State lama te
                         try{
                             $pdo->beginTransaction();claimTelegramMutation($pdo,$operationId,$loggedInStaff['id'],'guest_service_request',$id,['action'=>'fulfilled','id'=>$id,'note'=>$note],'message');
                             $current=tamasyaGuestServiceRequestByIdentifier($pdo,$id,true);if(!$current)throw new RuntimeException('Permintaan tamu tidak ditemukan.');$role=strtolower((string)$loggedInStaff['role']);$assignee=trim((string)($current['assigned_to']??''));
-                            if($assignee!==''&&$assignee!==(string)$loggedInStaff['id']&&!in_array($role,['admin','manager','receptionist'],true))throw new RuntimeException('Permintaan ini ditugaskan ke staf lain.');
+                            if($assignee!==''&&$assignee!==(string)$loggedInStaff['id']&&!hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist']))throw new RuntimeException('Permintaan ini ditugaskan ke staf lain.');
                             $result=tamasyaCloseGuestServiceRequest($pdo,$loggedInStaff,$id,'fulfilled',$note,'telegram-guest-service');completeTelegramMutation($pdo,$operationId,['id'=>$id,'status'=>'fulfilled']);$pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
                             if(empty($result['idempotent'])&&!empty($result['request']))broadcastTelegramNotification($pdo,tamasyaGuestServiceTelegramMessage((array)$result['request'],'fulfilled',$loggedInStaff),false,'operations');
                             $replyText="✅ *PERMINTAAN TAMU SELESAI*\n\nCatatan: ".$telegramPlainText($note)."\n\nState aplikasi dan Telegram sudah menggunakan record Guest Service yang sama.";$replyMarkup=['inline_keyboard'=>[[['text'=>'🔔 Antrean Lain','callback_data'=>'gsm:p:1']],[['text'=>'⬅️ Menu Utama','callback_data'=>'main_menu']]]];
@@ -5123,7 +5125,7 @@ Ketik kas awal berupa angka, misalnya `500000` atau `0`.";
                             }
 
                             $newCtx=json_encode($context,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
-                            $needsOverride=abs(round($variance,2))>$tolerance&&in_array($role,['admin','manager'],true);
+                            $needsOverride=abs(round($variance,2))>$tolerance&&hasCapability($loggedInStaff,'approve_sensitive_actions',['admin','manager']);
                             $pdo->prepare("UPDATE staff SET telegram_state=?,telegram_context=? WHERE id=?")
                                 ->execute([$needsOverride?'waiting_for_tutup_shift_override_reason':'waiting_for_tutup_shift_notes',$newCtx,$loggedInStaff['id']]);
                             $replyText="🔍 *REKONSILIASI KAS SEMENTARA*\n\n💵 Fisik Aktual: *Rp ".tamasyaTelegramFormatAmount($actualCash)."*\n📊 Seharusnya: *Rp ".tamasyaTelegramFormatAmount($expectedCash)."*\n⚠️ Selisih Laci: *{$varianceText}*\n\n";
@@ -5157,7 +5159,7 @@ Ketik kas awal berupa angka, misalnya `500000` atau `0`.";
                         $replyText="⚠️ Data sesi tutup shift tidak ditemukan; database tidak diubah.";
                         $replyMarkup=['inline_keyboard'=>[[['text'=>'⬅️ Menu Utama','callback_data'=>'main_menu']]]];
                         $pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
-                    }elseif(!in_array(strtolower((string)($loggedInStaff['role']??'')),['admin','manager'],true)){
+                    }elseif(!hasCapability($loggedInStaff,'approve_sensitive_actions',['admin','manager'])){
                         $replyText="🔒 Hanya Admin/Manager yang boleh memberikan alasan override selisih kas.";
                         $replyMarkup=['inline_keyboard'=>[[['text'=>'❌ Batalkan','callback_data'=>'cancel_tutup_shift']]]];
                     }elseif(tamasyaStringLength($overrideReason)<5){
@@ -6383,7 +6385,7 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                 } elseif ($command === '/patroli_laporan' || str_starts_with($command,'/patrol') || str_starts_with($command,'/lapor_insiden')) {
                     $requiredDirectRoles = ['admin','manager','receptionist','keamanan'];
                 } elseif ($command === '/buka_shift' || $command === '/tutup_shift') {
-                    $requiredDirectRoles = tamasyaShiftOperatorRoles();
+                    $requiredDirectCap = ['receive_payment_access', tamasyaShiftOperatorRoles()];
                 } elseif ($command === '📥 Input Pemasukan' || str_starts_with($command,'/pemasukan')) {
                     $requiredDirectRoles = ['admin','manager','finance'];
                 } elseif ($command === '📤 Input Pengeluaran' || str_starts_with($command,'/pengeluaran')) {
@@ -6720,7 +6722,7 @@ Hubungi petugas hotel untuk informasi nomor kamar yang tersedia.";
             } elseif (strpos($command, '/update_status') === 0) {
                 if (!$loggedInStaff) {
                     $replyText = "🔒 *AKSES DITOLAK*!\nTelegram ID belum terhubung. Hubungi Admin untuk binding akun staf.";
-                } elseif (!in_array($loggedInStaff['role'], ['admin', 'manager', 'receptionist'])) {
+                } elseif (!hasCapability($loggedInStaff,'manage_room_access',['admin','manager','receptionist'])) {
                     $replyText = "🔒 *AKSES DITOLAK*!\nDiagnosa detail status kamar hanya diizinkan untuk Admin, Manajer, atau Resepsionis.";
                 } else {
                     $parts = preg_split('/\s+/', $command);
@@ -7231,7 +7233,7 @@ Pilih kamar. Setiap pembayaran disimpan sebagai ledger terpisah dan tidak menimp
                     $replyText="🩺 *DIAGNOSA SHIFT TELEGRAM*\n\n❌ Koneksi akun staf: *BELUM TERHUBUNG*\n🆔 Telegram User ID: `{$fromId}`\n🌐 Status webhook: *".($webhookMatch?'SINKRON':'TIDAK SINKRON / BELUM AKTIF')."*\n🏷️ Versi aktif: *{$patchLevel}*\n🕒 Zona waktu aplikasi: *{$timezone}*\n🗄️ Zona waktu basis data: *{$dbClock['db_timezone']}*\n📅 Waktu basis data: *{$dbClock['db_now']}*\n\nBuat kode binding satu kali dari aplikasi, lalu kirim `/bind KODE` dalam 10 menit. Setelah berhasil, jalankan `/diagnosa_shift` kembali.";
                 } else {
                     $role=strtolower((string)($loggedInStaff['role']??''));
-                    $allowed=tamasyaCanOperateShift($loggedInStaff);
+                    $allowed=tamasyaCanOperateShift($loggedInStaff)||hasCapability($loggedInStaff,'receive_payment_access',[]);
                     $openShift=getOpenShiftForStaff($pdo,(string)$loggedInStaff['id']);
                     $shiftStatus=$openShift ? ('TERBUKA · '.strtoupper((string)$openShift['shift_time']).' · '.(string)$openShift['shift_date']) : 'TIDAK ADA SHIFT TERBUKA';
                     $webhookStatus=$webhookMatch?'SINKRON':($remoteUrl===''?'BELUM AKTIF':'SALAH TUJUAN');
@@ -7242,7 +7244,7 @@ Pilih kamar. Setiap pembayaran disimpan sebagai ledger terpisah dan tidak menimp
             } elseif ($command === "/buka_shift") {
                 if (!$loggedInStaff) {
                     $replyText = "🔒 *AKSES DITOLAK*!\nTelegram ID belum terhubung. Hubungi Admin untuk binding akun staf.";
-                } elseif (!tamasyaCanOperateShift($loggedInStaff)) {
+                } elseif (!tamasyaCanOperateShift($loggedInStaff)&&!hasCapability($loggedInStaff,'receive_payment_access',[])) {
                     $replyText = "🔒 Hanya Admin, Manajer, Finance, atau Resepsionis yang dapat membuka shift kas.";
                 } elseif ($currentOpenShift=getOpenShiftForStaff($pdo,(string)$loggedInStaff['id'])) {
                     $replyText = "ℹ️ Anda sudah terikat pada shift terbuka *".getShiftDisplayName($currentOpenShift)."*. Tutup shift tersebut sebelum membuka yang baru.";
@@ -7274,7 +7276,7 @@ Pilih kamar. Setiap pembayaran disimpan sebagai ledger terpisah dan tidak menimp
                 if (!$loggedInStaff) {
                     $replyText = "🔒 *AKSES DITOLAK*!
 Telegram ID belum terhubung. Hubungi Admin untuk binding akun staf.";
-                } elseif (!tamasyaCanOperateShift($loggedInStaff)) {
+                } elseif (!tamasyaCanOperateShift($loggedInStaff)&&!hasCapability($loggedInStaff,'receive_payment_access',[])) {
                     $replyText = "🔒 Hanya Admin, Manajer, Finance, atau Resepsionis yang dapat menutup shift kas.";
                 } else {
                     $currentOpenShift=getOpenShiftForStaff($pdo,(string)$loggedInStaff['id']);
