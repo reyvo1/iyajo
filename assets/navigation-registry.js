@@ -62,6 +62,7 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
     title: 'Memo Internal',
     subtitle: 'Catatan Admin & Keuangan',
     aria: 'Buka Memo Internal TAMASYA',
+    roles: Object.freeze(['admin','finance','owner']),
     requiredAnyTabs: Object.freeze(['finance','report','staff']),
     showWhenLocked: false
   }),
