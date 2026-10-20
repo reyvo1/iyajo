@@ -42,7 +42,7 @@ test('Shared policy and styling load before clients and are precached for offlin
  }
  assert.ok(read('sw.js').includes(policyUrl));assert.ok(read('sw.js').includes(cssUrl));
  assert.ok(read('assets/chunks/app-shell.js').includes('TamasyaOwnerReadOnlyPolicy.componentProps'));
- assert.ok(read('assets/chunks/operations.js').includes('["admin","owner"].includes(e.currentRole))return Yk'));
+ assert.ok(read('assets/chunks/operations.js').includes('taxAllowed=ma("manage_tax_rules"'));
 });
 test('Report dialog fits the available width and read-only field values remain legible',()=>{
  const source=read('assets/canonical-report-center.js');assert.ok(source.includes('box-sizing:border-box;min-width:0;width:min(780px,100%)'));
