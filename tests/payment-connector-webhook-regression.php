@@ -92,7 +92,7 @@ $suite = file_get_contents($root . '/growth-suite.html');
 checkPaymentConnector($suite !== false && strpos($suite, 'X-Tamasya-Signature') !== false && strpos($suite, 'HMAC-SHA256') !== false, 'growth UI documents the webhook signature contract');
 $suiteJs = file_get_contents($root . '/assets/growth-suite.js');
 checkPaymentConnector($suiteJs !== false && strpos($suiteJs, 'payment-provider-save') !== false, 'growth UI can manage providers');
-checkPaymentConnector($suiteJs !== false && strpos($suiteJs, 'providerForm.classList.toggle(\'role-hidden\',role!==\'admin\')') !== false, 'provider management is admin-only in the UI');
+checkPaymentConnector($suiteJs !== false && strpos($suiteJs, 'providerForm.classList.toggle(\'role-hidden\',!ma(\'manage_operational_settings\', [\'admin\']))') !== false, 'provider management is admin-only in the UI');
 
 if ($failures) {
     fwrite(STDERR, "Payment connector assertions FAILED:\n");
