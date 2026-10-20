@@ -12,7 +12,16 @@ const VERSION = 'V137-GUEST-CENTER';
   let serviceActiveIds = new Set();
 
   const textOf = (el) => (el && el.textContent ? el.textContent : '').replace(/\s+/g, ' ').trim();
-  const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&':'&', '<':'<', '>':'>', '"':'"', "'":"'" }[c]));
+  const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+  const role = () => String(sessionStorage.getItem('hotel_role') || sessionStorage.getItem('hotel_staff_role') || '').trim().toLowerCase();
+  const loggedIn = () => sessionStorage.getItem('hotel_logged_in') === 'true';
+  const money = (value) => window.TamasyaCurrencyDisplay.formatRupiah(Math.max(0, Number(value || 0)));
+  const dateLabel = (value) => {
+    if (!value) return '-';
+    const d = new Date(value);
+    if (Number.isNaN(d.getTime())) return String(value);
+    return d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: String(value).includes('T') || String(value).includes(' ') ? 'short' : undefined });
+  };
   function permissions() {
     try { return JSON.parse(sessionStorage.getItem('hotel_permissions') || '{}') || {}; } catch { return {}; }
   }
@@ -20,15 +29,6 @@ const VERSION = 'V137-GUEST-CENTER';
     const p = permissions();
     if (p.capabilities && Object.prototype.hasOwnProperty.call(p.capabilities, cap)) return p.capabilities[cap] === true;
     return (fallback || []).includes(role());
-  }
-  function tabAllowed(key) {
-    const p = permissions();
-    if (p.desktopTabs && Object.prototype.hasOwnProperty.call(p.desktopTabs, key)) return p.desktopTabs[key] === true;
-    const fallbacks = {
-      rooms: ['admin','manager','receptionist','finance'], finance: ['admin','manager','finance'],
-      pos: ['admin','manager','receptionist','finance'], operations: ['admin','manager','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain']
-    };
-    return (fallbacks[key] || []).includes(role());
   }
   function tabAllowed(key) {
     const p = permissions();
