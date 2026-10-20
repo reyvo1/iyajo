@@ -2184,6 +2184,7 @@ CREATE TABLE `staff` (
   `username` varchar(50) NOT NULL,
   `password` varchar(255) NOT NULL,
   `role` varchar(20) NOT NULL DEFAULT 'receptionist',
+  `job_title` varchar(30) DEFAULT NULL,
   `status` varchar(20) NOT NULL DEFAULT 'active',
   `telegram_chat_id` varchar(100) DEFAULT NULL,
   `salary` decimal(15,2) DEFAULT 0.00,
@@ -2206,7 +2207,8 @@ CREATE TABLE `staff` (
   `password_changed_at` datetime DEFAULT NULL,
   `require_password_change` tinyint(1) NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
-  UNIQUE KEY `username` (`username`)
+  UNIQUE KEY `username` (`username`),
+  KEY `idx_staff_job_title` (`job_title`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- TABLE: role_capability_presets (Fase 2 "Kelola Jabatan")
@@ -2232,6 +2234,35 @@ INSERT IGNORE INTO `role_capability_presets` (`role`,`permissions`) VALUES
 ('koki', '{"desktopTabs":{"dashboard":false,"rooms":false,"finance":false,"savings":true,"report":false,"operations":true,"website":false,"support":false,"telegram":true,"staff":false,"config":false,"db_config":false,"inventory":true,"leaves":true,"attendance":true},"telegramNotifications":{"bookings":false,"finance":false,"inventory":true,"operations":false,"hr":false,"system":false},"capabilities":{"approve_sensitive_actions":false,"manage_sessions":false,"resolve_sync_conflict":false,"manage_tax_rules":false,"manage_backup":false,"view_audit_log":false,"reconcile_payments":false,"correct_booking_audit":false,"view_guest_identity":false,"manage_room_access":false,"sell_room_access":false,"manage_stay_access":false,"receive_payment_access":false,"perform_night_audit":false,"perform_housekeeping":false,"resolve_night_audit":false,"manage_operational_settings":false,"override_key_checkout":false,"manage_public_website":false,"view_reports":false,"view_support_inbox":false,"manage_facilities":false}}'),
 ('tukang_kebun', '{"desktopTabs":{"dashboard":false,"rooms":false,"finance":false,"savings":true,"report":false,"operations":true,"website":false,"support":false,"telegram":true,"staff":false,"config":false,"db_config":false,"inventory":false,"leaves":true,"attendance":true},"telegramNotifications":{"bookings":false,"finance":false,"inventory":false,"operations":false,"hr":false,"system":false},"capabilities":{"approve_sensitive_actions":false,"manage_sessions":false,"resolve_sync_conflict":false,"manage_tax_rules":false,"manage_backup":false,"view_audit_log":false,"reconcile_payments":false,"correct_booking_audit":false,"view_guest_identity":false,"manage_room_access":false,"sell_room_access":false,"manage_stay_access":false,"receive_payment_access":false,"perform_night_audit":false,"perform_housekeeping":false,"resolve_night_audit":false,"manage_operational_settings":false,"override_key_checkout":false,"manage_public_website":false,"view_reports":false,"view_support_inbox":false,"manage_facilities":false}}'),
 ('lain_lain', '{"desktopTabs":{"dashboard":false,"rooms":false,"finance":false,"savings":true,"report":false,"operations":true,"website":false,"support":false,"telegram":true,"staff":false,"config":false,"db_config":false,"inventory":false,"leaves":true,"attendance":true},"telegramNotifications":{"bookings":false,"finance":false,"inventory":false,"operations":false,"hr":false,"system":false},"capabilities":{"approve_sensitive_actions":false,"manage_sessions":false,"resolve_sync_conflict":false,"manage_tax_rules":false,"manage_backup":false,"view_audit_log":false,"reconcile_payments":false,"correct_booking_audit":false,"view_guest_identity":false,"manage_room_access":false,"sell_room_access":false,"manage_stay_access":false,"receive_payment_access":false,"perform_night_audit":false,"perform_housekeeping":false,"resolve_night_audit":false,"manage_operational_settings":false,"override_key_checkout":false,"manage_public_website":false,"view_reports":false,"view_support_inbox":false,"manage_facilities":false}}');
+
+-- TABLE: staff_job_titles (R19 "Jabatan Dinamis")
+-- Daftar jabatan yang dapat ditambah/diubah/dihapus dari UI. Setiap jabatan adalah
+-- alias tampilan + paket izin di atas salah satu 9 role kanonik (`base_role`); kolom
+-- staff.role tetap menyimpan role basis sehingga enforcement 017/lama tidak berubah.
+-- 9 baris sistem = role kanonik (tidak dapat dihapus; key = base_role).
+CREATE TABLE IF NOT EXISTS `staff_job_titles` (
+  `title_key` varchar(30) NOT NULL,
+  `label` varchar(60) NOT NULL,
+  `base_role` varchar(20) NOT NULL DEFAULT 'lain_lain',
+  `is_system` tinyint(1) NOT NULL DEFAULT 0,
+  `sort_order` int(11) NOT NULL DEFAULT 100,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`title_key`),
+  KEY `idx_staff_job_titles_base` (`base_role`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+INSERT IGNORE INTO `staff_job_titles` (`title_key`,`label`,`base_role`,`is_system`,`sort_order`) VALUES
+('admin','Admin','admin',1,10),
+('manager','Manajer','manager',1,20),
+('finance','Keuangan','finance',1,30),
+('receptionist','Resepsionis','receptionist',1,40),
+('cleaning_service','Cleaning Service','cleaning_service',1,50),
+('keamanan','Keamanan','keamanan',1,60),
+('koki','Koki','koki',1,70),
+('tukang_kebun','Tukang Kebun','tukang_kebun',1,80),
+('lain_lain','Lain-lain','lain_lain',1,90);
 
 
 -- TABLE: staff_biometric_profiles

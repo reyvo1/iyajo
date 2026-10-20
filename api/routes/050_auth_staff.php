@@ -181,6 +181,8 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
             logActivity($pdo,'login','Login sukses',$locked['id'],$locked['name']);
             echo json_encode([
                 'success'=>true,'role'=>$locked['role'],'name'=>$locked['name'],'username'=>$locked['username'],'staffId'=>$locked['id'],
+                'jobTitle'=>($locked['job_title']??null),
+                'jobTitleLabel'=>!empty($locked['job_title'])?tamasyaJobTitleLabel($pdo,(string)$locked['job_title']):null,
                 'token'=>$sessionToken,'offlineRefreshToken'=>$refreshToken,'offlineRefreshExpires'=>$refreshExpires,
                 'permissions'=>tamasyaSessionPermissions($locked),
                 'hotelScopeId'=>tamasyaHotelScopeId(),'offlineSessionScopeId'=>$offlineSessionScopeId,
@@ -246,6 +248,8 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
             logActivity($pdo,'login_2fa_success','Login sukses dengan verifikasi 2FA Telegram',$user['id'],$user['name']);
             echo json_encode([
                 'success'=>true,'role'=>$user['role'],'name'=>$user['name'],'username'=>$user['username'],'staffId'=>$user['id'],
+                'jobTitle'=>($user['job_title']??null),
+                'jobTitleLabel'=>!empty($user['job_title'])?tamasyaJobTitleLabel($pdo,(string)$user['job_title']):null,
                 'token'=>$sessionToken,'offlineRefreshToken'=>$refreshToken,'offlineRefreshExpires'=>$refreshExpires,
                 'permissions'=>tamasyaSessionPermissions($user),
                 'hotelScopeId'=>tamasyaHotelScopeId(),'offlineSessionScopeId'=>$offlineSessionScopeId,
@@ -291,6 +295,8 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
             tamasyaFinancialCommit($pdo);
             echo json_encode([
                 'success'=>true,'role'=>$user['role'],'name'=>$user['name'],'username'=>$user['username'],'staffId'=>$user['id'],
+                'jobTitle'=>($user['job_title']??null),
+                'jobTitleLabel'=>!empty($user['job_title'])?tamasyaJobTitleLabel($pdo,(string)$user['job_title']):null,
                 'token'=>$sessionToken,'offlineRefreshToken'=>$nextRefreshToken,'offlineRefreshExpires'=>$nextExpires,
                 'permissions'=>tamasyaSessionPermissions($user),
                 'hotelScopeId'=>tamasyaHotelScopeId(),'offlineSessionScopeId'=>$offlineSessionScopeId,
@@ -311,8 +317,23 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
         } elseif ($method !== 'GET') {
             requireRoles($loggedInStaff, ['admin']);
         }
+        $staffJobTitles=tamasyaJobTitleMap($pdo);
+        $hasStaffJobTitleColumn=tamasyaStaffJobTitleColumnExists($pdo);
+        $jobTitleSelect=$hasStaffJobTitleColumn?", s.job_title AS jobTitle":"";
         $allowedStaffRoles=['admin','manager','receptionist','finance','owner','koki','tukang_kebun','cleaning_service','keamanan','lain_lain'];
         $allowedStaffStatuses=['active','inactive'];
+        $resolveStaffTitle=static function($roleValue,$jobTitleValue) use ($staffJobTitles): array {
+            $title=strtolower(trim((string)($jobTitleValue??'')));
+            $raw=strtolower(trim((string)($roleValue??'')));
+            if($title==='owner')$title='';
+            if($title===''&&$raw!==''&&isset($staffJobTitles[$raw]))$title=$raw;
+            if($title!==''){
+                if(!isset($staffJobTitles[$title]))return ['error'=>'Jabatan staf tidak valid.'];
+                return ['role'=>(string)$staffJobTitles[$title]['base_role'],'jobTitle'=>$title,'label'=>(string)$staffJobTitles[$title]['label']];
+            }
+            if($raw==='owner')return ['role'=>'owner','jobTitle'=>null,'label'=>'Owner'];
+            return ['error'=>'Role staf tidak valid.'];
+        };
         
         if ($method === 'GET') {
             try {
@@ -321,15 +342,15 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                     // Kalender cuti tidak memerlukan username, gaji, Telegram, 2FA,
                     // atau permission staf. Proyeksi minimal mencegah data SDM
                     // berlebih bocor melalui menu yang berbeda.
-                    $staffColumns = "s.id, s.name, s.role, s.status, s.leave_start AS leaveStart, s.leave_end AS leaveEnd, s.leave_reason AS leaveReason, s.leave_type AS leaveType";
+                    $staffColumns = "s.id, s.name, s.role, s.status, s.leave_start AS leaveStart, s.leave_end AS leaveEnd, s.leave_reason AS leaveReason, s.leave_type AS leaveType{$jobTitleSelect}";
                 } else {
                     $staffColumns = $canSeeSensitiveStaff
-                        ? "s.id, s.name, s.username, s.role, s.status, s.salary, s.leave_start AS leaveStart, s.leave_end AS leaveEnd, s.leave_reason AS leaveReason, s.leave_type AS leaveType, s.two_factor_active AS twoFactorActive,
+                        ? "s.id, s.name, s.username, s.role, s.status, s.salary, s.leave_start AS leaveStart, s.leave_end AS leaveEnd, s.leave_reason AS leaveReason, s.leave_type AS leaveType, s.two_factor_active AS twoFactorActive{$jobTitleSelect}
                             COALESCE(NULLIF(TRIM(s.telegram_chat_id), ''),
                                 (SELECT tb.telegram_user_id FROM telegram_bindings tb WHERE tb.staff_id=s.id AND tb.status='active' ORDER BY tb.verified_at DESC LIMIT 1)
                             ) AS telegramChatId,
                             s.permissions"
-                        : "s.id, s.name, s.role, s.status, s.leave_start AS leaveStart, s.leave_end AS leaveEnd, s.leave_reason AS leaveReason, s.leave_type AS leaveType";
+                        : "s.id, s.name, s.role, s.status, s.leave_start AS leaveStart, s.leave_end AS leaveEnd, s.leave_reason AS leaveReason, s.leave_type AS leaveType{$jobTitleSelect}";
                 }
                 $stmt = $pdo->query("SELECT {$staffColumns} FROM staff s ORDER BY s.name ASC");
                 $rows = $stmt->fetchAll();
@@ -350,7 +371,8 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
         } elseif ($method === 'POST') {
             $name = trim((string)($input['name'] ?? ''));
             $username = trim(strtolower($input['username'] ?? ''));
-            $role = $input['role'] ?? 'receptionist';
+            $roleInput = $input['role'] ?? 'receptionist';
+            $jobTitleInput = $input['jobTitle'] ?? null;
             $password = $input['password'] ?? '';
             $salary = isset($input['salary']) ? (float)$input['salary'] : 0.00;
             $leaveStart = $input['leaveStart'] ?? null;
@@ -377,11 +399,15 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
             }
             try { tamasyaAssertPasswordPolicy((string)$password,$username,$name); }
             catch (InvalidArgumentException $passwordError) { http_response_code(422); echo json_encode(['success'=>false,'error'=>$passwordError->getMessage()]); break; }
-            if(!in_array($role,$allowedStaffRoles,true)){
+            $resolvedTitle=$resolveStaffTitle($roleInput,$jobTitleInput);
+            if(isset($resolvedTitle['error']) || !in_array($resolvedTitle['role'] ?? '', $allowedStaffRoles, true)){
                 http_response_code(400);
-                echo json_encode(["success"=>false,"error"=>"Role staf tidak valid."]);
+                echo json_encode(["success"=>false,"error"=>$resolvedTitle['error'] ?? 'Role staf tidak valid.']);
                 break;
             }
+            $role=$resolvedTitle['role'];
+            $jobTitle=$resolvedTitle['jobTitle'];
+            $jobLabel=$resolvedTitle['label'];
             if ($salary < 0) {
                 http_response_code(400);
                 echo json_encode(["success"=>false,"error"=>"Gaji staf tidak boleh bernilai negatif."]);
@@ -404,13 +430,26 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
 
                 $staffId = generateServerId("s");
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
-                $permissions = isset($input['permissions']) ? json_encode($normalizedPermissions) : null;
-                $stmt = $pdo->prepare("INSERT INTO staff (id, name, username, password, role, status, salary, leave_start, leave_end, leave_reason, leave_type, two_factor_active, telegram_chat_id, permissions, password_changed_at, require_password_change) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, 0)");
-                $stmt->execute([$staffId, $name, $username, $hashed_password, $role, $salary, $leaveStart, $leaveEnd, $leaveReason, $leaveType, $twoFactorActive, $permissions]);
+                if (isset($input['permissions'])) {
+                    $permissions = json_encode($normalizedPermissions);
+                } elseif ($jobTitle !== null && !array_key_exists($jobTitle, tamasyaRolePresetSeed())) {
+                    // Jabatan dinamis tidak punya baseline hardcoded: salin paket default
+                    // base_role-nya sebagai override eksplisit akun (idempoten dengan panel).
+                    $permissions = json_encode(tamasyaRolePresetDefaultFor($jobTitle, $role));
+                } else {
+                    $permissions = null;
+                }
+                if ($hasStaffJobTitleColumn) {
+                    $stmt = $pdo->prepare("INSERT INTO staff (id, name, username, password, role, job_title, status, salary, leave_start, leave_end, leave_reason, leave_type, two_factor_active, telegram_chat_id, permissions, password_changed_at, require_password_change) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, 0)");
+                    $stmt->execute([$staffId, $name, $username, $hashed_password, $role, $jobTitle, $salary, $leaveStart, $leaveEnd, $leaveReason, $leaveType, $twoFactorActive, $permissions]);
+                } else {
+                    $stmt = $pdo->prepare("INSERT INTO staff (id, name, username, password, role, status, salary, leave_start, leave_end, leave_reason, leave_type, two_factor_active, telegram_chat_id, permissions, password_changed_at, require_password_change) VALUES (?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, 0)");
+                    $stmt->execute([$staffId, $name, $username, $hashed_password, $role, $salary, $leaveStart, $leaveEnd, $leaveReason, $leaveType, $twoFactorActive, $permissions]);
+                }
 
                 // Notifikasi sistem
                 $notifId = generateServerId('n_staff');
-                $notifMsg = "Staf baru berhasil didaftarkan: $name sebagai " . strtoupper($role) . ".";
+                $notifMsg = "Staf baru berhasil didaftarkan: $name sebagai " . $jobLabel . ".";
                 $stmt = $pdo->prepare("INSERT INTO notifications (id, message, timestamp, `read`, type) VALUES (?, ?, ?, 0, 'system')");
                 $stmt->execute([$notifId, $notifMsg, date("Y-m-d H:i:s")]);
 
@@ -418,7 +457,7 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                 $afterStmt->execute([$staffId]);
                 $after=tamasyaAuditAttemptSnapshot($afterStmt->fetch(PDO::FETCH_ASSOC)?:[]);
                 writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Membuat akun staf','staff',$staffId,null,$after,'web');
-                logActivity($pdo, "create_staff", "Membuat akun staf baru: $name ($username) sebagai " . strtoupper($role));
+                logActivity($pdo, "create_staff", "Membuat akun staf baru: $name ($username) sebagai " . $jobLabel);
                 tamasyaFinancialCommit($pdo);
 
                 echo json_encode([
@@ -463,7 +502,8 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
             }
             $name = $input['name'] ?? null;
             $username = isset($input['username']) ? trim(strtolower($input['username'])) : null;
-            $role = $input['role'] ?? null;
+            $roleInput = $input['role'] ?? null;
+            $jobTitleInput = array_key_exists('jobTitle',$input) ? $input['jobTitle'] : null;
             $password = $input['password'] ?? null;
             $status = $input['status'] ?? null;
             $salary = isset($input['salary']) ? (float)$input['salary'] : null;
@@ -473,9 +513,14 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
             $leaveType = isset($input['leaveType']) ? $input['leaveType'] : null;
             $twoFactorActive = isset($input['twoFactorActive']) ? (int)$input['twoFactorActive'] : (isset($input['two_factor_active']) ? (int)$input['two_factor_active'] : null);
             $telegramChatId = isset($input['telegramChatId']) ? $input['telegramChatId'] : (isset($input['telegram_chat_id']) ? $input['telegram_chat_id'] : null);
-            if($role!==null && !in_array($role,$allowedStaffRoles,true)){
-                http_response_code(400); echo json_encode(["success"=>false,"error"=>"Role staf tidak valid."]); break;
+            $titleChangeRequested=($roleInput!==null)||array_key_exists('jobTitle',$input);
+            $resolvedTitle=$titleChangeRequested?$resolveStaffTitle($roleInput,$jobTitleInput):null;
+            if($resolvedTitle!==null&&isset($resolvedTitle['error'])){
+                http_response_code(400); echo json_encode(["success"=>false,"error"=>$resolvedTitle['error']]); break;
             }
+            $role=$resolvedTitle['role']??null;
+            $jobTitle=$resolvedTitle['jobTitle']??null;
+            $jobLabel=$resolvedTitle['label']??'';
             if($status!==null && !in_array($status,$allowedStaffStatuses,true)){
                 http_response_code(400); echo json_encode(["success"=>false,"error"=>"Status staf tidak valid."]); break;
             }
@@ -552,7 +597,13 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                 
                 if ($name !== null) { $fieldsToUpdate[] = "name = ?"; $params[] = $name; }
                 if ($username !== null) { $fieldsToUpdate[] = "username = ?"; $params[] = $username; }
-                if ($role !== null) { $fieldsToUpdate[] = "role = ?"; $params[] = $role; }
+                if ($role !== null) {
+                    $fieldsToUpdate[] = "role = ?"; $params[] = $role;
+                    if ($hasStaffJobTitleColumn) { $fieldsToUpdate[] = "job_title = ?"; $params[] = $jobTitle; }
+                    if (!array_key_exists('permissions',$input) && $jobTitle !== null && !array_key_exists($jobTitle,tamasyaRolePresetSeed())) {
+                        $fieldsToUpdate[] = "permissions = ?"; $params[] = json_encode(tamasyaRolePresetDefaultFor($jobTitle,$role));
+                    }
+                }
                 if ($password !== null) { $fieldsToUpdate[] = "password = ?"; $params[] = password_hash($password, PASSWORD_DEFAULT); $fieldsToUpdate[] = "password_changed_at = CURRENT_TIMESTAMP"; $fieldsToUpdate[] = "require_password_change = 0"; }
                 if ($status !== null) { $fieldsToUpdate[] = "status = ?"; $params[] = $status; }
                 if ($salary !== null) { $fieldsToUpdate[] = "salary = ?"; $params[] = $salary; }

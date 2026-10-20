@@ -11,9 +11,121 @@
  */
 if (!defined('TAMASYA_API_ENTRY')) { http_response_code(404); exit; }
 
-/** Jabatan non-owner yang paketnya dapat dikelola (owner read-only, lihat 017). */
+/** Jabatan non-owner yang paketnya dapat dikelola (owner read-only, lihat 017).
+ *  Ini daftar 9 role kanonik/statis; jabatan dinamis dibaca dari staff_job_titles
+ *  lewat tamasyaJobTitleRows(). Dipertahankan agar kontrak lama & tes tetap utuh. */
 function tamasyaRolePresetRoles(): array {
     return ['admin','manager','finance','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'];
+}
+
+/** 9 jabatan sistem = role kanonik; key = base_role dan tidak dapat dihapus.
+ *  Dipakai sebagai fallback bila tabel staff_job_titles belum dimigrasikan. */
+function tamasyaJobTitleSystemDefaults(): array {
+    return [
+        'admin' => ['label' => 'Admin', 'base_role' => 'admin', 'sort_order' => 10],
+        'manager' => ['label' => 'Manajer', 'base_role' => 'manager', 'sort_order' => 20],
+        'finance' => ['label' => 'Keuangan', 'base_role' => 'finance', 'sort_order' => 30],
+        'receptionist' => ['label' => 'Resepsionis', 'base_role' => 'receptionist', 'sort_order' => 40],
+        'cleaning_service' => ['label' => 'Cleaning Service', 'base_role' => 'cleaning_service', 'sort_order' => 50],
+        'keamanan' => ['label' => 'Keamanan', 'base_role' => 'keamanan', 'sort_order' => 60],
+        'koki' => ['label' => 'Koki', 'base_role' => 'koki', 'sort_order' => 70],
+        'tukang_kebun' => ['label' => 'Tukang Kebun', 'base_role' => 'tukang_kebun', 'sort_order' => 80],
+        'lain_lain' => ['label' => 'Lain-lain', 'base_role' => 'lain_lain', 'sort_order' => 90],
+    ];
+}
+
+/** Apakah kolom staff.job_title sudah ada (DB lama tanpa migrasi R19 tetap jalan;
+ *  jabatan dinamis otomatis fallback ke 9 sistem dan penyimpanan memakai role). */
+function tamasyaStaffJobTitleColumnExists(PDO $pdo): bool {
+    static $cache = [];
+    $key = function_exists('spl_object_id') ? spl_object_id($pdo) : 0;
+    if (!array_key_exists($key, $cache)) {
+        try {
+            $stmt = $pdo->query("SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'staff' AND COLUMN_NAME = 'job_title'");
+            $cache[$key] = ((int)$stmt->fetchColumn()) > 0;
+        } catch (Throwable $e) {
+            $cache[$key] = false;
+        }
+    }
+    return $cache[$key];
+}
+
+/** Daftar jabatan aktif (sistem + dinamis) terurut. Tabel staff_job_titles yang
+ *  belum ada dianggap berisi 9 jabatan sistem saja; baris sistem yang hilang
+ *  disisipkan ulang (INSERT IGNORE) agar install lama tidak kehilangan jabatan. */
+function tamasyaJobTitleRows(PDO $pdo): array {
+    $defaults = tamasyaJobTitleSystemDefaults();
+    $exists = 0;
+    try {
+        $exists = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'staff_job_titles'")->fetchColumn();
+    } catch (Throwable $e) {
+        $exists = 0;
+    }
+    if ($exists === 0) {
+        $rows = [];
+        foreach ($defaults as $key => $meta) {
+            $rows[] = ['title_key' => $key, 'label' => $meta['label'], 'base_role' => $meta['base_role'], 'is_system' => 1, 'sort_order' => $meta['sort_order'], 'active' => 1];
+        }
+        return $rows;
+    }
+    $load = static function () use ($pdo): array {
+        return $pdo->query("SELECT title_key, label, base_role, is_system, sort_order, active FROM staff_job_titles WHERE active = 1 ORDER BY sort_order ASC, label ASC")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    };
+    $rows = $load();
+    $systemCount = 0;
+    foreach ($rows as $row) if ((int)$row['is_system'] === 1) $systemCount++;
+    if ($systemCount < count($defaults)) {
+        try {
+            $insert = $pdo->prepare("INSERT IGNORE INTO staff_job_titles (title_key,label,base_role,is_system,sort_order,active) VALUES (?,?,?,1,?,1)");
+            foreach ($defaults as $key => $meta) $insert->execute([$key, $meta['label'], $meta['base_role'], $meta['sort_order']]);
+            $rows = $load();
+        } catch (Throwable $e) {
+            // Bila insert gagal (mis. race/permission), tetap baca apa yang ada.
+        }
+    }
+    $result = [];
+    foreach ($rows as $row) {
+        $result[] = [
+            'title_key' => (string)$row['title_key'],
+            'label' => (string)$row['label'],
+            'base_role' => (string)$row['base_role'],
+            'is_system' => (int)$row['is_system'],
+            'sort_order' => (int)$row['sort_order'],
+            'active' => (int)$row['active'],
+        ];
+    }
+    return $result;
+}
+
+/** Peta title_key => baris jabatan (untuk validasi/penyimpanan staf). */
+function tamasyaJobTitleMap(PDO $pdo): array {
+    $map = [];
+    foreach (tamasyaJobTitleRows($pdo) as $row) $map[(string)$row['title_key']] = $row;
+    return $map;
+}
+
+/** Role basis satu jabatan, atau null bila jabatan tidak dikenal/nonaktif. */
+function tamasyaJobTitleBaseRole(PDO $pdo, string $title): ?string {
+    $map = tamasyaJobTitleMap($pdo);
+    $key = strtolower(trim($title));
+    return isset($map[$key]) ? (string)$map[$key]['base_role'] : null;
+}
+
+/** Label tampilan satu jabatan (fallback ke key). */
+function tamasyaJobTitleLabel(PDO $pdo, string $title): string {
+    $map = tamasyaJobTitleMap($pdo);
+    $key = strtolower(trim($title));
+    return isset($map[$key]) ? (string)$map[$key]['label'] : $title;
+}
+
+/** Slug stabil dari label jabatan (huruf kecil, non-alfanumerik -> _), maks 30
+ *  karakter agar muat kolom title_key/job_title. Keunikan dijamin pemanggil. */
+function tamasyaJobTitleSlug(string $label): string {
+    $slug = strtolower(trim($label));
+    $slug = preg_replace('/[^a-z0-9]+/', '_', $slug) ?? '';
+    $slug = trim($slug, '_');
+    if ($slug === '') $slug = 'jabatan';
+    return substr($slug, 0, 30);
 }
 
 /** Registry 22 capability: cermin tamasyaSessionPermissions (017) dan grid
@@ -94,6 +206,15 @@ function tamasyaRolePresetDefault(string $role): ?array {
     return $seed[$role] ?? null;
 }
 
+/** Paket default untuk jabatan apa pun: jabatan sistem memakai seed sendiri,
+ *  jabatan dinamis memakai seed base_role-nya (fallback lain_lain). */
+function tamasyaRolePresetDefaultFor(string $role, ?string $baseRole = null): array {
+    $seed = tamasyaRolePresetSeed();
+    if (isset($seed[$role])) return $seed[$role];
+    $base = ($baseRole !== null && isset($seed[$baseRole])) ? $baseRole : 'lain_lain';
+    return $seed[$base];
+}
+
 /** Normalisasi entri paket dari klien. Terima array atau JSON string; ketiga grup
  *  wajib ada dan hanya boleh memuat kunci registry; nilai harus boolean tegas
  *  (true/false/1/0 — bukan null atau teks lain). Kunci yang tidak dikirim = false:
@@ -160,8 +281,8 @@ function tamasyaRolePresetCoerce($raw): array {
  *  dibuat sebelum migrasi Fase 3): kunci absen diisi nilai seed jabatan, kunci
  *  dan centangan yang sudah tersimpan tidak pernah diubah. Murni; pemanggil
  *  membandingkan hasil untuk menentukan perlu tidaknya tulis-balik. */
-function tamasyaRolePresetBackfill(array $preset, string $role): array {
-    $seed = tamasyaRolePresetDefault($role) ?: [];
+function tamasyaRolePresetBackfill(array $preset, string $role, ?string $baseRole = null): array {
+    $seed = tamasyaRolePresetDefaultFor($role, $baseRole);
     $groups = [
         'desktopTabs' => tamasyaDesktopTabRegistry(),
         'telegramNotifications' => tamasyaTelegramNotificationRegistry(),
@@ -191,8 +312,8 @@ function tamasyaRolePresetBuildOverride(array $preset, $currentPermissions): arr
 /** Diff paket vs kondisi akun untuk pratinjau/penentuan akun terdampak. "Sebelum"
  *  per kunci = override akun bila ada, jika tidak paket default jabatan (itulah
  *  yang tampil di editor dan berlaku sekarang). Kosong = akun tidak berubah. */
-function tamasyaRolePresetAccountDiff(array $preset, string $role, $currentPermissions): array {
-    $seed = tamasyaRolePresetDefault($role) ?: [];
+function tamasyaRolePresetAccountDiff(array $preset, string $role, $currentPermissions, ?string $baseRole = null): array {
+    $seed = tamasyaRolePresetDefaultFor($role, $baseRole);
     $groups = [
         'desktopTabs' => tamasyaDesktopTabRegistry(),
         'telegramNotifications' => tamasyaTelegramNotificationRegistry(),
@@ -227,21 +348,26 @@ function tamasyaRolePresetRows(PDO $pdo): array {
         foreach ($rows as $row) $byRole[(string)$row['role']] = $row;
         return $byRole;
     };
+    $titles = tamasyaJobTitleRows($pdo);
+    $titleByKey = [];
+    foreach ($titles as $titleRow) $titleByKey[(string)$titleRow['title_key']] = $titleRow;
     $byRole = $load();
-    $seed = tamasyaRolePresetSeed();
     $insert = null;
-    foreach (tamasyaRolePresetRoles() as $role) {
+    foreach ($titles as $titleRow) {
+        $role = (string)$titleRow['title_key'];
         if (isset($byRole[$role])) continue;
+        $default = tamasyaRolePresetDefaultFor($role, (string)$titleRow['base_role']);
         if ($insert === null) $insert = $pdo->prepare("INSERT IGNORE INTO role_capability_presets (role, permissions, updated_by) VALUES (?, ?, NULL)");
-        $insert->execute([$role, json_encode($seed[$role] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+        $insert->execute([$role, json_encode($default, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
     }
     if ($insert !== null) $byRole = $load();
     $healed = false;
     $update = null;
     foreach ($byRole as $role => $row) {
+        if (!isset($titleByKey[(string)$role])) continue;
         $current = is_string($row['permissions'] ?? null) ? json_decode((string)$row['permissions'], true) : null;
         if (!is_array($current)) continue;
-        $merged = tamasyaRolePresetBackfill($current, (string)$role);
+        $merged = tamasyaRolePresetBackfill($current, (string)$role, (string)$titleByKey[(string)$role]['base_role']);
         if ($merged === $current) continue;
         if ($update === null) $update = $pdo->prepare("UPDATE role_capability_presets SET permissions=? WHERE role=?");
         $update->execute([json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $role]);
@@ -249,8 +375,14 @@ function tamasyaRolePresetRows(PDO $pdo): array {
     }
     if ($healed) $byRole = $load();
     $ordered = [];
-    foreach (tamasyaRolePresetRoles() as $role) {
-        if (isset($byRole[$role])) $ordered[] = $byRole[$role];
+    foreach ($titles as $titleRow) {
+        $role = (string)$titleRow['title_key'];
+        if (!isset($byRole[$role])) continue;
+        $row = $byRole[$role];
+        $row['label'] = (string)$titleRow['label'];
+        $row['baseRole'] = (string)$titleRow['base_role'];
+        $row['isSystem'] = (int)$titleRow['is_system'] === 1;
+        $ordered[] = $row;
     }
     return $ordered;
 }

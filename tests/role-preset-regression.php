@@ -104,7 +104,7 @@ preg_match_all("/^\('([a-z_]+)', '/m", $migration, $seedRows);
 presetCheck(count($seedRows[1]) === 9 && !in_array('owner', $seedRows[1], true) && $seedRows[1] === $roles, 'Migrasi men-seed 9 jabatan kanonik tanpa owner');
 $baseline = file_get_contents(dirname(__DIR__).'/database_setup.sql');
 presetCheck(str_contains($baseline, 'CREATE TABLE IF NOT EXISTS `role_capability_presets`') && str_contains($baseline, 'INSERT IGNORE INTO `role_capability_presets`'), 'database_setup.sql memuat tabel + seed paket jabatan');
-presetCheck(substr_count($baseline, 'CREATE TABLE') === 117, 'Baseline = 117 CREATE TABLE (116 + role_capability_presets)');
+presetCheck(substr_count($baseline, 'CREATE TABLE') === 118, 'Baseline = 118 CREATE TABLE (116 + role_capability_presets + staff_job_titles)');
 $staffChunk = file_get_contents(dirname(__DIR__).'/assets/chunks/staff.js');
 presetCheck(str_contains($staffChunk, 'function RolePresetPanel(') && str_contains($staffChunk, 'export {QleBridge as Qle};') && str_contains($staffChunk, 'function Qle({currentRole:e,onRefreshData:a})'), 'UI: panel Kelola Jabatan + bridge Qle tanpa mengubah Qle asli');
 presetCheck(str_contains($staffChunk, 'const[rpOpen,setRpOpen]=f.useState(!1);') && str_contains($staffChunk, 'rpOpen?"":"hidden"'), 'UI: panel Kelola Jabatan terlipat default agar centangan tidak tampil dobel dengan form akun');
@@ -134,5 +134,24 @@ foreach ($baselineRows as $row) {
     if (in_array($row[1], $roles, true)) $baselineSeed[$row[1]] = $decoded;
 }
 presetCheck(count($baselineSeed) === 9 && $baselineSeed === $seed, 'Seed database_setup.sql = tamasyaRolePresetSeed() (paritas penuh 22 kunci, 9 jabatan)');
+
+// R19: jabatan dinamis (tabel staff_job_titles + staff.job_title) tanpa mengubah role.
+$titleDefaults = tamasyaJobTitleSystemDefaults();
+presetCheck(count($titleDefaults) === 9 && $titleDefaults['admin']['base_role'] === 'admin' && $titleDefaults['lain_lain']['sort_order'] === 90, 'Fallback 9 jabatan sistem: key = base role + urutan kanonik');
+presetCheck(tamasyaJobTitleSlug('Kasir Malam') === 'kasir_malam' && tamasyaJobTitleSlug('  Kasir & Front Office  ') === 'kasir_front_office' && tamasyaJobTitleSlug('!!!') === 'jabatan' && strlen(tamasyaJobTitleSlug(str_repeat('A', 40))) === 30, 'Slug jabatan: huruf kecil, non-alfanumerik -> _, maks 30, fallback');
+presetCheck(tamasyaRolePresetDefaultFor('kasir', 'finance') === $seed['finance'] && tamasyaRolePresetDefaultFor('kasir') === $seed['lain_lain'] && tamasyaRolePresetDefaultFor('finance', 'admin') === $seed['finance'], 'Default jabatan dinamis = seed base role; jabatan sistem tetap seed sendiri');
+$jobTitleMigration = file_get_contents(dirname(__DIR__).'/migrations/20261019_STAFF_JOB_TITLES.sql');
+presetCheck(str_contains($jobTitleMigration, 'CREATE TABLE IF NOT EXISTS `staff_job_titles`') && str_contains($jobTitleMigration, 'information_schema.COLUMNS') && str_contains($jobTitleMigration, "'ALTER TABLE `staff` ADD COLUMN `job_title`") && !str_contains($jobTitleMigration, 'ADD COLUMN IF NOT EXISTS'), 'Migrasi jabatan: tabel + kolom via guard information_schema (kompatibel MySQL/MariaDB)');
+preg_match_all("/^\('([a-z_]+)','([^']+)','([a-z_]+)',1,/m", $jobTitleMigration, $jobTitleSeedRows);
+$jobTitleSeedOk = count($jobTitleSeedRows[1]) === 9 && $jobTitleSeedRows[1] === $roles && $jobTitleSeedRows[3] === $roles;
+foreach ($jobTitleSeedRows[2] as $idx => $seedLabel) { if ($seedLabel === '' || $seedLabel !== $titleDefaults[$roles[$idx]]['label']) $jobTitleSeedOk = false; }
+presetCheck($jobTitleSeedOk, 'Migrasi men-seed 9 jabatan sistem (key = base role, label sesuai fallback)');
+presetCheck(str_contains($baseline, 'CREATE TABLE IF NOT EXISTS `staff_job_titles`') && str_contains($baseline, '`job_title` varchar(30) DEFAULT NULL,') && str_contains($baseline, '`idx_staff_job_title`') && str_contains($jobTitleMigration, '`idx_staff_job_title`'), 'database_setup.sql memuat tabel jabatan, kolom staff.job_title, dan indeks (sama dengan migrasi)');
+$staffRoute = file_get_contents(dirname(__DIR__).'/api/routes/050_auth_staff.php');
+presetCheck(str_contains($staffRoute, '$resolveStaffTitle') && str_contains($staffRoute, 's.job_title AS jobTitle') && str_contains($staffRoute, "'jobTitleLabel'") && str_contains($staffRoute, '$hasStaffJobTitleColumn'), 'Route 050: resolve jabatan + fallback kolom, GET & login memuat jobTitle/jobTitleLabel');
+presetCheck(str_contains($route, 'job-title-save') && str_contains($route, 'job-title-delete') && str_contains($route, "'roles'=>array_keys(\$jobTitles)") && str_contains($route, "'staffCounts'=>\$counts"), 'Route 052: command simpan/hapus jabatan + list dinamis (labels/bases/system/staffCounts)');
+presetCheck(str_contains($route, "\$taken['owner']=true;"), 'Route 052: key owner dicadangkan agar jabatan kustom tidak menabrak owner');
+presetCheck(str_contains($staffChunk, 'rpApplyTitleData') && str_contains($staffChunk, 'jobTitle:b') && str_contains($staffChunk, 'Tambah Jabatan') && str_contains($staffChunk, 'Hapus Jabatan') && str_contains($staffChunk, 'job-title-save') && str_contains($staffChunk, 'job-title-delete'), 'UI: dropdown/filter/payload jabatan dinamis + panel tambah/rename/hapus');
+presetCheck(str_contains($staffChunk, '"/api.php?action=role-preset&"'), 'UI panel: URL POST role-preset valid (command di body, bukan menempel di action)');
 
 echo "Role preset (Fase 2/3 Kelola Jabatan): {$passed} passed; 0 failed.".PHP_EOL;
