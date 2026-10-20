@@ -197,6 +197,8 @@ function tamasyaRbacRoleKeyForUser(array $user, ?PDO $pdo = null): string {
 function tamasyaRbacRolePermission(string $roleKey, string $group, string $permissionKey, ?PDO $pdo = null): ?bool {
     $preset = tamasyaRbacRolePreset($roleKey, $pdo);
     if ($preset === null) return null;
+    $known = function_exists('tamasyaRbacCatalogKeys') ? tamasyaRbacCatalogKeys($group, $pdo) : [];
+    if ($known === [] || !in_array($permissionKey, $known, true)) return null;
     $values = $preset[$group] ?? null;
     if (!is_array($values)) return false;
     if (!array_key_exists($permissionKey, $values)) return false;

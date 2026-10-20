@@ -48,8 +48,10 @@ test('runtime boundary rejects wrong credentials after account provisioning',()=
 });
 
 test('canonical runtime smoke separates runtime table visibility from migration-authority trigger proof',()=>{
+  assert.ok(smoke.includes('EXPECTED_TABLE_COUNT="$(python3 - database_setup.sql'));
   assert.ok(smoke.includes('TABLE_COUNT'));
-  assert.ok(smoke.includes('[[ "$TABLE_COUNT" -eq 118 ]]'));
+  assert.ok(smoke.includes('[[ "$TABLE_COUNT" -eq "$EXPECTED_TABLE_COUNT" ]]'));
+  assert.ok(!smoke.includes('[[ "$TABLE_COUNT" -eq 118 ]]'));
   assert.ok(smoke.includes('RUNTIME_VISIBLE_TRIGGERS'));
   assert.ok(smoke.includes('not used as schema authority'));
   assert.ok(smoke.includes('mysql-bootstrap-runtime-boundary.sh'));

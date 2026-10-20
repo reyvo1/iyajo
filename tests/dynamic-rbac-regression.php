@@ -52,6 +52,7 @@ rbacCheck(str_contains($migration, "('admin,finance,owner','admin_finance_owner'
 rbacCheck(str_contains($rbac, 'function tamasyaRbacAccessGroupRoles'), 'Helper access-group tersedia');
 rbacCheck(str_contains($rbac, 'function tamasyaRbacRolePermission'), 'Helper permission role tersedia');
 rbacCheck(str_contains($rbac, 'function tamasyaRbacEffectivePermissions'), 'Helper effective permissions tersedia');
+rbacCheck(str_contains($rbac, 'tamasyaRbacCatalogKeys($group, $pdo)') && str_contains($rbac, '!in_array($permissionKey, $known, true)'), 'Permission di luar registry (pos/local_connect) kembali ke fallback legacy');
 rbacCheck(str_contains($rbac, 'tamasyaRbacCatalogAddToPresets'), 'Catalog baru ditambal false ke semua preset');
 rbacCheck(str_contains($rbac, 'tamasyaRbacCatalogRemoveFromPresets'), 'Catalog yang dihapus dibersihkan dari preset');
 rbacCheck(str_contains($policy, 'function tamasyaSessionPermissions(array $user, ?PDO $pdo = null)'), 'Session permissions menerima PDO');
