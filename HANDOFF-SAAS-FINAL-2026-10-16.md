@@ -3,9 +3,14 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (rilis kode `0425584` = isi ZIP 20261020-1118; commit dokumen di atasnya; CI success, tree bersih)
+## 1. Status saat ini (rilis kode `c09ce08` = isi ZIP 20261020-1153; commit dokumen di atasnya; CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `c09ce08` **Fix R19 — koma kolom `jobTitle` pada query GET staff**: kolom
+  dinamis disisipkan sebelum `COALESCE(...)` sehingga comma wajib eksplisit;
+  tanpa fix, `action=staff` gagal 500 SQLSTATE 42000 (UAT "Owner can read
+  staff"). Ditambah assertion regresi; verify-release 57 suite hijau; CI
+  `39365717795` hijau; ZIP `tamasya-production-prod-20261020-1153.zip`.
 - `0425584` **R19 — jabatan dinamis (arahan pemilik "tambah/rename/hapus
   jabatan dari UI")**: tabel baru `staff_job_titles` (9 seed sistem) + kolom
   `staff.job_title` (index), `staff.role` tetap base role agar enforcement
@@ -17,9 +22,10 @@ Kerjaan terakhir (sudah push + ZIP):
   `information_schema` + `PREPARE` (kompatibel MySQL 8/MariaDB, tanpa
   `ADD COLUMN IF NOT EXISTS`), idempoten. Playwright live: tambah "Kasir
   Pagi" → opsi form muncul · rename → label berubah · hapus → row hilang;
-  API owner reservation → `owner_2`, bukan menabrak owner. Tes
-  `role-preset-regression` **63 cek**; verify-release **57 suite** hijau; CI
-  `39362716569` hijau; ZIP `tamasya-production-prod-20261020-1118.zip`.
+  API owner reservation →   `owner_2`, bukan menabrak owner. Tes
+  `role-preset-regression` **64 cek**; verify-release **57 suite** hijau.
+  ZIP `tamasya-production-prod-20261020-1118.zip` **usang** (bug koma query
+  GET staff), pakai ZIP `…1153`.
 - `bbbb590` **R18 — hilangkan centangan tampak dobel di UI Kelola Jabatan
   (arahan pemilik)**: panel "Kelola Jabatan (Paket Izin) — Default Semua
   Akun" kini **terlipat default** (state `rpOpen`, header toggle "Buka ▼ /
@@ -229,14 +235,16 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261020-1118.zip` (380 entri,
-  berisi R19 jabatan dinamis `0425584` + R18 lipat panel jabatan `bbbb590` +
-  diagnostik SMTP + status jujur `990915c` + fix mobile R16 `1add609` + Fase 3
-  kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan `a514025` + migrasi
-  capability Batch 1+2 `7f81438`+`a8f34e5` + audit total capability `38b7025` +
-  fix beku perpanjangan `4b14d0b` + email tersimpan otomatis + semua di
-  bawahnya). ZIP lama (…2224, …2132, …1845, …1633, …1525, …1318, …1305, …1137, …1101, …2032,
-  …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
+- ZIP produksi terbaru: `tamasya-production-prod-20261020-1153.zip` (380 entri,
+  berisi fix koma query staff `c09ce08` + R19 jabatan dinamis `0425584` + R18
+  lipat panel jabatan `bbbb590` + diagnostik SMTP + status jujur `990915c` +
+  fix mobile R16 `1add609` + Fase 3 kapabilitas `db89177`+`ad8b311` + Fase 2
+  Kelola Jabatan `a514025` + migrasi capability Batch 1+2
+  `7f81438`+`a8f34e5` + audit total capability `38b7025` + fix beku
+  perpanjangan `4b14d0b` + email tersimpan otomatis + semua di bawahnya).
+  ZIP lama (…1118, …2224, …2132, …1845, …1633, …1525, …1318, …1305, …1137,
+  …1101, …2032, …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang,
+  jangan dipakai.
 - Deliverable DB (arahan pemilik "biar tinggal import"): `tamasya-production-db-20261019.sql`
   di Desktop mesin dev (189K; tanpa data transaksi; tanpa DEFINER; 5 trigger
   disimpan). Admin: `s_afa60c9ce5495be0649a9070` (username `admin`), password
