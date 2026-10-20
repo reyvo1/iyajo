@@ -314,8 +314,13 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
         $isLeaveScope = $staffScope === 'leave';
         if ($isLeaveScope) {
             requireRoles($loggedInStaff, ['admin','manager']);
+            requireDesktopTabAccess($loggedInStaff, 'leaves', ['admin','manager']);
         } elseif ($method !== 'GET') {
             requireRoles($loggedInStaff, ['admin']);
+        } else {
+            // Tab `leaves` hanya untuk roster cuti (scope=leave). Data staf penuh
+            // memerlukan tab `staff` yang memang dikunci untuk admin/owner.
+            requireDesktopTabAccess($loggedInStaff, 'staff', ['admin','owner']);
         }
         $staffJobTitles=tamasyaJobTitleMap($pdo);
         $hasStaffJobTitleColumn=tamasyaStaffJobTitleColumnExists($pdo);
@@ -337,7 +342,7 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
         
         if ($method === 'GET') {
             try {
-                $canSeeSensitiveStaff = in_array($loggedInStaff['role'] ?? '', ['admin','manager','owner'], true);
+                $canSeeSensitiveStaff = in_array($loggedInStaff['role'] ?? '', ['admin','owner'], true);
                 if ($isLeaveScope) {
                     // Kalender cuti tidak memerlukan username, gaji, Telegram, 2FA,
                     // atau permission staf. Proyeksi minimal mencegah data SDM
@@ -546,7 +551,12 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                     $pdo->rollBack();
                     break;
                 }
-                
+
+                $titleActuallyChanged = $resolvedTitle !== null && (
+                    (string)($staff['role'] ?? '') !== (string)$role
+                    || ($hasStaffJobTitleColumn && (string)($staff['job_title'] ?? '') !== (string)($jobTitle ?? ''))
+                );
+
                 // If username is changed, verify it is unique
                 if ($username && strtolower($username) !== strtolower($staff['username'])) {
                     $stmtCheck = $pdo->prepare("SELECT COUNT(*) FROM staff WHERE LOWER(username) = LOWER(?) AND id != ?");
@@ -600,8 +610,13 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                 if ($role !== null) {
                     $fieldsToUpdate[] = "role = ?"; $params[] = $role;
                     if ($hasStaffJobTitleColumn) { $fieldsToUpdate[] = "job_title = ?"; $params[] = $jobTitle; }
-                    if (!array_key_exists('permissions',$input) && $jobTitle !== null && !array_key_exists($jobTitle,tamasyaRolePresetSeed())) {
-                        $fieldsToUpdate[] = "permissions = ?"; $params[] = json_encode(tamasyaRolePresetDefaultFor($jobTitle,$role));
+                    if (!array_key_exists('permissions',$input) && $titleActuallyChanged) {
+                        // Jabatan/role baru adalah baseline baru. Override lama tidak boleh
+                        // ikut terbawa ke jabatan yang hak aksesnya lebih rendah.
+                        $fieldsToUpdate[] = "permissions = ?";
+                        $params[] = ($jobTitle !== null && !array_key_exists($jobTitle,tamasyaRolePresetSeed()))
+                            ? json_encode(tamasyaRolePresetDefaultFor($jobTitle,$role))
+                            : null;
                     }
                 }
                 if ($password !== null) { $fieldsToUpdate[] = "password = ?"; $params[] = password_hash($password, PASSWORD_DEFAULT); $fieldsToUpdate[] = "password_changed_at = CURRENT_TIMESTAMP"; $fieldsToUpdate[] = "require_password_change = 0"; }

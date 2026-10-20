@@ -19,6 +19,7 @@ $owner=['id'=>'owner1','role'=>'owner','permissions'=>json_encode(['desktopTabs'
 $p=tamasyaSessionPermissions($owner);
 ownerCheck($p['readOnly']===true&&count(array_filter($p['desktopTabs']))===17,'Owner receives every read workspace even with old custom denials');
 ownerCheck($p['capabilities']['manage_backup']===false&&$p['capabilities']['view_audit_log']===true,'Owner custom permissions cannot grant write capabilities');
+ownerCheck(tamasyaOwnerMutationDenied($owner,true)===true&&tamasyaOwnerMutationDenied($owner,false)===false,'Owner command-level mutation flag overrides HTTP method');
 $admin=['role'=>'admin','permissions'=>['desktopTabs'=>['finance'=>false],'capabilities'=>['manage_backup'=>true]]];
 ownerCheck(tamasyaSessionPermissions($admin)===$admin['permissions'],'Other roles retain their explicit permissions');
 foreach(['POST','PUT','PATCH','DELETE'] as $method){

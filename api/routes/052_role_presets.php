@@ -12,11 +12,18 @@ if ((string)($action ?? '') !== 'role-preset') return;
 $routeHandled=true;
 
 $method=strtoupper((string)($_SERVER['REQUEST_METHOD']??'GET'));
-tamasyaEnforceOwnerReadOnly($loggedInStaff,(string)$action);
+$command=trim((string)($method==='GET'?($_GET['command']??'role-preset-list'):($input['command']??'')));
+$readOnlyCommands=['role-preset-list','rbac-catalog-list','role-preset-preview'];
+$isMutationCommand=!in_array($command,$readOnlyCommands,true);
+tamasyaEnforceOwnerReadOnly($loggedInStaff,(string)$action,$isMutationCommand);
+if($isMutationCommand&&$method!=='POST'){
+    http_response_code(405);
+    echo tamasyaJsonEncode(['success'=>false,'error'=>'Command '.$command.' wajib memakai POST.']);
+    return;
+}
 
 try {
     requireRoles($loggedInStaff,['admin']);
-    $command=trim((string)($method==='GET'?($_GET['command']??'role-preset-list'):($input['command']??'')));
     $roleInput=strtolower(trim((string)($input['role']??($_GET['role']??''))));
     $jobTitles=tamasyaJobTitleMap($pdo);
     $titleExpr=tamasyaStaffJobTitleColumnExists($pdo)?"COALESCE(NULLIF(job_title,''),role)":"role";

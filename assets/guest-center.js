@@ -1,11 +1,8 @@
 (function () {
   'use strict';
 
-  const VERSION = 'V137-GUEST-CENTER';
+const VERSION = 'V137-GUEST-CENTER';
   const ACTIVE_STATUSES = new Set(['active', 'reserved']);
-  const MUTATION_ROLES = new Set(['admin', 'manager', 'receptionist']);
-  const GUEST_SERVICE_ROLES = new Set(['admin','manager','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain']);
-  const MONEY_ROLES = new Set(['admin', 'manager', 'receptionist', 'finance']);
   let cache = { at: 0, data: null };
   let currentBookingId = '';
   let searchTimer = null;
@@ -15,18 +12,23 @@
   let serviceActiveIds = new Set();
 
   const textOf = (el) => (el && el.textContent ? el.textContent : '').replace(/\s+/g, ' ').trim();
-  const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
-  const role = () => String(sessionStorage.getItem('hotel_role') || sessionStorage.getItem('hotel_staff_role') || '').trim().toLowerCase();
-  const loggedIn = () => sessionStorage.getItem('hotel_logged_in') === 'true';
-  const money = (value) => window.TamasyaCurrencyDisplay.formatRupiah(Math.max(0, Number(value || 0)));
-  const dateLabel = (value) => {
-    if (!value) return '-';
-    const d = new Date(value);
-    if (Number.isNaN(d.getTime())) return String(value);
-    return d.toLocaleString('id-ID', { dateStyle: 'medium', timeStyle: String(value).includes('T') || String(value).includes(' ') ? 'short' : undefined });
-  };
+  const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&':'&', '<':'<', '>':'>', '"':'"', "'":"'" }[c]));
   function permissions() {
     try { return JSON.parse(sessionStorage.getItem('hotel_permissions') || '{}') || {}; } catch { return {}; }
+  }
+  function ma(cap, fallback) {
+    const p = permissions();
+    if (p.capabilities && Object.prototype.hasOwnProperty.call(p.capabilities, cap)) return p.capabilities[cap] === true;
+    return (fallback || []).includes(role());
+  }
+  function tabAllowed(key) {
+    const p = permissions();
+    if (p.desktopTabs && Object.prototype.hasOwnProperty.call(p.desktopTabs, key)) return p.desktopTabs[key] === true;
+    const fallbacks = {
+      rooms: ['admin','manager','receptionist','finance'], finance: ['admin','manager','finance'],
+      pos: ['admin','manager','receptionist','finance'], operations: ['admin','manager','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain']
+    };
+    return (fallbacks[key] || []).includes(role());
   }
   function tabAllowed(key) {
     const p = permissions();
@@ -192,7 +194,7 @@
 
   async function refreshGuestServiceIndicator(force, notifyNew) {
     const host = document.getElementById('ui-guest-center-service-launch');
-    if (!host || !loggedIn() || !GUEST_SERVICE_ROLES.has(role()) || !tabAllowed('operations')) return;
+    if (!host || !loggedIn() || !ma('perform_housekeeping', ['admin','manager','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain']) || !tabAllowed('operations')) return;
     try {
       const rows = await guestServiceIndicatorRows();
       const nextIds = new Set(rows.map((row) => String(row && row.id || '')).filter(Boolean));
@@ -215,7 +217,7 @@
 
   function ensureGuestServiceQueueLauncher() {
     const existing = document.getElementById('ui-guest-center-service-launch');
-    if (!loggedIn() || !GUEST_SERVICE_ROLES.has(role()) || !tabAllowed('operations')) {
+    if (!loggedIn() || !ma('perform_housekeeping', ['admin','manager','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain']) || !tabAllowed('operations')) {
       if (existing) existing.remove();
       serviceIndicatorInitialized = false;
       serviceActiveIds = new Set();
@@ -270,7 +272,7 @@
       const serviceContexts=Array.isArray(data.guestServiceContexts)&&data.guestServiceContexts.length?data.guestServiceContexts:(Array.isArray(data.bookings)?data.bookings:[]);
       const activeBookings=serviceContexts.filter((b)=>bookingStatus(b)==='active').sort((a,b)=>String(a.roomNumber||'').localeCompare(String(b.roomNumber||''),undefined,{numeric:true}));
       const reservedBookings=serviceContexts.filter((b)=>bookingStatus(b)==='reserved').sort((a,b)=>String(a.checkIn||'').localeCompare(String(b.checkIn||'')));
-      const canPreArrival=['admin','manager','receptionist'].includes(role());
+      const canPreArrival=ma('manage_room_access', ['admin','manager','receptionist']);
       const linkedContext=linkedStatus==='active'?'in_house_guest':linkedStatus==='reserved'?'pre_arrival_guest':'';
       const bookingOptions=(rows,pre)=>'<option value="">Pilih '+(pre?'reservasi':'tamu/kamar')+'…</option>'+rows.map((b)=>'<option value="'+esc(b.id)+'">'+(pre?(esc(dateLabel(b.checkIn))+' · '):'')+esc(b.guestName||'Tamu')+' · Kamar '+esc(b.roomNumber||'-')+' · '+esc(b.id)+'</option>').join('');
       const contextSelector=linked
@@ -344,7 +346,7 @@
       if (!b) throw new Error('Booking tidak tersedia untuk role akun ini atau sudah berubah.');
       const room = roomByNumber(data, b.roomNumber) || {};
       const status = bookingStatus(b);
-      const canMutate = MUTATION_ROLES.has(role()) && tabAllowed('rooms');
+      const canMutate = ma('manage_room_access', ['admin', 'manager', 'receptionist']) && tabAllowed('rooms');
       const balance = Number(b.balanceDue != null ? b.balanceDue : Math.max(0, Number(b.totalAmount || 0) - Number(b.amountPaid || b.downPaymentAmount || 0)));
       const required = Number(b.securityDepositRequiredAmount || 0), received = Number(b.securityDepositReceived || 0), refunded = Number(b.securityDepositRefunded || 0), forfeited = Number(b.securityDepositForfeited || 0);
       const held = Number(b.securityDepositHeld != null ? b.securityDepositHeld : Math.max(0, received - refunded - forfeited));
@@ -364,7 +366,7 @@
         actions.push(actionButton('payment','Pembayaran / Deposit','₨','safe'));
         actions.push(actionButton('print','Cetak Nota Booking','▤','secondary'));
         actions.push(actionButton('open','Buka untuk Check-in','↗','primary'));
-      } else if (MONEY_ROLES.has(role()) && tabAllowed('finance')) {
+      } else if (ma('reconcile_payments', ['admin', 'manager', 'receptionist', 'finance']) && tabAllowed('finance')) {
         actions.push(actionButton('finance','Buka Keuangan','₨','secondary'));
       }
       const aside = drawer.querySelector('aside');
@@ -600,7 +602,7 @@
   // only active request metadata, so a 30s visible-tab poll does not download
   // booking/finance/inventory payloads merely to discover lobby work.
   window.setInterval(() => {
-    if (document.visibilityState === 'visible' && loggedIn() && GUEST_SERVICE_ROLES.has(role()) && tabAllowed('operations')) {
+    if (document.visibilityState === 'visible' && loggedIn() && ma('perform_housekeeping', ['admin','manager','receptionist','cleaning_service','keamanan','koki','tukang_kebun','lain_lain']) && tabAllowed('operations')) {
       refreshGuestServiceIndicator(true, true).catch(() => {});
     }
   }, 30000);

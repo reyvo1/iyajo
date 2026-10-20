@@ -52,7 +52,9 @@ rbacCheck(str_contains($migration, "('admin,finance,owner','admin_finance_owner'
 rbacCheck(str_contains($rbac, 'function tamasyaRbacAccessGroupRoles'), 'Helper access-group tersedia');
 rbacCheck(str_contains($rbac, 'function tamasyaRbacRolePermission'), 'Helper permission role tersedia');
 rbacCheck(str_contains($rbac, 'function tamasyaRbacEffectivePermissions'), 'Helper effective permissions tersedia');
-rbacCheck(str_contains($rbac, 'tamasyaRbacCatalogKeys($group, $pdo)') && str_contains($rbac, '!in_array($permissionKey, $known, true)'), 'Permission di luar registry (pos/local_connect) kembali ke fallback legacy');
+rbacCheck(str_contains($rbac, 'function tamasyaRbacCatalogKeyState') && str_contains($rbac, "if (\$state === 'inactive') return false;") && str_contains($rbac, "if (\$state !== 'active') return null;") && str_contains($rbac, "tamasyaRbacCatalogKeyState(\$group, (string)\$key, \$pdo) === 'inactive'"), 'Katalog nonaktif = deny; key lama/asing tetap fallback legacy');
+rbacCheck(str_contains($rbac, 'tamasyaRbacCacheSet($key, []);') && str_contains($rbac, 'Grup yang sengaja dinonaktifkan harus menutup route'), 'Access group nonaktif menutup route (bukan fallback role statis)');
+rbacCheck(str_contains($policy, "tamasyaRbacCatalogKeyState('capabilities',(string)\$capability) === 'inactive'") && str_contains($policy, "tamasyaRbacCatalogKeyState('desktopTabs',(string)\$tab) === 'inactive'"), 'Deaktivasi capability/tab menang atas override akun dan fallback role');
 rbacCheck(str_contains($rbac, 'tamasyaRbacCatalogAddToPresets'), 'Catalog baru ditambal false ke semua preset');
 rbacCheck(str_contains($rbac, 'tamasyaRbacCatalogRemoveFromPresets'), 'Catalog yang dihapus dibersihkan dari preset');
 rbacCheck(str_contains($policy, 'function tamasyaSessionPermissions(array $user, ?PDO $pdo = null)'), 'Session permissions menerima PDO');

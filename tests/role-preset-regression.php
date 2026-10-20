@@ -91,7 +91,7 @@ presetCheck(tamasyaRolePresetBackfill($seed['admin'], 'admin') === $seed['admin'
 
 // Jalur rilis: route, router, require boot, migrasi, baseline setup, UI.
 $route = file_get_contents(dirname(__DIR__).'/api/routes/052_role_presets.php');
-presetCheck(str_contains($route, "!== 'role-preset'") && str_contains($route, "requireRoles(\$loggedInStaff,['admin']);") && str_contains($route, 'tamasyaEnforceOwnerReadOnly($loggedInStaff,(string)$action);'), 'Route 052 admin-only + owner read-only');
+presetCheck(str_contains($route, "!== 'role-preset'") && str_contains($route, "requireRoles(\$loggedInStaff,['admin']);") && str_contains($route, 'tamasyaEnforceOwnerReadOnly($loggedInStaff,(string)$action,$isMutationCommand);') && str_contains($route, "\$isMutationCommand&&\$method!=='POST'"), 'Route 052 admin-only + owner read-only per command + mutation wajib POST');
 presetCheck(str_contains($route, 'role-preset-list') && str_contains($route, 'role-preset-save') && str_contains($route, 'role-preset-preview') && str_contains($route, 'role-preset-apply'), 'Empat command paket jabatan tersedia');
 presetCheck(str_contains($route, "tamasyaRolePresetNormalize(\$input['preset']??null)") && str_contains($route, "SELECT role,permissions,updated_at FROM role_capability_presets WHERE role=? FOR UPDATE"), 'Simpan tervalidasi; penerapan membaca paket tersimpan (bukan kiriman klien)');
 presetCheck(str_contains($route, "(\$input['confirm']??null)!==true") && substr_count($route, 'writeRequiredEnterpriseAudit') >= 3, 'Terapkan butuh confirm=true dan tercatat audit (per akun + ringkasan)');
@@ -160,5 +160,14 @@ presetCheck(str_contains($route, 'job-title-save') && str_contains($route, 'job-
 presetCheck(str_contains($route, "\$taken['owner']=true;"), 'Route 052: key owner dicadangkan agar jabatan kustom tidak menabrak owner');
 presetCheck(str_contains($staffChunk, 'rpApplyTitleData') && str_contains($staffChunk, 'jobTitle:b') && str_contains($staffChunk, 'Tambah Jabatan') && str_contains($staffChunk, 'Hapus Jabatan') && str_contains($staffChunk, 'job-title-save') && str_contains($staffChunk, 'job-title-delete'), 'UI: dropdown/filter/payload jabatan dinamis + panel tambah/rename/hapus');
 presetCheck(str_contains($staffChunk, '"/api.php?action=role-preset&"'), 'UI panel: URL POST role-preset valid (command di body, bukan menempel di action)');
+presetCheck(str_contains($route, 'in_array($baseRole,tamasyaRolePresetRoles(),true)') && str_contains($route, 'Role basis jabatan tidak dapat diubah'), 'F-07: jabatan kustom hanya mewarisi 9 base role; base role tidak bisa diubah diam-diam');
+presetCheck(str_contains($staffRoute, '$titleActuallyChanged') && str_contains($staffRoute, '!array_key_exists(\'permissions\',$input) && $titleActuallyChanged') && str_contains($staffRoute, 'json_encode(tamasyaRolePresetDefaultFor($jobTitle,$role))'), 'Route 050: reset override hanya saat jabatan/role benar-benar berubah');
+presetCheck(str_contains($staffRoute, "requireDesktopTabAccess(\$loggedInStaff, 'staff', ['admin','owner']);") && str_contains($staffRoute, "requireDesktopTabAccess(\$loggedInStaff, 'leaves', ['admin','manager']);") && str_contains($staffRoute, "in_array(\$loggedInStaff['role'] ?? '', ['admin','owner'], true)"), 'Route 050: GET staf penuh wajib tab staff, scope cuti wajib tab leaves; data sensitif hanya admin/owner');
+$telegramSource = file_get_contents(dirname(__DIR__).'/api/modules/comms/050_integrations_telegram_mail.php');
+presetCheck(str_contains($telegramSource, 'tamasyaRbacEffectivePermissions($staff, $pdo)') && str_contains($telegramSource, 'tamasyaPermissionOverride($permissionSource,') && str_contains($telegramSource, 's.job_title'), 'Telegram memakai permission efektif preset + override akun');
+$operationsSource = file_get_contents(dirname(__DIR__).'/assets/chunks/operations.js');
+presetCheck(str_contains($operationsSource, 'taxAllowed=ma("manage_tax_rules"') && str_contains($operationsSource, 'action:taxAllowed?') && str_contains($operationsSource, 'children:taxAllowed&&') && !str_contains($operationsSource, 'Hn=e.currentRole==="finance"||'), 'UI pajak & night audit mengikuti capability, bukan role statis');
+$appCoreSource = file_get_contents(dirname(__DIR__).'/assets/app-core.js');
+presetCheck(!str_contains($appCoreSource, 'e==="finance"&&(s.perform_night_audit=!0)'), 'app-core tidak memaksa capability finance di luar preset');
 
 echo "Role preset (Fase 2/3 Kelola Jabatan): {$passed} passed; 0 failed.".PHP_EOL;

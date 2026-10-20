@@ -688,7 +688,8 @@ function tamasyaTelegramBroadcastTargets($pdo, $message, $isFinancial = false, $
     if ($token === '') return ['token'=>'','messageType'=>'system','targets'=>[]];
 
     $chatIds = parseTelegramChatIds($conf['telegram_chat_ids'] ?? ($conf['telegram_chat_id'] ?? ($conf['chat_id'] ?? '')));
-    $stmtStaff = $pdo->query("SELECT tb.telegram_user_id AS telegram_chat_id,s.id AS staff_id,s.role,s.permissions
+    $jobTitleSelect = (function_exists('tamasyaStaffJobTitleColumnExists') && tamasyaStaffJobTitleColumnExists($pdo)) ? ',s.job_title' : '';
+    $stmtStaff = $pdo->query("SELECT tb.telegram_user_id AS telegram_chat_id,s.id AS staff_id,s.role,s.permissions{$jobTitleSelect}
         FROM telegram_bindings tb
         JOIN staff s ON s.id=tb.staff_id
         WHERE tb.status='active' AND s.status='active'");
@@ -724,10 +725,18 @@ function tamasyaTelegramBroadcastTargets($pdo, $message, $isFinancial = false, $
             $staffId=trim((string)($staff['staff_id']??'')) ?: null;
             $role = strtolower(trim((string)($staff['role']??'')));
             $defaultAllowed = in_array($role, $defaultTelegramRoles[$messageType] ?? ['admin','manager'], true);
+            // Preset jabatan + override akun adalah sumber izin efektif. Jangan
+            // hanya membaca staff.permissions mentah, karena perubahan preset
+            // tidak akan pernah sampai ke penerima notifikasi.
+            $permissionSource = $staff['permissions'] ?? null;
+            if (function_exists('tamasyaRbacEffectivePermissions')) {
+                $effectivePermissions = tamasyaRbacEffectivePermissions($staff, $pdo);
+                if (is_array($effectivePermissions)) $permissionSource = $effectivePermissions;
+            }
             // Reuse the canonical fail-closed permission parser. Corrupt JSON or
             // malformed groups must never fall back to a privileged role default.
             $notificationOverride = function_exists('tamasyaPermissionOverride')
-                ? tamasyaPermissionOverride($staff['permissions'] ?? null, 'telegramNotifications', $messageType)
+                ? tamasyaPermissionOverride($permissionSource, 'telegramNotifications', $messageType)
                 : false;
             if ($notificationOverride !== null) {
                 if ($notificationOverride !== true) continue;

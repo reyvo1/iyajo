@@ -171,6 +171,17 @@ function tamasyaTelegramNotificationRegistry(): array {
 /** Paket centangan default per jabatan (= nilai preset app-core.js hari ini).
  *  Dipakai untuk seed tabel role_capability_presets saat pertama kali & sebagai
  *  fallback bila baris jabatan belum ada. Owner tidak termasuk (paket tetap). */
+/**
+ * F-07: Base role (jabatan keamanan) ditetapkan statis sebagai 9 jabatan sistem.
+ * Menambah base role baru TIDAK didukung melalui insert manual ke rbac_roles:
+ * - requireRoles() hanya memetakan 9 role kanonikal via access group.
+ * - Frontend (app-core.js CA/PK) hanya mengenal 9 role + owner.
+ * - rbac_roles 10 baris semuanya is_system=1; FK role/jabatan tidak ada.
+ * - Job title (staff_job_titles) hanya memilih preset capability/tab/notifikasi,
+ *   bukan role keamanan baru.
+ * Untuk menambah role keamanan baru diperlukan alur lengkap:
+ *   validasi base role, mapping route, UI, seed, FK, dan test.
+ */
 function tamasyaRolePresetSeed(): array {
     return [
         'admin' => [

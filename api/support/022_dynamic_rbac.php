@@ -143,6 +143,28 @@ function tamasyaRbacCatalogKeys(string $group, ?PDO $pdo = null): array {
     return array_map(static fn(array $row): string => (string)$row['key'], tamasyaRbacCatalogRows($group, $pdo));
 }
 
+/** Status satu kunci katalog: active / inactive / missing / unavailable.
+ *  Deaktivasi harus menghasilkan deny, bukan fallback ke role statis. */
+function tamasyaRbacCatalogKeyState(string $group, string $permissionKey, ?PDO $pdo = null): string {
+    $def = tamasyaRbacCatalogDefinition($group);
+    $pdo = tamasyaRbacPdo($pdo);
+    if (!$def || !$pdo || !tamasyaRbacTableExists($pdo, $def['table'])) return 'unavailable';
+    $permissionKey = (string)$permissionKey;
+    $key = tamasyaRbacCacheKey($pdo, 'catalog-state:' . $group . ':' . $permissionKey);
+    if (tamasyaRbacCacheHas($key)) return (string)tamasyaRbacCacheGet($key);
+    try {
+        $stmt = $pdo->prepare("SELECT active FROM `{$def['table']}` WHERE `{$def['column']}`=? LIMIT 1");
+        $stmt->execute([$permissionKey]);
+        $raw = $stmt->fetchColumn();
+        if ($raw === false) $state = 'missing';
+        else $state = ((int)$raw === 1) ? 'active' : 'inactive';
+    } catch (Throwable $e) {
+        $state = 'unavailable';
+    }
+    tamasyaRbacCacheSet($key, $state);
+    return $state;
+}
+
 /** Payload katalog lengkap untuk UI/API. */
 function tamasyaRbacCatalogPayload(?PDO $pdo = null): array {
     return [
@@ -197,8 +219,9 @@ function tamasyaRbacRoleKeyForUser(array $user, ?PDO $pdo = null): string {
 function tamasyaRbacRolePermission(string $roleKey, string $group, string $permissionKey, ?PDO $pdo = null): ?bool {
     $preset = tamasyaRbacRolePreset($roleKey, $pdo);
     if ($preset === null) return null;
-    $known = function_exists('tamasyaRbacCatalogKeys') ? tamasyaRbacCatalogKeys($group, $pdo) : [];
-    if ($known === [] || !in_array($permissionKey, $known, true)) return null;
+    $state = tamasyaRbacCatalogKeyState($group, (string)$permissionKey, $pdo);
+    if ($state === 'inactive') return false;
+    if ($state !== 'active') return null;
     $values = $preset[$group] ?? null;
     if (!is_array($values)) return false;
     if (!array_key_exists($permissionKey, $values)) return false;
@@ -235,6 +258,11 @@ function tamasyaRbacEffectivePermissions(array $user, ?PDO $pdo = null): ?array 
     foreach ($override as $key => $value) {
         if (!in_array($key, ['desktopTabs', 'telegramNotifications', 'capabilities'], true)) $merged[$key] = $value;
     }
+    foreach (['desktopTabs', 'telegramNotifications', 'capabilities'] as $group) {
+        foreach ((array)($merged[$group] ?? []) as $key => $value) {
+            if (tamasyaRbacCatalogKeyState($group, (string)$key, $pdo) === 'inactive') $merged[$group][$key] = false;
+        }
+    }
     return $merged;
 }
 
@@ -263,8 +291,10 @@ function tamasyaRbacAccessGroupRoles(array $roles, ?PDO $pdo = null): ?array {
             return null;
         }
         if ((int)$group['active'] !== 1) {
-            tamasyaRbacCacheSet($key, null);
-            return null;
+            // Grup yang sengaja dinonaktifkan harus menutup route, bukan
+            // mengembalikan fallback role statis yang membuat deaktivasi tidak efektif.
+            tamasyaRbacCacheSet($key, []);
+            return [];
         }
         $stmtRoles = $pdo->prepare("SELECT role_key FROM rbac_access_group_roles WHERE group_key=? ORDER BY role_key ASC");
         $stmtRoles->execute([(string)$group['group_key']]);

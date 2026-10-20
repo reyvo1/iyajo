@@ -92,14 +92,15 @@ function tamasyaSessionPermissions(array $user, ?PDO $pdo = null) {
     return ['desktopTabs'=>array_fill_keys($tabs,true),'telegramNotifications'=>array_fill_keys(['bookings','finance','inventory','operations','hr','system'],false),'capabilities'=>$capabilities,'readOnly'=>true];
 }
 
-function tamasyaOwnerMutationDenied($user): bool {
+function tamasyaOwnerMutationDenied($user, ?bool $isMutation = null): bool {
     if (!tamasyaIsOwnerRole($user)) return false;
+    if ($isMutation !== null) return $isMutation;
     $method = strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET'));
     return !in_array($method, ['GET','HEAD','OPTIONS'], true);
 }
 
-function tamasyaEnforceOwnerReadOnly($user, string $action = ''): void {
-    if (!tamasyaOwnerMutationDenied($user)) return;
+function tamasyaEnforceOwnerReadOnly($user, string $action = '', ?bool $isMutation = null): void {
+    if (!tamasyaOwnerMutationDenied($user, $isMutation)) return;
     if ($action === 'logout') return;
     http_response_code(403);
     echo json_encode([
@@ -148,6 +149,7 @@ function hasCapability($user, $capability, $fallbackRoles = []) {
         $capability = (string)$capability;
         return str_starts_with($capability, 'view_');
     }
+    if (function_exists('tamasyaRbacCatalogKeyState') && tamasyaRbacCatalogKeyState('capabilities',(string)$capability) === 'inactive') return false;
     $override=tamasyaPermissionOverride($user['permissions']??null,'capabilities',(string)$capability);
     if($override!==null)return $override;
     if(function_exists('tamasyaRbacRolePermission')){
@@ -172,6 +174,7 @@ function requireCapability($user, $capability, $fallbackRoles = []) {
 function hasDesktopTabAccess($user, $tab, $fallbackRoles = []) {
     if (!$user) return false;
     if (tamasyaIsOwnerRole($user)) return true;
+    if (function_exists('tamasyaRbacCatalogKeyState') && tamasyaRbacCatalogKeyState('desktopTabs',(string)$tab) === 'inactive') return false;
     $override=tamasyaPermissionOverride($user['permissions']??null,'desktopTabs',(string)$tab);
     if($override!==null)return $override;
     if(function_exists('tamasyaRbacRolePermission')){

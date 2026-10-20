@@ -1119,6 +1119,46 @@ if (defined('TAMASYA_SERVICE_BOOTSTRAP') && TAMASYA_SERVICE_BOOTSTRAP===true && 
 }
 
 // 4. ROUTING ENDPOINT API
+/**
+ * F-09: Review 26 public actions yang bypass requireAuth().
+ * Security posture per action:
+ *
+ * CLUSTER (node-verified via tamasyaVerifyNodeRequest):
+ * - node-sync-snapshot: GET, node signature + primary lock
+ * - node-cluster-peer-status: GET, node signature + clusterId match
+ * - node-cluster-control: POST, node signature + primary lease
+ * - node-cluster-telegram-webhook: POST, node signature + forwarded update
+ * - node-cluster-telegram-delivery: POST, node signature + sealed OTP envelope
+ * - node-cluster-channel-webhook: POST, node signature + forwarded channel payload
+ *
+ * WEBHOOKS (provider-authenticated):
+ * - telegram-webhook: POST, secret token header (X-Telegram-Bot-Api-Secret-Token) + update_id idempotency
+ * - communication-webhook: POST, channelId + adapter verifyInbound() HMAC, Telegram blocked
+ * - growth-payment-webhook: POST, provider HMAC via tamasyaPaymentWebhookAuthenticate(), rate limit
+ * - growth-channel-webhook: POST, provider HMAC, rate limit
+ * - biometric-device-webhook: POST, device HMAC via tamasyaBiometricAuthenticateDeviceWebhook()
+ *
+ * PUBLIC WEBSITE (rate-limited, origin-validated):
+ * - public-site-config: GET, public settings only
+ * - public-bootstrap: GET, public bootstrap data
+ * - public-room-types: GET, published room types
+ * - public-room-availability: GET, availability for dates
+ * - public-promotions: GET, public promotions
+ * - public-reservation-request: POST, honeypot + operation_id + rate limit + payload validation
+ * - public-contact: GET, public contact info
+ * - public-help-chat: POST, origin check + rate limit + conversation token + row lock
+ * - public-help-chat-sync: POST, origin check + rate limit + conversation token
+ *
+ * CORE (no auth, minimal):
+ * - '' (empty): status ping via 010_cluster_status.php
+ * - status: GET, server status
+ * - ping: GET, health check
+ * - login: POST, rate limit + account lock + bcrypt
+ * - verify-2fa: POST, OTP verification
+ * - refresh-session: POST, session token refresh
+ *
+ * All public actions reviewed 2026-10-20. No unauthenticated mutation endpoints found.
+ */
 $public_actions = ['', 'status', 'ping', 'login', 'verify-2fa', 'refresh-session', 'telegram-webhook', 'node-sync-snapshot', 'node-cluster-peer-status', 'node-cluster-control', 'node-cluster-telegram-webhook', 'node-cluster-telegram-delivery', 'communication-webhook', 'node-cluster-channel-webhook', 'growth-payment-webhook', 'growth-channel-webhook', 'public-site-config', 'public-bootstrap', 'public-room-types', 'public-room-availability', 'public-promotions', 'public-reservation-request', 'public-contact', 'public-help-chat', 'public-help-chat-sync', 'biometric-device-webhook'];
 
 // Public endpoints (terutama Telegram webhook) tidak memiliki sesi browser.
