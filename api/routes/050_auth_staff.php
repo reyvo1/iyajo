@@ -184,7 +184,7 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                 'jobTitle'=>($locked['job_title']??null),
                 'jobTitleLabel'=>!empty($locked['job_title'])?tamasyaJobTitleLabel($pdo,(string)$locked['job_title']):null,
                 'token'=>$sessionToken,'offlineRefreshToken'=>$refreshToken,'offlineRefreshExpires'=>$refreshExpires,
-                'permissions'=>tamasyaSessionPermissions($locked),
+                'permissions'=>tamasyaSessionPermissions($locked,$pdo),
                 'hotelScopeId'=>tamasyaHotelScopeId(),'offlineSessionScopeId'=>$offlineSessionScopeId,
             ]);
         }catch(Throwable $e){
@@ -251,7 +251,7 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                 'jobTitle'=>($user['job_title']??null),
                 'jobTitleLabel'=>!empty($user['job_title'])?tamasyaJobTitleLabel($pdo,(string)$user['job_title']):null,
                 'token'=>$sessionToken,'offlineRefreshToken'=>$refreshToken,'offlineRefreshExpires'=>$refreshExpires,
-                'permissions'=>tamasyaSessionPermissions($user),
+                'permissions'=>tamasyaSessionPermissions($user,$pdo),
                 'hotelScopeId'=>tamasyaHotelScopeId(),'offlineSessionScopeId'=>$offlineSessionScopeId,
             ]);
         }catch(Throwable $e){
@@ -298,7 +298,7 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                 'jobTitle'=>($user['job_title']??null),
                 'jobTitleLabel'=>!empty($user['job_title'])?tamasyaJobTitleLabel($pdo,(string)$user['job_title']):null,
                 'token'=>$sessionToken,'offlineRefreshToken'=>$nextRefreshToken,'offlineRefreshExpires'=>$nextExpires,
-                'permissions'=>tamasyaSessionPermissions($user),
+                'permissions'=>tamasyaSessionPermissions($user,$pdo),
                 'hotelScopeId'=>tamasyaHotelScopeId(),'offlineSessionScopeId'=>$offlineSessionScopeId,
             ]);
         }catch(Throwable $e){

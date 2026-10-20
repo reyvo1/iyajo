@@ -2,7 +2,7 @@
 
 Baseline: `V137_FRESH_CANONICAL_MULTI_HOTEL`. Satu database = satu hotel
 (DB-per-properti; tidak ada `tenant_id` di tabel inti).
-Sumber: `database_setup.sql` (116 tabel) + `migrations/`.
+Sumber: `database_setup.sql` (125 tabel) + `migrations/`.
 
 ## Konvensi umum
 
@@ -65,6 +65,26 @@ tampil terpisah di laporan/Riwayat Shift.
 `attendance`, `salary_slips`, `staff_leave_requests`,
 `staff_savings_accounts/ledger/requests`, `user_sessions`,
 `staff_biometric_profiles`, `biometric_device_users`.
+
+### 5.1 RBAC dinamis (registry + access-group bridge)
+
+Tujuh tabel aditif menjaga kompatibilitas `staff.role` (9 base role),
+`role_capability_presets`, dan `staff_job_titles`:
+
+| Tabel | Peran |
+|---|---|
+| `rbac_roles` | Registry 10 role (9 base + `owner`) beserta urutan dan status |
+| `rbac_capabilities` | Registry 23 capability; label, urutan, aktif |
+| `rbac_desktop_tabs` | Registry 15 tab desktop |
+| `rbac_notification_groups` | Registry 6 grup notifikasi Telegram |
+| `rbac_access_groups` | Grup akses semantik (14 grup sistem) |
+| `rbac_access_group_roles` | Anggota base role per grup |
+| `rbac_legacy_role_sets` | Pemetaan `requireRoles()` literal → grup akses |
+
+Permission role tetap disimpan di `role_capability_presets`; tabel katalog
+hanya metadata. `rbac_legacy_role_sets` menjadi jembatan `requireRoles()`:
+role set tidak termapping/inactive = fallback ke array call site, grup ada
+tanpa anggota = deny. Migrasi: `migrations/20261021_DYNAMIC_RBAC.sql`.
 
 ## 6. Inventory & POS/minibar
 

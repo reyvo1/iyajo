@@ -39,7 +39,138 @@ try {
                 $systems[(string)$key]=((int)$titleRow['is_system']===1);
             }
             $counts=$pdo->query("SELECT {$titleExpr} AS title_key,COUNT(*) AS total FROM staff WHERE role<>'owner' GROUP BY {$titleExpr}")->fetchAll(PDO::FETCH_KEY_PAIR)?:[];
-            echo tamasyaJsonEncode(['success'=>true,'roles'=>array_keys($jobTitles),'labels'=>$labels,'bases'=>$bases,'system'=>$systems,'presets'=>$presets,'meta'=>$meta,'staffCounts'=>$counts]);
+            echo tamasyaJsonEncode(['success'=>true,'roles'=>array_keys($jobTitles),'labels'=>$labels,'bases'=>$bases,'system'=>$systems,'presets'=>$presets,'meta'=>$meta,'staffCounts'=>$counts,'catalog'=>tamasyaRbacCatalogPayload($pdo),'accessGroups'=>tamasyaRbacAccessGroupRows($pdo)]);
+            break;
+
+        case 'rbac-catalog-list':
+            echo tamasyaJsonEncode(['success'=>true,'catalog'=>tamasyaRbacCatalogPayload($pdo),'accessGroups'=>tamasyaRbacAccessGroupRows($pdo),'roles'=>tamasyaRbacRoleKeys($pdo)]);
+            break;
+
+        case 'rbac-catalog-save':
+            if($method!=='POST')throw new InvalidArgumentException('Simpan katalog RBAC harus POST.');
+            $group=strtolower(trim((string)($input['group']??'')));
+            $definition=tamasyaRbacCatalogDefinition($group);
+            if($definition===null)throw new InvalidArgumentException('Grup katalog RBAC tidak dikenal.');
+            $key=strtolower(trim((string)($input['key']??'')));
+            if(!preg_match('/^[a-z][a-z0-9_]{1,63}$/',$key))throw new InvalidArgumentException('Key katalog harus 2-64 karakter: huruf kecil, angka, atau garis bawah, diawali huruf.');
+            $label=trim((string)($input['label']??''));
+            if($label==='')throw new InvalidArgumentException('Label katalog wajib diisi.');
+            if((function_exists('mb_strlen')?mb_strlen($label):strlen($label))>160)throw new InvalidArgumentException('Label katalog maksimal 160 karakter.');
+            $sortOrder=(int)($input['sortOrder']??100);
+            if($sortOrder<0||$sortOrder>100000)throw new InvalidArgumentException('Urutan katalog tidak valid.');
+            $active=array_key_exists('active',$input)?($input['active']===true||$input['active']===1||$input['active']==='1'||$input['active']==='true'?1:0):1;
+            $pdo->beginTransaction();
+            try{
+                $before=$pdo->prepare("SELECT * FROM `{$definition['table']}` WHERE `{$definition['column']}`=? FOR UPDATE");
+                $before->execute([$key]);
+                $beforeRow=$before->fetch(PDO::FETCH_ASSOC)?:null;
+                $pdo->prepare("INSERT INTO `{$definition['table']}` (`{$definition['column']}`,label,is_system,sort_order,active) VALUES (?,?,0,?,?) ON DUPLICATE KEY UPDATE label=VALUES(label),sort_order=VALUES(sort_order),active=VALUES(active)")
+                    ->execute([$key,$label,$sortOrder,$active]);
+                if($beforeRow===null)tamasyaRbacCatalogAddToPresets($pdo,$group,$key,false);
+                $after=$pdo->prepare("SELECT * FROM `{$definition['table']}` WHERE `{$definition['column']}`=?");
+                $after->execute([$key]);
+                $afterRow=$after->fetch(PDO::FETCH_ASSOC)?:null;
+                writeRequiredEnterpriseAudit($pdo,$loggedInStaff,($beforeRow===null?'Menambah':'Mengubah').' katalog RBAC '.$group.'/'.$key,'rbac_catalog',$group.'/'.$key,$beforeRow,$afterRow,'web');
+                bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
+                tamasyaRbacFlushCache();
+                echo tamasyaJsonEncode(['success'=>true,'group'=>$group,'key'=>$key,'created'=>$beforeRow===null]);
+            }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+            break;
+
+        case 'rbac-catalog-delete':
+            if($method!=='POST')throw new InvalidArgumentException('Hapus katalog RBAC harus POST.');
+            $group=strtolower(trim((string)($input['group']??'')));
+            $definition=tamasyaRbacCatalogDefinition($group);
+            if($definition===null)throw new InvalidArgumentException('Grup katalog RBAC tidak dikenal.');
+            $key=strtolower(trim((string)($input['key']??'')));
+            $pdo->beginTransaction();
+            try{
+                $before=$pdo->prepare("SELECT * FROM `{$definition['table']}` WHERE `{$definition['column']}`=? FOR UPDATE");
+                $before->execute([$key]);
+                $beforeRow=$before->fetch(PDO::FETCH_ASSOC)?:null;
+                if(!$beforeRow)throw new InvalidArgumentException('Key katalog tidak ditemukan.');
+                if((int)$beforeRow['is_system']===1)throw new DomainException('Key katalog sistem tidak dapat dihapus.');
+                $pdo->prepare("DELETE FROM `{$definition['table']}` WHERE `{$definition['column']}`=?")->execute([$key]);
+                tamasyaRbacCatalogRemoveFromPresets($pdo,$group,$key);
+                writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Menghapus katalog RBAC '.$group.'/'.$key,'rbac_catalog',$group.'/'.$key,$beforeRow,null,'web');
+                bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
+                tamasyaRbacFlushCache();
+                echo tamasyaJsonEncode(['success'=>true,'group'=>$group,'key'=>$key]);
+            }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+            break;
+
+        case 'rbac-access-group-save':
+            if($method!=='POST')throw new InvalidArgumentException('Simpan access group RBAC harus POST.');
+            $label=trim((string)($input['label']??''));
+            if($label==='')throw new InvalidArgumentException('Label access group wajib diisi.');
+            if((function_exists('mb_strlen')?mb_strlen($label):strlen($label))>120)throw new InvalidArgumentException('Label access group maksimal 120 karakter.');
+            $groupKey=strtolower(trim((string)($input['groupKey']??'')));
+            if($groupKey==='')$groupKey=tamasyaJobTitleSlug($label);
+            if(!preg_match('/^[a-z][a-z0-9_]{1,63}$/',$groupKey))throw new InvalidArgumentException('Key access group harus 2-64 karakter: huruf kecil, angka, atau garis bawah, diawali huruf.');
+            $rolesInput=$input['roles']??[];
+            if(!is_array($rolesInput))throw new InvalidArgumentException('Daftar role access group tidak valid.');
+            $knownRoles=array_fill_keys(array_map(static fn(array $row): string=>(string)$row['key'],tamasyaRbacRoleRows($pdo,true)),true);
+            $roles=[];
+            foreach($rolesInput as $roleKey){
+                $roleKey=strtolower(trim((string)$roleKey));
+                if($roleKey==='')continue;
+                if(!isset($knownRoles[$roleKey]))throw new InvalidArgumentException('Role access group tidak dikenal: '.$roleKey.'.');
+                $roles[$roleKey]=$roleKey;
+            }
+            $roles=array_values($roles);
+            sort($roles,SORT_STRING);
+            if($roles===[])throw new InvalidArgumentException('Access group minimal memiliki satu role.');
+            if($groupKey==='admin_only'&&!in_array('admin',$roles,true))throw new InvalidArgumentException('Grup admin_only wajib memuat role admin agar panel RBAC tidak terkunci.');
+            $active=array_key_exists('active',$input)?($input['active']===true||$input['active']===1||$input['active']==='1'||$input['active']==='true'?1:0):1;
+            $pdo->beginTransaction();
+            try{
+                $before=$pdo->prepare("SELECT group_key,label,is_system,active FROM rbac_access_groups WHERE group_key=? FOR UPDATE");
+                $before->execute([$groupKey]);
+                $beforeRow=$before->fetch(PDO::FETCH_ASSOC)?:null;
+                $stmtRolesOld=$pdo->prepare("SELECT role_key FROM rbac_access_group_roles WHERE group_key=? ORDER BY role_key");
+                $stmtRolesOld->execute([$groupKey]);
+                $beforeRoles=array_map('strval',$stmtRolesOld->fetchAll(PDO::FETCH_COLUMN)?:[]);
+                if($beforeRow===null){
+                    $pdo->prepare("INSERT INTO rbac_access_groups (group_key,label,is_system,active) VALUES (?,?,0,?)")->execute([$groupKey,$label,$active]);
+                }else{
+                    $pdo->prepare("UPDATE rbac_access_groups SET label=?,active=?,updated_at=CURRENT_TIMESTAMP WHERE group_key=?")->execute([$label,$active,$groupKey]);
+                }
+                $pdo->prepare("DELETE FROM rbac_access_group_roles WHERE group_key=?")->execute([$groupKey]);
+                $insertRole=$pdo->prepare("INSERT INTO rbac_access_group_roles (group_key,role_key) VALUES (?,?)");
+                foreach($roles as $roleKey)$insertRole->execute([$groupKey,$roleKey]);
+                $after=$pdo->prepare("SELECT group_key,label,is_system,active FROM rbac_access_groups WHERE group_key=?");
+                $after->execute([$groupKey]);
+                $afterRow=$after->fetch(PDO::FETCH_ASSOC)?:null;
+                writeRequiredEnterpriseAudit($pdo,$loggedInStaff,($beforeRow===null?'Menambah':'Mengubah').' access group RBAC '.$groupKey,'rbac_access_group',$groupKey,['group'=>$beforeRow,'roles'=>$beforeRoles],['group'=>$afterRow,'roles'=>$roles],'web');
+                bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
+                tamasyaRbacFlushCache();
+                echo tamasyaJsonEncode(['success'=>true,'groupKey'=>$groupKey,'roles'=>$roles,'created'=>$beforeRow===null]);
+            }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+            break;
+
+        case 'rbac-access-group-delete':
+            if($method!=='POST')throw new InvalidArgumentException('Hapus access group RBAC harus POST.');
+            $groupKey=strtolower(trim((string)($input['groupKey']??'')));
+            if($groupKey==='')throw new InvalidArgumentException('Key access group wajib diisi.');
+            $pdo->beginTransaction();
+            try{
+                $before=$pdo->prepare("SELECT group_key,label,is_system,active FROM rbac_access_groups WHERE group_key=? FOR UPDATE");
+                $before->execute([$groupKey]);
+                $beforeRow=$before->fetch(PDO::FETCH_ASSOC)?:null;
+                if(!$beforeRow)throw new InvalidArgumentException('Access group tidak ditemukan.');
+                if((int)$beforeRow['is_system']===1)throw new DomainException('Access group sistem tidak dapat dihapus.');
+                $used=$pdo->prepare("SELECT COUNT(*) FROM rbac_legacy_role_sets WHERE group_key=?");
+                $used->execute([$groupKey]);
+                if((int)$used->fetchColumn()>0)throw new DomainException('Access group masih dipakai aturan route; ubah pemetaan atau nonaktifkan grup terlebih dahulu.');
+                $roles=$pdo->prepare("SELECT role_key FROM rbac_access_group_roles WHERE group_key=? ORDER BY role_key");
+                $roles->execute([$groupKey]);
+                $beforeRoles=array_map('strval',$roles->fetchAll(PDO::FETCH_COLUMN)?:[]);
+                $pdo->prepare("DELETE FROM rbac_access_groups WHERE group_key=?")->execute([$groupKey]);
+                writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Menghapus access group RBAC '.$groupKey,'rbac_access_group',$groupKey,['group'=>$beforeRow,'roles'=>$beforeRoles],null,'web');
+                bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);
+                tamasyaRbacFlushCache();
+                echo tamasyaJsonEncode(['success'=>true,'groupKey'=>$groupKey]);
+            }catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
             break;
 
         case 'job-title-save':

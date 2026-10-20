@@ -890,7 +890,7 @@ function getRoleScopedHotelData($pdo, $user) {
         'name' => (string)($user['name'] ?? ''),
         'username' => (string)($user['username'] ?? ''),
         'role' => $role,
-        'permissions' => tamasyaSessionPermissions($user),
+        'permissions' => tamasyaSessionPermissions($user,$pdo),
         'hotelScopeId' => tamasyaHotelScopeId()
     ];
 

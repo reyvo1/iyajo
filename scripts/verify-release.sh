@@ -77,4 +77,5 @@ php tests/facility-management-regression.php
 php tests/money-precision-regression.php
 php tests/database-tls-regression.php
 php tests/role-preset-regression.php
-printf "All source checks and 57 regression suites passed.\n"
+php tests/dynamic-rbac-regression.php
+printf "All source checks and 58 regression suites passed.\n"

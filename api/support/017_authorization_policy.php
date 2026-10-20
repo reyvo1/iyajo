@@ -75,13 +75,19 @@ function tamasyaIsOwnerRole($user): bool {
 }
 
 /** Owner preset is fixed: every workspace can be read, no mutation capability. */
-function tamasyaSessionPermissions(array $user) {
+function tamasyaSessionPermissions(array $user, ?PDO $pdo = null) {
     $permissions=$user['permissions']??null;
     if(is_string($permissions))$permissions=json_decode($permissions,true);
-    if(!tamasyaIsOwnerRole($user))return is_array($permissions)?$permissions:null;
+    if(!tamasyaIsOwnerRole($user)){
+        if(function_exists('tamasyaRbacEffectivePermissions')){
+            $effective=tamasyaRbacEffectivePermissions($user,$pdo);
+            if(is_array($effective))return $effective;
+        }
+        return is_array($permissions)?$permissions:null;
+    }
     $tabs=['dashboard','rooms','finance','savings','report','operations','website','support','telegram','staff','config','db_config','inventory','leaves','attendance','pos','local_connect'];
     $capabilities=is_array($permissions['capabilities']??null)?$permissions['capabilities']:[];
-    foreach(['approve_sensitive_actions','manage_sessions','resolve_sync_conflict','manage_tax_rules','manage_backup','reconcile_payments','correct_booking_audit','manage_room_access','perform_night_audit','perform_housekeeping','resolve_night_audit','manage_operational_settings','override_key_checkout','manage_public_website','sell_room_access','manage_stay_access','receive_payment_access','view_audit_log','view_guest_identity','view_reports','view_support_inbox','manage_facilities'] as $key)$capabilities[$key]=str_starts_with($key,'view_');
+    foreach(['approve_sensitive_actions','manage_sessions','resolve_sync_conflict','manage_tax_rules','manage_backup','reconcile_payments','correct_booking_audit','manage_room_access','perform_night_audit','perform_housekeeping','resolve_night_audit','manage_operational_settings','override_key_checkout','manage_public_website','sell_room_access','manage_stay_access','receive_payment_access','view_audit_log','view_guest_identity','view_reports','view_support_inbox','manage_facilities','daily_summary'] as $key)$capabilities[$key]=str_starts_with($key,'view_');
     foreach($capabilities as $key=>&$value)$value=str_starts_with((string)$key,'view_');unset($value);
     return ['desktopTabs'=>array_fill_keys($tabs,true),'telegramNotifications'=>array_fill_keys(['bookings','finance','inventory','operations','hr','system'],false),'capabilities'=>$capabilities,'readOnly'=>true];
 }
@@ -108,7 +114,12 @@ function requireRoles($user, $roles) {
     if (tamasyaIsOwnerRole($user)) {
         if (!tamasyaOwnerMutationDenied($user)) return;
     }
-    if (!$user || !in_array($user['role'] ?? '', $roles, true)) {
+    $effectiveRoles = $roles;
+    if (function_exists('tamasyaRbacAccessGroupRoles')) {
+        $groupRoles = tamasyaRbacAccessGroupRoles((array)$roles);
+        if (is_array($groupRoles)) $effectiveRoles = $groupRoles;
+    }
+    if (!$user || !in_array($user['role'] ?? '', $effectiveRoles, true)) {
         http_response_code(403);
         echo json_encode(["success" => false, "error" => "Forbidden: Anda tidak memiliki izin untuk operasi ini."]);
         exit;
@@ -139,6 +150,11 @@ function hasCapability($user, $capability, $fallbackRoles = []) {
     }
     $override=tamasyaPermissionOverride($user['permissions']??null,'capabilities',(string)$capability);
     if($override!==null)return $override;
+    if(function_exists('tamasyaRbacRolePermission')){
+        $roleKey=tamasyaRbacRoleKeyForUser($user);
+        $dbValue=tamasyaRbacRolePermission($roleKey,'capabilities',(string)$capability);
+        if($dbValue!==null)return $dbValue;
+    }
     return in_array($user['role'] ?? '', $fallbackRoles, true);
 }
 
@@ -158,6 +174,11 @@ function hasDesktopTabAccess($user, $tab, $fallbackRoles = []) {
     if (tamasyaIsOwnerRole($user)) return true;
     $override=tamasyaPermissionOverride($user['permissions']??null,'desktopTabs',(string)$tab);
     if($override!==null)return $override;
+    if(function_exists('tamasyaRbacRolePermission')){
+        $roleKey=tamasyaRbacRoleKeyForUser($user);
+        $dbValue=tamasyaRbacRolePermission($roleKey,'desktopTabs',(string)$tab);
+        if($dbValue!==null)return $dbValue;
+    }
     return in_array($user['role'] ?? '', $fallbackRoles, true);
 }
 
@@ -175,6 +196,11 @@ function tamasyaHasRoomsWorkspaceAccess($user): bool {
     if($caps!==null&&(($caps['sell_room_access']??null)===true||($caps['manage_stay_access']??null)===true))return true;
     $override=tamasyaPermissionOverride($user['permissions']??null,'desktopTabs','rooms');
     if($override!==null)return $override===true;
+    if(function_exists('tamasyaRbacRolePermission')){
+        $roleKey=tamasyaRbacRoleKeyForUser($user);
+        $dbValue=tamasyaRbacRolePermission($roleKey,'desktopTabs','rooms');
+        if($dbValue!==null)return $dbValue;
+    }
     return in_array(strtolower(trim((string)($user['role']??''))),['admin','manager','receptionist','owner'],true);
 }
 
