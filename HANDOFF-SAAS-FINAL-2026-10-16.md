@@ -3,9 +3,23 @@
 Tanggal: 2026-10-16. Session boleh berganti; agen berikutnya lanjut dari file ini.
 Bahasa pemilik: Indonesia. Jawab singkat, konkret, tanpa basa-basi.
 
-## 1. Status saat ini (rilis kode `bbbb590` = isi ZIP 2224; commit dokumen di atasnya; CI success, tree bersih)
+## 1. Status saat ini (rilis kode `0425584` = isi ZIP 20261020-1118; commit dokumen di atasnya; CI success, tree bersih)
 
 Kerjaan terakhir (sudah push + ZIP):
+- `0425584` **R19 — jabatan dinamis (arahan pemilik "tambah/rename/hapus
+  jabatan dari UI")**: tabel baru `staff_job_titles` (9 seed sistem) + kolom
+  `staff.job_title` (index), `staff.role` tetap base role agar enforcement
+  hardcoded aman. Panel "Kelola Jabatan" kini bisa **Tambah / Ubah Nama /
+  Hapus** jabatan; custom wajib pilih basis dari 9 role; preset izin keyed
+  `title_key`; owner dicadangkan; rename/hapus sistem ditolak; hapus ditolak
+  bila masih dipakai akun. Login + GET staff memuat `jobTitle/jobTitleLabel`;
+  filter/form/daftar memakai jabatan dinamis. Migration memakai guard
+  `information_schema` + `PREPARE` (kompatibel MySQL 8/MariaDB, tanpa
+  `ADD COLUMN IF NOT EXISTS`), idempoten. Playwright live: tambah "Kasir
+  Pagi" → opsi form muncul · rename → label berubah · hapus → row hilang;
+  API owner reservation → `owner_2`, bukan menabrak owner. Tes
+  `role-preset-regression` **63 cek**; verify-release **57 suite** hijau; CI
+  `39362716569` hijau; ZIP `tamasya-production-prod-20261020-1118.zip`.
 - `bbbb590` **R18 — hilangkan centangan tampak dobel di UI Kelola Jabatan
   (arahan pemilik)**: panel "Kelola Jabatan (Paket Izin) — Default Semua
   Akun" kini **terlipat default** (state `rpOpen`, header toggle "Buka ▼ /
@@ -215,12 +229,13 @@ Kerjaan terakhir (sudah push + ZIP):
 - `0bb5ba6` Perbaikan insiden CI: koma→titik koma di `assets/chunks/app-shell.js`
   (bundel gagal boot, semua UAT browser merah) + gerbang ESM di
   `scripts/verify-release.sh`.
-- ZIP produksi terbaru: `tamasya-production-prod-20261019-2224.zip` (379 entri,
-  berisi R18 lipat panel jabatan `bbbb590` + diagnostik SMTP + status jujur `990915c` + fix mobile R16 `1add609` + Fase 3 kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan
-  `a514025` + migrasi capability Batch 1+2
-  `7f81438`+`a8f34e5` + audit total
-  capability `38b7025` + fix beku perpanjangan `4b14d0b` + email tersimpan
-  otomatis + semua di bawahnya). ZIP lama (…2132, …1845, …1633, …1525, …1318, …1305, …1137, …1101, …2032,
+- ZIP produksi terbaru: `tamasya-production-prod-20261020-1118.zip` (380 entri,
+  berisi R19 jabatan dinamis `0425584` + R18 lipat panel jabatan `bbbb590` +
+  diagnostik SMTP + status jujur `990915c` + fix mobile R16 `1add609` + Fase 3
+  kapabilitas `db89177`+`ad8b311` + Fase 2 Kelola Jabatan `a514025` + migrasi
+  capability Batch 1+2 `7f81438`+`a8f34e5` + audit total capability `38b7025` +
+  fix beku perpanjangan `4b14d0b` + email tersimpan otomatis + semua di
+  bawahnya). ZIP lama (…2224, …2132, …1845, …1633, …1525, …1318, …1305, …1137, …1101, …2032,
   …1952, …1907, …1738, …1630, …1349, …1835, dst.) usang, jangan dipakai.
 - Deliverable DB (arahan pemilik "biar tinggal import"): `tamasya-production-db-20261019.sql`
   di Desktop mesin dev (189K; tanpa data transaksi; tanpa DEFINER; 5 trigger
@@ -228,13 +243,15 @@ Kerjaan terakhir (sudah push + ZIP):
   sementara `Tamasya-Import!2026`, `require_password_change=1`; property
   "Nama Hotel Anda" (`property-01`/`PROPERTY01`); 9 preset jabatan ikut.
   Langkah pemilik: import via phpMyAdmin → login → ganti password → Wizard
-  Setup. Tervalidasi import di MariaDB low-priv + login E2E.
-- Fakta database (audit 18 Okt): `database_setup.sql` = 116 CREATE TABLE,
-  SHA-256 `604f7d466b4e07de4e6f854c2f03a7609b52a08e5cf8b94efacf186aabfc263e`;
-  `migrations/` = 23 file (Fase 3 `db89177` menambah 1 migrasi data; tanpa
-  tabel baru). (Per `a514025`: kini **117 CREATE TABLE** —
-  `+role_capability_presets`; SHA berubah, cek `FILE_CHECKSUMS.sha256` /
-  `sha256sum database_setup.sql`.) Dokumen rilis lama (HANDOFF.md P0/R3,
+  Setup. Tervalidasi import di MariaDB low-priv + login E2E. **Catatan R19:**
+  file DB 20261019 belum memuat `staff_job_titles`/`staff.job_title`; untuk DB
+  yang sudah jalan impor `migrations/20261019_STAFF_JOB_TITLES.sql`
+  (idempoten) sebelum memakai panel jabatan dinamis.
+- Fakta database (audit 18 Okt, diperbarui R19): `database_setup.sql` =
+  **118 CREATE TABLE**, SHA-256
+  `05f1360c6701e23b7312f6eff8f16abe4001286e5cebe4f7b7d0975ece18aef9`;
+  `migrations/` = **24 file** (R19 menambah `20261019_STAFF_JOB_TITLES.sql`).
+  Dokumen rilis lama (HANDOFF.md P0/R3,
   CANONICAL_REPORT_ENGINE.md, PRODUCTION_FULL_AUDIT_R4.md) yang menulis
   "13 migration" / SHA `87bebefe…` adalah catatan historis rilis saat itu,
   bukan keadaan sekarang.
