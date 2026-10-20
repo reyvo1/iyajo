@@ -345,7 +345,7 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                     $staffColumns = "s.id, s.name, s.role, s.status, s.leave_start AS leaveStart, s.leave_end AS leaveEnd, s.leave_reason AS leaveReason, s.leave_type AS leaveType{$jobTitleSelect}";
                 } else {
                     $staffColumns = $canSeeSensitiveStaff
-                        ? "s.id, s.name, s.username, s.role, s.status, s.salary, s.leave_start AS leaveStart, s.leave_end AS leaveEnd, s.leave_reason AS leaveReason, s.leave_type AS leaveType, s.two_factor_active AS twoFactorActive{$jobTitleSelect}
+                        ? "s.id, s.name, s.username, s.role, s.status, s.salary, s.leave_start AS leaveStart, s.leave_end AS leaveEnd, s.leave_reason AS leaveReason, s.leave_type AS leaveType, s.two_factor_active AS twoFactorActive{$jobTitleSelect},
                             COALESCE(NULLIF(TRIM(s.telegram_chat_id), ''),
                                 (SELECT tb.telegram_user_id FROM telegram_bindings tb WHERE tb.staff_id=s.id AND tb.status='active' ORDER BY tb.verified_at DESC LIMIT 1)
                             ) AS telegramChatId,
