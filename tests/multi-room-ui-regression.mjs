@@ -1,17 +1,96 @@
 // Link the actual ES-module graph without starting a browser or evaluating app code.
 // Syntax-only checks cannot catch missing named exports in lazy chunks.
-// Use node --check per file to avoid minified variable name collisions in shared context.
-import {execSync} from 'node:child_process';
-import vm from 'node:vm';
+import {SourceTextModule,createContext,runInContext} from 'node:vm';
 import fs from 'node:fs';
+import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import assert from 'node:assert/strict';
-const {createContext,runInContext}=vm;
-for(const path of ['../assets/chunks/multi-room.js','../assets/chunks/rooms.js']){
-  execSync(`node --check "${fileURLToPath(new URL(path,import.meta.url))}"`,{stdio:'pipe'});
-  console.log('PASS syntax check: '+path);
+const context=createContext({}),modules=new Map();
+function load(url){
+ const name=url.href;if(modules.has(name))return modules.get(name);
+ assert.equal(url.protocol,'file:');const module=new SourceTextModule(fs.readFileSync(fileURLToPath(url),'utf8'),{context,identifier:name});modules.set(name,module);return module;
 }
-console.log('PASS all dependency modules syntax check passed.');
+for(const path of ['../assets/chunks/multi-room.js','../assets/chunks/rooms.js']){
+ const module=load(new URL(path,import.meta.url));if(module.status==='unlinked')await module.link((specifier,ref)=>load(new URL(specifier,ref.identifier)));
+ assert.equal(module.status,'linked');console.log('PASS actual static/lazy ES imports and named exports: '+path);
+}
+console.log('PASS all '+modules.size+' dependency modules linked without app evaluation.');
+
+// Guard 1: every shipped asset module must PARSE as an ES module.
+// A redeclared identifier or a stray "?" (ternary without ":") inside a lazy
+// chunk makes the browser chunk loader reject the import. app-core.js then
+// calls tamasyaRecoverChunkLoad(), which wipes the tamasya-cache-* caches and
+// calls location.reload(), so the UAT suite dies with
+// "Execution context was destroyed, most likely because of a navigation".
+// Parsing every module here catches that class of regression before CI runs
+// the browser suite. `node --check` is NOT sufficient: it parses a single
+// file in script mode and does not report module-scope redeclarations.
+const assetsRoot=fileURLToPath(new URL('../assets',import.meta.url));
+function collectJs(dir,out=[]){
+ for(const entry of fs.readdirSync(dir,{withFileTypes:true})){
+  const full=path.join(dir,entry.name);
+  if(entry.isDirectory())collectJs(full,out);
+  else if(entry.name.endsWith('.js'))out.push(full);
+ }
+ return out;
+}
+const assetModules=collectJs(assetsRoot).sort();
+for(const file of assetModules){
+ const source=fs.readFileSync(file,'utf8');
+ try{new SourceTextModule(source,{identifier:file});}
+ catch(error){assert.fail(`Asset module must parse as an ES module: ${path.relative(assetsRoot,file)} :: ${error.message}`);}
+}
+console.log(`PASS all ${assetModules.length} asset modules parse as ES modules (no redeclaration, no stray ternary).`);
+
+// Guard 2: a capability helper must be initialised before it is called.
+// A `const` helper used above its own declaration throws a TDZ ReferenceError
+// when the chunk is evaluated, which the browser reports as a chunk load
+// failure and turns into a full page reload.
+const capabilityHelperRe=/(?:const|let|var)\s+(tamasyaHasCapability)\s*=\s*\(q,ee\)=>\{/g;
+const capabilityCallRe=/(?<![A-Za-z0-9_$])tamasyaHasCapability\("/g;
+for(const file of assetModules){
+ const source=fs.readFileSync(file,'utf8');
+ const definitions=[...source.matchAll(capabilityHelperRe)];
+ const hoisted=/function\s+tamasyaHasCapability\s*\(/.test(source);
+ const calls=[...source.matchAll(capabilityCallRe)];
+ if(hoisted)continue;
+ for(const definition of definitions){
+  for(const call of calls){
+   if(call.index>definition.index)continue;
+   assert.fail(`Capability helper used before its definition (TDZ): ${path.relative(assetsRoot,file)} @${call.index}`);
+  }
+ }
+}
+console.log('PASS every capability helper is initialised before its first call.');
+
+// Guard 3: every capability gate must actually receive the effective
+// permissions. A component that reads `tamasyaCurrentPermissions` but is
+// rendered without a `currentPermissions` prop silently falls back to the
+// role check inside the helper, which weakens the RBAC gate instead of
+// enforcing it.
+const chunkFiles=assetModules.filter(file=>file.endsWith('.js')&&fs.readFileSync(file,'utf8').includes('tamasyaCurrentPermissions'));
+const renderSiteRe=/t\.jsx\((\w+),\{/g;
+for(const file of chunkFiles){
+ const source=fs.readFileSync(file,'utf8');
+ const componentMatch=source.match(/function (\w+)\(\{[^)]*tamasyaCurrentPermissions/);
+ assert.ok(componentMatch,`${path.relative(assetsRoot,file)} must bind currentPermissions in a component signature`);
+ const component=componentMatch[1];
+ const renderSites=[];
+ for(const candidate of assetModules){
+  const candidateSource=fs.readFileSync(candidate,'utf8');
+  for(const site of candidateSource.matchAll(renderSiteRe)){
+   if(site[1]!==component)continue;
+   renderSites.push({file:candidate,context:candidateSource.slice(site.index,site.index+320)});
+  }
+ }
+ assert.ok(renderSites.length>0,`${path.relative(assetsRoot,file)} component ${component} must be rendered somewhere`);
+ for(const site of renderSites){
+  const passes=site.context.includes('currentPermissions');
+  const spread=/\.\.\./.test(site.context);
+  assert.ok(passes||spread,`${component} is rendered without currentPermissions in ${path.relative(assetsRoot,site.file)}; the capability gate would silently fall back to the role check`);
+ }
+}
+console.log(`PASS all ${chunkFiles.length} capability-gated components receive currentPermissions from every render site.`);
 
 // Runtime shape guard: the browser crashed with React #137 because the old
 // h() helper passed children: [] to void elements such as <link> and <input>.
