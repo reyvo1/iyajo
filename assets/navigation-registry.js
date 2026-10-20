@@ -102,6 +102,7 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
     title: 'Enterprise Suite',
     subtitle: 'Folio, AP, CRM & kontrol',
     aria: 'Buka Enterprise Suite TAMASYA',
+    roles: Object.freeze(['admin','finance','owner']),
     requiredAnyTabs: Object.freeze(['rooms','finance','report','operations','inventory','config']),
     requiredFeatures: Object.freeze(['growthSuiteEnabled','enterpriseCompletionEnabled']),
     showWhenLocked: true,
