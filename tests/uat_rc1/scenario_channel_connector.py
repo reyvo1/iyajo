@@ -13,6 +13,8 @@ results=[]
 run='chconn_'+datetime.datetime.now().strftime('%H%M%S')+str(int(datetime.datetime.now().microsecond/1000))
 SECRET='uat-channel-secret-'+run+'-0123456789'
 CHANNEL='uat_ota'
+TOMORROW = datetime.date.today() + datetime.timedelta(days=1)
+DAY_AFTER = datetime.date.today() + datetime.timedelta(days=2)
 
 def check(name,ok,detail=None):
     results.append({'test':name,'pass':bool(ok),'details':detail})
@@ -61,27 +63,27 @@ mappings=db("SELECT id FROM growth_channel_mappings WHERE channel_code=? AND ext
 check('exactly one mapping exists for the vendor room type',len(mappings)==1,{'mappings':mappings})
 
 # ---------------------------------------------------------------- fail-closed authentication
-s,b=webhook({'guestName':'X','checkIn':datetime.date.today().isoformat(),'checkOut':(datetime.date.today()+datetime.timedelta(days=1)).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider=None,signature='0'*64)
+s,b=webhook({'guestName':'X','checkIn':TOMORROW.isoformat(),'checkOut':DAY_AFTER.isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider=None,signature='0'*64)
 check('channel webhook without provider header is refused',s==401 and b.get('success') is False,{'status':s,'body':str(b)[:200]})
-s,b=webhook({'guestName':'X','checkIn':datetime.date.today().isoformat(),'checkOut':(datetime.date.today()+datetime.timedelta(days=1)).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider=CHANNEL,signature='f'*64)
+s,b=webhook({'guestName':'X','checkIn':TOMORROW.isoformat(),'checkOut':DAY_AFTER.isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider=CHANNEL,signature='f'*64)
 check('channel webhook with a wrong signature is refused',s==401 and b.get('success') is False,{'status':s,'body':str(b)[:200]})
-s,b=webhook({'guestName':'X','checkIn':datetime.date.today().isoformat(),'checkOut':(datetime.date.today()+datetime.timedelta(days=1)).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider=CHANNEL,timestamp=int(time.time())-4000)
+s,b=webhook({'guestName':'X','checkIn':TOMORROW.isoformat(),'checkOut':DAY_AFTER.isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider=CHANNEL,timestamp=int(time.time())-4000)
 check('channel webhook with a stale timestamp is refused',s==401 and b.get('success') is False,{'status':s,'body':str(b)[:200]})
-s,b=webhook({'guestName':'X','checkIn':datetime.date.today().isoformat(),'checkOut':(datetime.date.today()+datetime.timedelta(days=1)).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider='uat_unknown_channel')
+s,b=webhook({'guestName':'X','checkIn':TOMORROW.isoformat(),'checkOut':DAY_AFTER.isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider='uat_unknown_channel')
 check('channel webhook from an unknown provider is refused',s==401 and b.get('success') is False,{'status':s,'body':str(b)[:200]})
 
 # ---------------------------------------------------------------- unsupported event type
-s,b=webhook({'guestName':'X','checkIn':datetime.date.today().isoformat(),'checkOut':(datetime.date.today()+datetime.timedelta(days=1)).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider=CHANNEL,event_type='booking_cancelled',external_id='cc_cancel_'+run)
+s,b=webhook({'guestName':'X','checkIn':TOMORROW.isoformat(),'checkOut':DAY_AFTER.isoformat(),'externalRoomType':'DELUXE KING','amount':400000},provider=CHANNEL,event_type='booking_cancelled',external_id='cc_cancel_'+run)
 check('an unsupported event type is refused',s>=400 and b.get('success') is False,{'status':s,'body':str(b)[:200]})
 
 # ---------------------------------------------------------------- unmapped room type: recorded, not invented
-s,b=webhook({'guestName':'UAT Unmapped','checkIn':datetime.date.today().isoformat(),'checkOut':(datetime.date.today()+datetime.timedelta(days=1)).isoformat(),'externalRoomType':'UNKNOWN SUITE','amount':400000},provider=CHANNEL,external_id='cc_unmapped_'+run)
+s,b=webhook({'guestName':'UAT Unmapped','checkIn':TOMORROW.isoformat(),'checkOut':DAY_AFTER.isoformat(),'externalRoomType':'UNKNOWN SUITE','amount':400000},provider=CHANNEL,external_id='cc_unmapped_'+run)
 unmapped_events=db("SELECT id,status FROM growth_channel_events WHERE channel_code=? AND external_id=?",[CHANNEL,'cc_unmapped_'+run])
 check('an unmapped room type is recorded for a human and no booking is created',
       s==200 and b.get('created') is False and b.get('reason')=='unmapped' and len(unmapped_events)==1 and unmapped_events[0]['status']=='unmapped',{'status':s,'body':str(b)[:220],'events':unmapped_events})
 
 # ---------------------------------------------------------------- mapped: reserved draft, no money
-reservation={'guestName':'UAT Channel Guest','guestEmail':'guest@example.invalid','checkIn':datetime.date.today().isoformat(),'checkOut':(datetime.date.today()+datetime.timedelta(days=2)).isoformat(),'externalRoomType':'DELUXE KING','externalRatePlan':'','amount':400000}
+reservation={'guestName':'UAT Channel Guest','guestEmail':'guest@example.invalid','checkIn':TOMORROW.isoformat(),'checkOut':DAY_AFTER.isoformat(),'externalRoomType':'DELUXE KING','externalRatePlan':'','amount':400000}
 external_id='cc_res_'+run
 s,b=webhook(reservation,provider=CHANNEL,external_id=external_id)
 check('a verified reservation is accepted and creates a reserved draft',s==200 and b.get('created') is True and b.get('financialMutation') is False and bool(b.get('bookingId')),{'status':s,'body':str(b)[:260]})
@@ -99,8 +101,8 @@ bookings_for_external=db("SELECT id FROM bookings WHERE bookingSource=? ORDER BY
 check('a vendor retry never creates a second draft',s==200 and b.get('duplicate') is True,{'status':s,'body':str(b)[:220]})
 
 # ---------------------------------------------------------------- invalid reservation payloads
-for bad,label in [({'guestName':'X','checkOut':(datetime.date.today()+datetime.timedelta(days=1)).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},'missing_checkin'),
-                  ({'guestName':'X','checkIn':datetime.date.today().isoformat(),'checkOut':(datetime.date.today()-datetime.timedelta(days=1)).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},'checkout_before_checkin')]:
+for bad,label in [({'guestName':'X','checkOut':DAY_AFTER.isoformat(),'externalRoomType':'DELUXE KING','amount':400000},'missing_checkin'),
+                  ({'guestName':'X','checkIn':TOMORROW.isoformat(),'checkOut':(datetime.date.today()-datetime.timedelta(days=1)).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},'checkout_before_checkin')]:
     s,b=webhook(bad,provider=CHANNEL,external_id='cc_bad_'+label+'_'+run)
     check('invalid reservation payload is refused: '+label,s>=400 and b.get('success') is False,{'status':s,'body':str(b)[:200]})
 
