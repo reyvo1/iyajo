@@ -7,7 +7,11 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$REPO_ROOT"
 
-VERSION=$(grep -oP 'TAMASYA_BUILD_ID\s+\K\S+' release_contract.php | tr -d '";' || echo "prod-$(date +%Y%m%d-%H%M)")
+# The release token must come from the single source of truth. A grep for
+# "TAMASYA_BUILD_ID <value>" never matched the real definition
+# (define('TAMASYA_BUILD_ID', '<value>')), so the zip silently fell back to a
+# timestamp and shipped without the release version in its name.
+VERSION=$(php -r 'require "release_contract.php"; echo TAMASYA_BUILD_ID;' 2>/dev/null | tr -d "'\"" | grep -E '^[A-Za-z0-9._-]+$' || echo "prod-$(date +%Y%m%d-%H%M)")
 ZIP_NAME="tamasya-production-${VERSION}.zip"
 STAGING_DIR="/tmp/tamasya-production-${VERSION}"
 
