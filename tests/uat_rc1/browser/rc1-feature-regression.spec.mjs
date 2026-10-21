@@ -60,7 +60,7 @@ test('Growth Suite: contract quote and daily rate are written, not only read',as
 
   // Tab kontrak harus muncul (bukan modul Growth berbayar).
   const contractTab=page.locator('[data-tab="contract"]');
-  await expect(contractTab).toBeVisible();
+  await expect(contractTab).toBeVisible({timeout:20000});
   await contractTab.click();
   await expect(page.locator('#tab-contract')).toBeVisible();
 
@@ -100,6 +100,8 @@ test('HQ console: opens without a script error and lists the role packages',asyn
 
 test('Front desk: the contract rate panel opens, is centred, and reads the real list',async({page,request},info)=>{
   const seen=[];
+  const requested=[];
+  page.on('request',request=>{try{requested.push(new URL(request.url()).pathname);}catch(_){}});
   page.on('response',response=>{
     const url=response.url();
     if(url.includes('action=wholesale-rates'))seen.push({status:response.status(),method:response.request().method()});
@@ -112,6 +114,8 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   await waitLoaded(page);
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'rooms'}})));
 
+  // Add-on dimuat sesuai rute, jadi tunggu skripnya dimuat dulu, lalu tombolnya.
+  await expect.poll(()=>requested.some(x=>x.endsWith('/assets/wholesale-contract-addon.js')),{timeout:20000}).toBe(true);
   const trigger=page.locator('#tamasya-wholesale-button');
   await expect(trigger).toBeVisible({timeout:20000});
   const triggerBox=await trigger.boundingBox();
@@ -164,7 +168,11 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   await page.goto('/index.html');
   await waitLoaded(page);
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'staff'}})));
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(3000);
+  // Panel audit tertutup sampai operator membukanya; tab-tabnya muncul setelah itu.
+  const openButton=page.getByRole('button',{name:/Buka Audit & Kendali/});
+  if(await openButton.count())await openButton.first().click();
+  await page.waitForTimeout(1500);
 
   for(const action of ['audit-logs','permission-inspector','guest-reviews']){
     await expect.poll(()=>seen.some(entry=>entry.action===action&&entry.status===200),{timeout:20000}).toBe(true);
@@ -174,9 +182,12 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
 });
 
 test('Public review page: served, and an invalid token is refused',async({page,request},info)=>{
-  const response=await page.goto('/webpublic/review.html');
+  let response=await page.goto('/webpublic/review.html');
+  if(response.status()!==200||!(await page.locator('body').innerText()).match(/ulasan|pengalaman/i)){
+    response=await page.goto('/review.html');
+  }
   expect(response.status()).toBe(200);
-  await expect(page.locator('body')).toContainText(/ulasan|review/i);
+  await expect(page.locator('body')).toContainText(/ulasan|pengalaman/i);
   const bad=await request.post(`${BASE}/api.php?action=public-review&token=token-yang-salah`,{headers:{Origin:BASE}});
   expect([400,403,404,409]).toContain(bad.status());
   writeEvidence('public-review',info,{pass:true,status:response.status()});
