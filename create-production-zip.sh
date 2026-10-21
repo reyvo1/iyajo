@@ -102,6 +102,12 @@ find "$STAGING_DIR/tests" -name "*.py" -delete 2>/dev/null || true
 rm -f "$STAGING_DIR/.env" "$STAGING_DIR/.env.*" 2>/dev/null || true
 find "$STAGING_DIR" -maxdepth 2 -name ".env" -o -maxdepth 2 -name ".env.*" 2>/dev/null | while IFS= read -r leftover; do rm -f "$leftover"; done
 
+# Manifest isi paket. Operator memakai berkas ini untuk memverifikasi bahwa
+# hasil ekstraksi di server sama persis dengan paket yang dikirim, sebelum
+# aplikasi dijalankan.
+echo "Writing deploy manifest..."
+( cd "$STAGING_DIR" && find . -type f ! -name "DEPLOY-SHA256SUMS.txt" -printf "%P\0" | sort -z | xargs -0 sha256sum > DEPLOY-SHA256SUMS.txt )
+
 # Create zip
 echo "Creating zip..."
 cd /tmp

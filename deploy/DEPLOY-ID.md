@@ -1,7 +1,14 @@
 # Deploy TAMASYA - Rilis 20261021-r15
 
-Paket ini berisi perbaikan RBAC (audit F-01..F-11) dan perbaikan
-chunk-load yang sebelumnya membuat Halaman UAT gagal.
+Paket ini berisi perbaikan RBAC (audit F-01..F-11), perbaikan chunk-load yang
+sebelumnya membuat Halaman UAT gagal, dan fitur baru: penampil log audit,
+inspektur izin, dasbor kesehatan sistem, dukungan multi-mata uang, ulasan
+tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
+
+| Paket | `tamasya-production-20261021-r15.zip` |
+|---|---|
+| SHA-256 | `d47d801f5294458843623b4284c4082cb5c312d4879d13327538ddf4e1b51fd6` |
+| Isi | 370 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
 
@@ -10,7 +17,8 @@ chunk-load yang sebelumnya membuat Halaman UAT gagal.
 | `assets/`, `api/`, `hq/`, `webpublic/`, `services/` | Kode aplikasi |
 | `migrations/` | Seluruh migrasi SQL (arsip, jalankan lewat phpMyAdmin bila perlu) |
 | `deploy/IMPORT-RBAC-PHPMYADMIN.sql` | Impor database RBAC (idempoten) |
-| `database_setup.sql` | Skema penuh untuk instalasi DB baru |
+| `database_setup.sql` | Skema penuh (131 tabel) untuk instalasi DB baru |
+| `DEPLOY-SHA256SUMS.txt` | Manifest isi paket: `sha256sum -c DEPLOY-SHA256SUMS.txt` setelah ekstraksi |
 
 ## 2. Backup DULU
 
@@ -21,6 +29,12 @@ phpMyAdmin -> pilih database -> Export -> SQL. Jangan lanjut tanpa backup.
 Buka `deploy/IMPORT-RBAC-PHPMYADMIN.sql`, salin ke phpMyAdmin -> tab SQL -> Go.
 File ini aman dijalankan berulang kali dan tidak menimpa paket izin yang
 sudah Anda simpan sendiri di UI "Kelola Jabatan".
+
+Migrasi fitur baru (jika database Anda sudah ada):
+`migrations/20261021_GUEST_REVIEWS.sql` (ulasan tamu) dan
+`migrations/20261021_WHOLESALE_RATES.sql` (tarif kontrak B2B).
+Keduanya idempoten. Tanpa migrasi, tab terkait akan memberi pesan jelas
+bahwa skema belum tersedia, bukan error fatal.
 
 Cek cepat apakah perlu: bagian LANGKAH 0 di file SQL menampilkan tabel mana
 yang sudah ada. Semua sudah ada (angka 1) -> tidak wajib impor, tapi aman.
@@ -74,3 +88,7 @@ di DevTools -> Application -> Service Workers.
 4. Login sebagai Owner -> semua tombol tulis harus nonaktif.
 5. Jalankan regression server (opsional, butuh PHP CLI):
    `php tests/regression.php` bila Anda ikut menyalin folder `tests/`.
+6. Verifikasi integritas paket: `sha256sum -c DEPLOY-SHA256SUMS.txt`
+   (jalankan dari dalam folder hasil ekstraksi).
+7. HQ: buka `hq/control.html` -> tombol "Paket izin jabatan" untuk melihat
+   paket kanonik, menerbitkan revisi, dan status penerapan per properti.
