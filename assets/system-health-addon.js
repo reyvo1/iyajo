@@ -11,7 +11,7 @@
   const loggedIn=()=>sessionStorage.getItem('hotel_logged_in')==='true';
   let timer=null;
 
-  function api(path){ return fetch('/api/'+path,{method:'GET',cache:'no-store',headers:{'Accept':'application/json'}}).then(async r=>({ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))})); }
+  function api(path){ return fetch('/api/'+path,{method:'GET',cache:'no-store',headers:{'Accept':'application/json','Authorization':'Bearer '+(sessionStorage.getItem('hotel_session_token')||'')}}).then(async r=>({ok:r.ok,status:r.status,data:await r.json().catch(()=>({}))})); }
   function swStatus(){
     return new Promise(resolve=>{
       if(!('serviceWorker' in navigator) || !navigator.serviceWorker.controller){ resolve({controlled:false}); return; }
@@ -54,10 +54,38 @@
     el.addEventListener('click',e=>{ if(e.target===el) close(); });
     return el;
   }
+
+  // Ringkasan operasi: paket tarif kontrak yang aktif, kurs hari ini, dan
+  // ulasan tamu yang menunggu moderasi. Ini yang dilihat operator saat
+  // membuka diagnosis, supaya fitur baru tidak tersembunyi.
+  async function operationsStatus(){
+    const [plans,rates,reviews]=await Promise.allSettled([api('wholesale-rates'),api('exchange-rates'),api('guest-reviews')]);
+    return {
+      plans:plans.status==='fulfilled'?plans.value:null,
+      rates:rates.status==='fulfilled'?rates.value:null,
+      reviews:reviews.status==='fulfilled'?reviews.value:null
+    };
+  }
+  function operationsHtml(op){
+    if(!op)return '<section class="tsh-section"><h3>Ringkasan Operasi</h3><p class="tsh-note">Data operasi tidak dapat dibaca.</p></section>';
+    const planRows=Array.isArray(op.plans?.json?.data?.rows)?op.plans.json.data.rows:[];
+    const rateRows=Array.isArray(op.rates?.json?.data?.rows)?op.rates.json.data.rows:[];
+    const pending=Array.isArray(op.reviews?.json?.data?.rows)?op.reviews.json.data.rows.filter(r=>String(r.status||'pending')==='pending').length:0;
+    const latest={};
+    for(const row of rateRows){const q=String(row.quote_currency||'');if(!latest[q]||String(row.rate_date)>String(latest[q].rate_date))latest[q]=row;}
+    const rateList=Object.values(latest).map(r=>`<div class="tsh-item"><span>${esc(r.quote_currency)}</span><b>${esc(Number(r.rate).toLocaleString('id-ID'))} / ${esc(r.rate_date)}</b></div>`).join('');
+    const planList=planRows.filter(r=>String(r.status||'')==='active').map(r=>`<div class="tsh-item"><span>${esc(r.code)} &middot; ${esc(r.name)}</span><b>${esc(r.company_name||'semua perusahaan')}</b></div>`).join('');
+    return `<section class="tsh-section"><h3>Ringkasan Operasi</h3><div class="tsh-grid">
+      <div class="tsh-item"><span>Paket tarif kontrak aktif</span><b>${planRows.filter(r=>String(r.status||'')==='active').length}</b></div>
+      <div class="tsh-item"><span>Ulasan tamu menunggu moderasi</span><b>${pending}</b></div>
+      <div class="tsh-item"><span>Mata uang dengan kurs tercatat</span><b>${Object.keys(latest).length}</b></div>
+    </div>${planList?`<div class="tsh-list" style="margin-top:9px">${planList}</div>`:''}${rateList?`<div class="tsh-list" style="margin-top:9px">${rateList}</div>`:''}
+    <p class="tsh-note">Kelola paket dan kurs di tab Growth Suite &rsaquo; Kontrak B2B. Panel tarif kontrak untuk kasir ada di tab Kamar.</p></section>`;
+  }
   async function refresh(){
     const el=ensureOverlay(), content=el.querySelector('[data-tsh-content]');
     content.innerHTML='<p class="tsh-note">Memeriksa Consistency Guard, API, cluster, antrean offline/node sync, dan Service Worker…</p>';
-    const [base,sync,cluster,guard,sw]=await Promise.allSettled([api('status'),api('node-sync-status'),api('node-cluster-status'),api('consistency-guard-status?sampleLimit=5'),swStatus()]);
+    const [base,sync,cluster,guard,sw,operations]=await Promise.allSettled([api('status'),api('node-sync-status'),api('node-cluster-status'),api('consistency-guard-status?sampleLimit=5'),swStatus(),operationsStatus()]);
     const b=base.status==='fulfilled'?base.value:null;
     const sy=sync.status==='fulfilled'?sync.value:null;
     const cl=cluster.status==='fulfilled'?cluster.value:null;
@@ -121,7 +149,7 @@
       </div>${ns.lastError?`<div class="tsh-error" style="margin-top:9px"><strong>Error terakhir:</strong> ${esc(ns.lastError)}</div>`:''}<p class="tsh-note">Queue bermasalah: <strong>${queueBad}</strong> · Queue aktif: <strong>${queueActive}</strong>. Mutation uncertain/conflict tetap fail-closed; panel ini tidak menyediakan tombol pemaksaan.</p></section>
       <section class="tsh-section"><h3>Service Worker / Offline Shell</h3><div class="tsh-grid">
         ${badge('SW controller',s.controlled?'AKTIF':'BELUM MENGONTROL',s.controlled?'good':'warn')}${badge('SW build',s.cacheName||'—',versionMismatch?'bad':'good')}${badge('Precache count',s.precacheCount??'—')}${badge('SW reply',s.reply?'OK':'TIDAK ADA',s.reply?'good':'warn')}
-      </div><p class="tsh-note">Build mismatch dianggap masalah keselamatan karena browser lama tidak boleh menjalankan logika transaksi berbeda dari API baru.</p></section>`;
+      </div><p class="tsh-note">Build mismatch dianggap masalah keselamatan karena browser lama tidak boleh menjalankan logika transaksi berbeda dari API baru.</p></section>${operationsHtml(operations.status==='fulfilled'?operations.value:null)}`;
   }
   // Heavy LONGTEXT aggregate is strictly opt-in; never run it during 60s system-health polling.
   async function loadReceiptStorageHealth(){

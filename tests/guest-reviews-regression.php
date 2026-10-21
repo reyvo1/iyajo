@@ -41,7 +41,8 @@ $reviewCheck(str_contains($canonical, '`guest_review_invites`'), 'Skema kanonik 
 $reviewCheck(str_contains($canonical, "UNIQUE KEY `uq_guest_review_token`"), 'Token undangan unik');
 
 /* Aturan main */
-$reviewCheck(str_contains($route, "requireCapability(\$loggedInStaff, 'manage_operational_settings'"), 'Aksi staf dikunci capability');
+$reviewCheck(str_contains($route, "requireCapability(\$loggedInStaff, 'sell_room_access'"), 'Undangan ulasan boleh dibuat staf layanan (resepsionis)');
+$reviewCheck(str_contains($route, "requireCapability(\$loggedInStaff, 'manage_operational_settings'"), 'Moderasi ulasan dikunci capability pengelola');
 $reviewCheck(str_contains($route, "if (\$rating < 1 || \$rating > 5)"), 'Rating dibatasi 1..5');
 $reviewCheck(str_contains($route, "status='responded'"), 'Undangan ditutup setelah ulasan masuk (tidak bisa dinilai ulang)');
 $reviewCheck(str_contains($route, 'random_bytes(24)'), 'Token undangan dibuat dari sumber acak yang kuat');

@@ -260,10 +260,15 @@
     const button = document.createElement('button');
     button.id = 'tamasya-wholesale-button';
     button.type = 'button';
-    button.textContent = 'Tarif kontrak';
+    button.textContent = 'Kontrak';
     // Gaya dan posisi mengikuti tombol laporan yang sudah ada (kanan bawah
     // layar). Duduk DI ATAS tombol laporan supaya tidak saling menutupi.
-    button.style.cssText = 'position:fixed;right:22px;bottom:74px;z-index:2147482000;border:1px solid rgba(99,102,241,.55);background:linear-gradient(135deg,#312e81,#4f46e5);color:#fff;border-radius:16px;padding:12px 16px;font:700 13px/1.2 system-ui;box-shadow:0 14px 35px rgba(15,23,42,.38);cursor:pointer;display:flex;gap:8px;align-items:center';
+    // Bentuk, ukuran, warna, dan jaraknya identik tombol laporan yang sudah
+    // ada di pojok kanan bawah: dua tombol berpasangan, bukan dua tombol yang
+    // saling tumpang tindih.
+    button.style.cssText = 'position:fixed;right:22px;bottom:74px;z-index:2147482000;border:1px solid rgba(99,102,241,.55);background:linear-gradient(135deg,#312e81,#4f46e5);color:#fff;border-radius:16px;padding:12px 16px;font:700 13px/1.2 system-ui;box-shadow:0 14px 35px rgba(15,23,42,.38);cursor:pointer;display:flex;gap:8px;align-items:center;transition:filter .15s ease';
+    button.addEventListener('mouseenter', () => { button.style.filter = 'brightness(1.08)'; });
+    button.addEventListener('mouseleave', () => { button.style.filter = 'none'; });
     button.addEventListener('click', () => {
       const overlay = document.getElementById('tamasya-wholesale-overlay');
       if (!overlay) return;

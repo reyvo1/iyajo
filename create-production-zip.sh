@@ -71,6 +71,11 @@ rm -f "$STAGING_DIR"/TESTAMASYA-*
 rm -f "$STAGING_DIR"/APPLY-*
 rm -f "$STAGING_DIR"/MIGRATION-*
 rm -f "$STAGING_DIR"/R16_*
+# Arsip dokumentasi lama tidak perlu ikut paket rilis.
+# Arsip dokumentasi lama tidak perlu ikut paket rilis. Dilakukan setelah
+# seluruh berkas disalin, karena docs/ ikut terbawa dari git ls-files.
+rm -rf "$STAGING_DIR"/docs/archive 2>/dev/null || true
+rm -rf "$STAGING_DIR"/docs/*.bak 2>/dev/null || true
 
 # Remove example env files (keep .env.example if needed for reference)
 rm -f "$STAGING_DIR"/.env.*.example
@@ -129,6 +134,9 @@ fi
 # Create zip
 echo "Creating zip..."
 cd /tmp
+# Arsip lama harus dihapus dulu: zip -r memperbarui arsip yang ada, jadi
+# berkas yang sudah tidak lagi ikut paket akan tetap tertinggal di dalamnya.
+rm -f "$REPO_ROOT/$ZIP_NAME"
 zip -r "$REPO_ROOT/$ZIP_NAME" "tamasya-production-${VERSION}" -x "*/.git/*" "*/node_modules/*" "*/.DS_Store" "*/Thumbs.db" > /dev/null
 
 # Cleanup

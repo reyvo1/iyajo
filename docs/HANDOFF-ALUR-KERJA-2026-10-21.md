@@ -2,7 +2,7 @@
 
 Rilis: `20261021-r18` · commit: `HEAD` · CI: **9/9 hijau** (run terakhir + transkrip di repo).
 Skema: **131 tabel** · suite lokal: **116 perintah** (harus `set -euo pipefail`).
-Paket deploy: `tamasya-production-20261021-r18.zip` (377 berkas; sha256 paket ada di `deploy/DEPLOY-ID.md`) +
+Paket deploy: `tamasya-production-20261021-r18.zip` (356 berkas; sha256 paket ada di `deploy/DEPLOY-ID.md`) +
 `deploy/DEPLOY-ID.md` + `deploy/IMPORT-RBAC-PHPMYADMIN.sql`.
 
 Dokumen ini adalah sumber konteks tunggal. **Baca ini dulu sebelum mengubah apa pun.**

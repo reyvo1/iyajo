@@ -94,7 +94,7 @@ try {
     }
 
     // ---------- Staf: daftar, moderasi, undangan ----------
-    requireCapability($loggedInStaff, 'manage_operational_settings', ['admin', 'manager']);
+    requireCapability($loggedInStaff, 'sell_room_access', ['admin', 'manager', 'receptionist']);
     if ($method === 'GET') {
         $status = trim((string)($_GET['status'] ?? ''));
         $sql = "SELECT id,booking_id,room_number,guest_name,rating,comment,reply,status,published,created_at,responded_at,published_at FROM `guest_reviews` WHERE property_id = ?";
@@ -143,6 +143,10 @@ try {
         return;
     }
     if ($command === 'review-publish' || $command === 'review-hide' || $command === 'review-reply') {
+        // ModerasiExpiry: hanya pengelola (admin/manajer). Resepsionis boleh
+        // membuat undangan dan melihat daftar, tetapi tidak memutuskan
+        // apakah ulasan ditampilkan.
+        requireCapability($loggedInStaff, 'manage_operational_settings', ['admin', 'manager']);
         $reviewId = trim((string)($input['reviewId'] ?? ''));
         if ($reviewId === '') {
             http_response_code(422);
