@@ -1159,7 +1159,7 @@ if (defined('TAMASYA_SERVICE_BOOTSTRAP') && TAMASYA_SERVICE_BOOTSTRAP===true && 
  *
  * All public actions reviewed 2026-10-20. No unauthenticated mutation endpoints found.
  */
-$public_actions = ['', 'status', 'ping', 'login', 'verify-2fa', 'refresh-session', 'telegram-webhook', 'node-sync-snapshot', 'node-cluster-peer-status', 'node-cluster-control', 'node-cluster-telegram-webhook', 'node-cluster-telegram-delivery', 'communication-webhook', 'node-cluster-channel-webhook', 'growth-payment-webhook', 'growth-channel-webhook', 'public-site-config', 'public-bootstrap', 'public-room-types', 'public-room-availability', 'public-promotions', 'public-reservation-request', 'public-contact', 'public-help-chat', 'public-help-chat-sync', 'biometric-device-webhook'];
+$public_actions = ['', 'status', 'ping', 'login', 'verify-2fa', 'refresh-session', 'telegram-webhook', 'node-sync-snapshot', 'node-cluster-peer-status', 'node-cluster-control', 'node-cluster-telegram-webhook', 'node-cluster-telegram-delivery', 'communication-webhook', 'node-cluster-channel-webhook', 'growth-payment-webhook', 'growth-channel-webhook', 'public-site-config', 'public-bootstrap', 'public-room-types', 'public-room-availability', 'public-promotions', 'public-reservation-request', 'public-contact', 'public-help-chat', 'public-help-chat-sync', 'biometric-device-webhook','public-review'];
 
 // Public endpoints (terutama Telegram webhook) tidak memiliki sesi browser.
 // Inisialisasi eksplisit mencegah warning undefined variable berubah menjadi
@@ -1370,6 +1370,7 @@ if ($loggedInStaff) {
         'audit-logs'=>['staff'],
         'permission-inspector'=>['staff'],
         'system-health'=>['staff','config','db_config'],
+        'guest-reviews'=>['staff','operations'],
     ];
     $requiredDesktopTabs = $actionDesktopTabs[(string)$action] ?? [];
     if ($requiredDesktopTabs) {
