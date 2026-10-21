@@ -9,8 +9,11 @@ import re
 import sys
 
 ROOT = Path(__file__).resolve().parents[2]
-SPEC = ROOT / 'tests/uat_rc1/browser/rc1-ui.spec.mjs'
-source = SPEC.read_text(encoding='utf-8', errors='strict')
+SPECS = [
+    ROOT / 'tests/uat_rc1/browser/rc1-ui.spec.mjs',
+    ROOT / 'tests/uat_rc1/browser/rc1-feature-regression.spec.mjs',
+]
+source = '\n'.join(spec.read_text(encoding='utf-8', errors='strict') for spec in SPECS)
 
 required = [
     'Multi-room main UI creates independent bookings and remains contained on desktop tablet mobile',
@@ -33,6 +36,11 @@ required = [
     'Official downloads inherit report period and save actual PDF Excel CSV and JSON files',
     'Finance period is inherited and Operations badges and journal totals explain their scope',
     'Layout: exact large amounts stay inside cards and audit shift stays above navigation',
+    'Growth Suite: contract quote and daily rate are written, not only read',
+    'HQ console: opens without a script error and lists the role packages',
+    'Front desk: the contract rate panel opens, is centred, and reads the real list',
+    'Governance tabs: audit, inspector, reviews and health all answer',
+    'Public review page: served, and an invalid token is refused',
 ]
 
 forbidden = re.findall(r'\btest\.(skip|fixme|only)\s*\(', source)
