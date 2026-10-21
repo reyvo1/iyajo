@@ -4,7 +4,7 @@
   if (window.__TAMASYA_RUNTIME_ADDON_LOADER__) return;
   window.__TAMASYA_RUNTIME_ADDON_LOADER__ = true;
 
-  const BUILD = '20261021-r19';
+  const BUILD = '20261021-r20';
   const resources = new Map();
   let firstRouteSeen = false;
 
@@ -77,8 +77,8 @@
   }
 
   const loadGuestCenter = () => Promise.all([
-    loadStyle('assets/guest-center.css?v=20261021-r19'),
-    loadScript('assets/guest-center.js', '20261021-r19')
+    loadStyle('assets/guest-center.css?v=20261021-r20'),
+    loadScript('assets/guest-center.js', '20261021-r20')
   ]);
   const loadEmployeeSelfService = () => Promise.all([
     loadStyle('assets/employee-self-service.css?v=20260826-fix34-drawerscroll'),

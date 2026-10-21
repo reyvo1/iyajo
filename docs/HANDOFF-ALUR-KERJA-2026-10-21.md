@@ -1,8 +1,8 @@
 # Konteks & Alur Kerja TAMASYA — handoff untuk sesi berikutnya
 
-Rilis: `20261021-r19` · commit: `HEAD` · CI: **9/9 hijau** (run terakhir + transkrip di repo).
+Rilis: `20261021-r20` · commit: `HEAD` · CI: **9/9 hijau** (run terakhir + transkrip di repo).
 Skema: **131 tabel** · suite lokal: **116 perintah** (harus `set -euo pipefail`).
-Paket deploy: `tamasya-production-20261021-r19.zip` (356 berkas; sha256 paket ada di `deploy/DEPLOY-ID.md`) +
+Paket deploy: `tamasya-production-20261021-r20.zip` (356 berkas; sha256 paket ada di `deploy/DEPLOY-ID.md`) +
 `deploy/DEPLOY-ID.md` + `deploy/IMPORT-RBAC-PHPMYADMIN.sql`.
 
 Dokumen ini adalah sumber konteks tunggal. **Baca ini dulu sebelum mengubah apa pun.**
@@ -181,13 +181,25 @@ hardcoded. Sisa v2 = konversi kurs sungguhan, lihat 4.4.
 - `tamasyaTransactionCurrencyGuard()` menambah `convertedByCurrency` + `propertyCurrencyTotal`.
 - Migrasi `20261021_TRANSACTION_PROPERTY_AMOUNT.sql`; uji `tests/exchange-rate-mysql-uat.php` (20 cek).
 
+### 4.7 Temuan dari screenshot operator (r19 -> r20)
+
+Screenshot nyata di server menunjukkan dua hal yang tidak terlihat dari kode:
+
+1. Panel "Audit & Kendali" **ada** (tombolnya terlihat di pojok kiri bawah layar),
+   tetapi **tenggelam di bawah panel "Kelola Jabatan" yang sangat panjang** =>
+   tidak pernah ditemukan. Panelnya sekarang dirender **lebih dulu** di tab
+   Karyawan, di atas panel jabatan.
+2. Tombol "Kontrak" di pojok kanan bawah **menimpa tombol "Reset"** dan berada
+   di atas tombol "Akun Saya" => dipindah ke **pojok kiri bawah**, tempat
+   aplikasi tidak memakai kontrol mengambang.
+
 ### 4.6 Di mana UI fitur baru berada (peta resmi)
 
 | Fitur | Tempat | Label yang terlihat |
 |---|---|---|
-| Audit & Kendali (4 tab) | Tab **Karyawan** (grup SDM), **scroll ke bawah** | Kartu "Audit & Kendali" + tombol "Buka Audit & Kendali (Log Audit, Inspektur Izin, Ulasan, Kesehatan)". 4 tab baru muncul setelah tombol diklik |
+| Audit & Kendali (4 tab) | Tab **Karyawan** (grup SDM), **bagian paling atas** | Kartu "Audit & Kendali" + tombol "Buka Audit & Kendali (Log Audit, Inspektur Izin, Ulasan, Kesehatan)". 4 tab baru muncul setelah tombol diklik |
 | Kelola Jabatan (Paket Izin) | Tab **Karyawan**, di atas panel audit | Hanya untuk Admin |
-| Tarif kontrak (kasir) | Tab **Kamar** atau **Reservasi** | Tombol **"Kontrak"** di pojok kanan bawah, tepat di atas tombol Laporan |
+| Tarif kontrak (kasir) | Tab **Kamar** atau **Reservasi** | Tombol **"Kontrak"** di pojok **kiri** bawah |
 | Tarif kontrak & kurs (Growth) | Halaman **Growth Suite** (menu "Pusat Operasional & Kontrol") | Tab **"Kontrak B2B"** |
 | Paket izin jabatan (HQ) | Halaman **HQ** (`/hq/index.html`) — layanan terpisah | Tombol "Paket izin jabatan" di header |
 | Ulasan tamu | Halaman publik `webpublic/review.html` | Form ulasan (dari tautan undangan) |
@@ -276,7 +288,7 @@ git push origin main && gh run list --limit 1
 | Skema kanonik | `database_setup.sql` (131 tabel) |
 | Migrasi baru | `migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql`, `migrations/20261021_TRANSACTION_CURRENCY.sql` |
 | CI | `.github/workflows/tamasya-enterprise-rc1-uat.yml` (source-gate 4× PHP, mysql-comprehensive-uat, mariadb-1011, prd-deployment, load-regression) |
-| Paket deploy | `create-production-zip.sh` → `tamasya-production-20261021-r19.zip` |
+| Paket deploy | `create-production-zip.sh` → `tamasya-production-20261021-r20.zip` |
 | Impor DB opsional | `deploy/IMPORT-RBAC-PHPMYADMIN.sql` (idempoten) |
 | Panduan deploy | `deploy/DEPLOY-ID.md` |
 | Laporan audit asli | `~/Desktop/LAPORAN-AUDIT-TOTAL-RBAC-2026-10-20.md` |

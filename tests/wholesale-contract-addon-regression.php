@@ -62,8 +62,9 @@ if (preg_match('/#tamasya-report-center-btn\{[^}]*bottom:(\d+)px/', $reportCente
 }
 $check(preg_match('/#tamasya-wholesale-button|button\.style\.cssText = \'[^\']*bottom:(\d+)px/', $addon, $match) === 1, 'Tombol tarif kontrak punya posisi tetap yang terukur');
 $triggerBottom = isset($match[1]) ? (int)$match[1] : 0;
-$check($triggerBottom > $reportBottom, 'Tombol tarif kontrak duduk di atas tombol laporan, tidak menimpanya');
+$check(preg_match('/button\.style\.cssText = \'[^\']*left:22px/', $addon) === 1, 'Tombol tarif kontrak berada di pojok kiri bawah, jauh dari tombol aplikasi di pojok kanan bawah');
 $check(str_contains($addon, 'linear-gradient(135deg,#312e81,#4f46e5)'), 'Tombol tarif kontrak memakai warna tombol aplikasi');
+$check(str_contains($addon, 'left:22px;bottom:22px'), 'Tombol tarif kontrak di pojok kiri bawah, tidak menutupi tombol aplikasi di kanan bawah');
 $check(str_contains($addon, 'inset:0') && str_contains($addon, 'backdrop-filter'), 'Panel tarif kontrak memakai overlay modal seperti modal laporan');
 $check(!str_contains($addon, 'right:16px;bottom:74px'), 'Panel tidak lagi melayang di pojok sebagai kartu');
 $check(!preg_match('/z-index:2147483(?!000)/', $addon), 'Z-index tombol tidak melampaui tombol aplikasi');
