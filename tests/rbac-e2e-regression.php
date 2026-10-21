@@ -100,6 +100,6 @@ e2eCheck(str_contains($rbac, 'tamasyaRbacCacheSet($key, []);') && str_contains($
 e2eCheck(str_contains($route52, 'tamasyaEnforceOwnerReadOnly($loggedInStaff,(string)$action,$isMutationCommand)'), '052 command-aware owner guard');
 
 $opsJs = file_get_contents($root.'/assets/chunks/operations.js');
-e2eCheck(str_contains($opsJs, 'taxAllowed=tamasyaHasCapability("manage_tax_rules"') && preg_match('/taxAllowed=tamasyaHasCapability\("manage_tax_rules",\[[^\]]+\]\)/', $opsJs) === 1 && str_contains($opsJs, 'Hn=tamasyaHasCapability("perform_night_audit"'), 'Operations UI pakai capability tax/night audit');
+e2eCheck(str_contains($opsJs, 'taxAllowed=tamasyaCap("manage_tax_rules"') && preg_match('/taxAllowed=tamasyaCap\("manage_tax_rules",\[[^\]]+\]\)/', $opsJs) === 1 && str_contains($opsJs, 'Hn=tamasyaCap("perform_night_audit"'), 'Operations UI pakai capability tax/night audit');
 
 echo 'E2E RBAC Flow: '.$passed.' passed; 0 failed.'.PHP_EOL;

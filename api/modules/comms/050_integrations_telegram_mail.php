@@ -1033,6 +1033,11 @@ function tamasyaTelegramChargeMoney(float $amount): string {
     return 'Rp '.tamasyaTelegramFormatAmount($amount);
 }
 function tamasyaTelegramChargeAssertRole(array $actor): void {
+    // Owner observes the Admin workspace and never changes anything. Menambah
+    // tagihan adalah tulisan, jadi Owner ditolak secara eksplisit di sini dan
+    // bukan hanya lewat penjaga metode HTTP: alur Telegram bisa diproses juga
+    // di luar permintaan browser.
+    if(function_exists('tamasyaIsOwnerRole')&&tamasyaIsOwnerRole($actor))throw new RuntimeException('Owner adalah role read-only dan tidak dapat menambah biaya booking.');
     // Selaras gate menu Telegram: baseline role ATAU centangan manage_stay_access
     // (owner read-only tetap ditolak). Daftar role keras lama melempar eksepsi
     // untuk peran non-baseline yang dicentang sehingga sesi perpanjangan beku.

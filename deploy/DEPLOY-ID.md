@@ -1,4 +1,4 @@
-# Deploy TAMASYA - Rilis 20261021-rbac-r1
+# Deploy TAMASYA - Rilis 20261021-r15
 
 Paket ini berisi perbaikan RBAC (audit F-01..F-11) dan perbaikan
 chunk-load yang sebelumnya membuat Halaman UAT gagal.
@@ -28,8 +28,8 @@ yang sudah ada. Semua sudah ada (angka 1) -> tidak wajib impor, tapi aman.
 ## 4. Upload & ekstrak
 
 ```
-unzip tamasya-production-20261021-rbac-r1.zip
-cd tamasya-production-20261021-rbac-r1
+unzip tamasya-production-20261021-r15.zip
+cd tamasya-production-20261021-r15
 ```
 
 Arahkan document root web server ke folder ini.
@@ -61,7 +61,7 @@ chmod 640 .env db_credentials.php
 
 ## 8. Cache browser
 
-Rilis ini memakai token versi baru (`20261021-rbac-r1`), jadi service worker
+Rilis ini memakai token versi baru (`20261021-r15`), jadi service worker
 mengunduh ulang aset secara otomatis. Bila browser masih menampilkan versi
 lama: hard refresh (Ctrl+Shift+R) atau increment "Unregister service worker"
 di DevTools -> Application -> Service Workers.

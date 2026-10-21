@@ -1,7 +1,7 @@
 # Verifikasi Remediasi Audit Total RBAC
 
 Rujukan: `LAPORAN-AUDIT-TOTAL-RBAC-2026-10-20.md` (F-01..F-11).
-Rilis: `20261021-rbac-r1` · Commit: `758d136` + perbaikan F-03 residual.
+Rilis: `20261021-r15` · Commit: `758d136` + perbaikan F-03 residual.
 CI: 9/9 job sukses, 1522/1522 assertion UAT, 60/60 browser test.
 
 ## 1. Status per temuan
@@ -12,8 +12,8 @@ CI: 9/9 job sukses, 1522/1522 assertion UAT, 60/60 browser test.
 | F-02 Deaktivasi capability/tab fail-open | HIGH | **TERPERBAIKI** | `017`: `tamasyaRbacCatalogKeyState(...) === 'inactive'` → `return false`, diperiksa **sebelum** override akun dan sebelum fallback role, pada `hasCapability()` dan `hasDesktopTabAccess()`. State: `active` / `inactive` (deny) / `missing` (key tidak ada → fallback, benar untuk instalasi lama) / `unavailable` (tabel tidak ada → fallback, fail-open yang disengaja & terdokumentasi). |
 | F-03 Override lama bertahan saat role/jabatan berubah | MEDIUM | **TERPERBAIKI** | `api/routes/050_auth_staff.php`: `$titleActuallyChanged` dihitung dari perubahan `role` ATAU `job_title`; override akun di-reset ke `NULL` bila `permissions` tidak dikirim eksplisit. `NULL` membuat akun kembali mengikuti preset jabatan. |
 | F-04 `staff` GET tanpa route guard; data sensitif via tab `leaves` | MEDIUM | **TERPERBAIKI** | `050_auth_staff.php`: scope `leave` → `requireRoles(['admin','manager'])` + `requireDesktopTabAccess('leaves')`; GET scope penuh → `requireDesktopTabAccess('staff',['admin','owner'])` (wajib punya tab `staff`); mutasi → `requireRoles(['admin'])`. Proyeksi `salary`/`permissions`/`telegramChatId`/`twoFactorActive` hanya untuk `admin`/`owner`. |
-| F-05 Pajak: backend dinamis, frontend statis | MEDIUM | **TERPERBAIKI** | `assets/chunks/operations.js`: `taxAllowed=tamasyaHasCapability("manage_tax_rules",["admin","manager"])`; `Hn=tamasyaHasCapability("perform_night_audit",[…])` (paksa `finance` dihapus); `action:taxAllowed?` dan `children:taxAllowed&&`. |
-| F-06 Gate frontend masih statis | MEDIUM | **TERPERBAIKI (sebagian, lihat §3)** | 44 gerbang `tamasyaHasCapability(...)` pada 10 chunk untuk 13 capability. `currentPermissions` berasal dari `tamasyaSessionPermissions()` (preset DB + override akun), jadi frontend mengikuti preset. Peta role statis (`CA`, `W_`, `Eh`, `PK`, `Uo`) tetap ada **sebagai fallback**, bukan sebagai sumber kebenaran. |
+| F-05 Pajak: backend dinamis, frontend statis | MEDIUM | **TERPERBAIKI** | `assets/chunks/operations.js`: `taxAllowed=tamasyaCap("manage_tax_rules",["admin","manager"])`; `Hn=tamasyaCap("perform_night_audit",[…])` (paksa `finance` dihapus); `action:taxAllowed?` dan `children:taxAllowed&&`. |
+| F-06 Gate frontend masih statis | MEDIUM | **TERPERBAIKI (sebagian, lihat §3)** | 44 gerbang `tamasyaCap(...)` pada 10 chunk untuk 13 capability. `currentPermissions` berasal dari `tamasyaSessionPermissions()` (preset DB + override akun), jadi frontend mengikuti preset. Peta role statis (`CA`, `W_`, `Eh`, `PK`, `Uo`) tetap ada **sebagai fallback**, bukan sebagai sumber kebenaran. |
 | F-07 Job title bukan role keamanan baru | MEDIUM | **TERDOKUMENTASI** | `api/support/022_dynamic_rbac.php`:/base role baru tidak bolehvia insert manual ke `rbac_roles`; `api/routes/052_role_presets.php` menolak base role di luar 9 jabatan kanonik. |
 | F-08 Preset notifikasi Telegram belum dipakai | LOW | **TERPERBAIKI** | `api/modules/comms/050_integrations_telegram_mail.php`: `$permissionSource = tamasyaRbacEffectivePermissions($staff,$pdo)`; override yang rusak JSON tidak pernah jatuh ke default role STUDI (fail-closed). |
 | F-09 Public actions perlu review | INFO | **SELESAI (lihat §4)** | Seluruh 25 public action diaudit: setiap yang menulis punya tanda tangan/secret/origin allow-list/rate limit. Tidak ada lubang terbuka. |
@@ -64,7 +64,7 @@ Semua perbaikan di atas menggeser nomor baris yang dikutip sebagai bukti di §5 
 
 Penambahan helper capability pada 12 chunk_MINIFIED menyebabkan 5 `SyntaxError` di lingkup modul ES: deklarasi ganda (`ma`, `j/k/N/w`, `taxAllowed`), sisipan yang menggigit `const`, dan satu `&&` yang salah ketik menjadi `?`. Gejalanya bukan error PHP, melainkan chunk gagal dimuat → `tamasyaRecoverChunkLoad()` → `location.reload()` → UAT gagal dengan "Execution context was destroyed".
 
-Perbaikan: helper di-rename ke `tamasyaHasCapability` (nama unik), deklarasi ganda dihapus, `staff.js` dikembalikan ke sumber pra-audit, dan `&&` dipulihkan. `tests/multi-room-ui-regression.mjs` kini **memulihkan** link-check ES-module asli dan menambah guard: seluruh modul aset harus parse sebagai ES module, helper tidak boleh dipakai sebelum diinisialisasi, dan setiap komponen capability-gated wajib menerima `currentPermissions` di setiap render site.
+Perbaikan: helper di-rename ke `tamasyaCap` (nama unik), deklarasi ganda dihapus, `staff.js` dikembalikan ke sumber pra-audit, dan `&&` dipulihkan. `tests/multi-room-ui-regression.mjs` kini **memulihkan** link-check ES-module asli dan menambah guard: seluruh modul aset harus parse sebagai ES module, helper tidak boleh dipakai sebelum diinisialisasi, dan setiap komponen capability-gated wajib menerima `currentPermissions` di setiap render site.
 
 ### N-06 — Tiga test RBAC utama tidak pernah dijalankan CI (MEDIUM, **SUDAH DIPERBAIKI**)
 
@@ -143,5 +143,6 @@ Tidak ada endpoint publik yang menulis tanpa pengawan. Regresi ini dijaga `tests
 ## 5. Verifikasi lain pada rilis ini
 
 - **Zona waktu UAT:** container CI memakai UTC, PHP memakai `APP_TIMEZONE` (Asia/Makassar). Skenario UAT kini memakai tanggal server (`tests/uat_rc1/server_time.py`), bukan jam mesin. Ini yang menggagalkan Full UAT pada jendela 8 jam per hari.
-- **Cache aset:** versi rilis dinaikkan ke `20261021-rbac-r1`; token React core tetap terpisah (`20261021-rbac-core1`) agar service worker tidak memprecache dua identitas React.
+- **Cache aset:** versi rilis dinaikkan ke `20261021-r15`; token React core tetap terpisah (`20261021-core1`) agar service worker tidak memprecache dua identitas React. Panjang token sengaja dijaga sama dengan rilis sebelumnya supaya budget "initial static module graph" (970.000 byte) tidak tergerus oleh bump versi.
+- **Budget aset static:** 969.937 / 970.000 byte (slack 63 byte). Helper capability frontend dinamai `tamasyaCap` (bukan `tamasyaHasCapability`) supaya 54 pemanggilan tidak menambah ukuran bundel yang dimuat awal.
 - **Database:** 125 tabel, seluruh kolom/index/FK identik dengan baseline; 9 tabel RBAC ter-seed penuh; nilai preset sudah memuat `view_reports`, `daily_summary`, `view_support_inbox`, `manage_facilities`.

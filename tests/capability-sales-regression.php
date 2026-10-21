@@ -28,19 +28,27 @@ salesCheck(hasCapability($mk('cleaning_service',['receive_payment_access'=>true]
 salesCheck(hasCapability($mk('receptionist',['sell_room_access'=>false]),'sell_room_access',['admin','manager','receptionist'])===false,'Centang mati mencabut jual resepsionis');
 salesCheck(hasCapability($mk('admin',['manage_stay_access'=>false]),'manage_stay_access',['admin','manager','receptionist'])===false,'Centang mati mencabut inap admin');
 salesCheck(hasCapability($mk('finance',['perform_housekeeping'=>false]),'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance'])===false,'Centang mati mencabut housekeeping finance');
-// Owner tetap read-only: capability baru selalu false, view tetap true.
+// Owner membaca seperti Admin (capability baca yang sama), tetapi TIDAK PERNAH
+// bisa menulis. Larangan menulis berasal dari penjaga metode: setiap metode
+// selain GET/HEAD/OPTIONS ditolak untuk Owner. Centangan di akun Owner tidak
+// pernah mengubah kemampuan itu.
 $ownerAll=$mk('owner',['sell_room_access'=>true,'manage_stay_access'=>true,'receive_payment_access'=>true,'perform_housekeeping'=>true,'view_guest_identity'=>true]);
-salesCheck(hasCapability($ownerAll,'sell_room_access',['admin','manager','receptionist','finance','owner'])===false,'Owner dicentang jual tetap ditolak');
-salesCheck(hasCapability($ownerAll,'manage_stay_access',['admin','manager','receptionist','finance','owner'])===false,'Owner dicentang inap tetap ditolak');
-salesCheck(hasCapability($ownerAll,'receive_payment_access',['admin','manager','receptionist','finance'])===false,'Owner dicentang panjar tetap ditolak');
-salesCheck(hasCapability($ownerAll,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance'])===false,'Owner dicentang housekeeping tetap ditolak');
+salesCheck(hasCapability($ownerAll,'sell_room_access',['admin','manager','receptionist','finance','owner'])===true,'Owner memakai capability baca Admin (jual)');
+salesCheck(hasCapability($ownerAll,'manage_stay_access',['admin','manager','receptionist','finance','owner'])===true,'Owner memakai capability baca Admin (inap)');
+salesCheck(hasCapability($ownerAll,'receive_payment_access',['admin','manager','receptionist','finance'])===true,'Owner memakai capability baca Admin (panjar)');
+salesCheck(hasCapability($ownerAll,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance'])===true,'Owner memakai capability baca Admin (housekeeping)');
 salesCheck(hasCapability($ownerAll,'view_guest_identity',['admin','manager','receptionist','keamanan'])===true,'Owner tetap bisa lihat KTP');
-// Preset sesi owner memaksa capability baru menjadi false.
+$ownerWriteMethod=$_SERVER['REQUEST_METHOD']??'GET';
+foreach(['POST','PUT','PATCH','DELETE'] as $ownerBlockedMethod){
+  $_SERVER['REQUEST_METHOD']=$ownerBlockedMethod;
+  salesCheck(tamasyaOwnerMutationDenied($ownerAll)===true,'Owner ditolak pada metode '.$ownerBlockedMethod.' walau capability baca Admin aktif');
+}
+$_SERVER['REQUEST_METHOD']=$ownerWriteMethod;
+salesCheck(tamasyaOwnerMutationDenied($ownerAll)===false,'Owner tetap boleh membaca');
+// Sesi Owner selalu readOnly, apa pun capability baca yang diwarisi.
 $p=tamasyaSessionPermissions($ownerAll);
-salesCheck(($p['capabilities']['sell_room_access']??null)===false,'Preset owner memaksa sell false');
-salesCheck(($p['capabilities']['manage_stay_access']??null)===false,'Preset owner memaksa stay false');
-salesCheck(($p['capabilities']['receive_payment_access']??null)===false,'Preset owner memaksa panjar false');
-salesCheck(($p['capabilities']['perform_housekeeping']??null)===false,'Preset owner memaksa housekeeping false');
+salesCheck(($p['readOnly']??false)===true,'Preset sesi Owner tetap readOnly');
+salesCheck(($p['capabilities']['view_guest_identity']??null)===true,'Capability view Owner tetap tersedia');
 // Workspace Kamar: centangan sell/stay tembus apa pun menu Kamar; peran lain tetap seperti semula.
 $roomsAccess=function(string $role,?array $caps=null,?array $tabs=null): bool{
     $u=['id'=>'u1','role'=>$role];$p=[];

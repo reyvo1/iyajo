@@ -2,11 +2,8 @@
 (function(root){
   'use strict';
   const mutationCallbacks=/^on.*(?:Add|Edit|Delete|Save|Update|Restore|Approve|Reject|Submit|Mark|Reset|Set|Clear|Assign|Process|Import|Create|Void|Pay|Cancel|Lock|CheckIn|CheckOut|Checkout|Checkin|RoomStatus|Booking|Finalize|Move|Transfer)/;
-  // Cocokkan AWAL kata, bukan kata utuh: label seperti "Tambahkan", "Terapkan",
-  // "Terbitkan", atau "Simpan sekarang" adalah aksi tulis dan harus dinonaktifkan
-  // untuk Owner. Versi lama hanya cocok pada kata utuh sehingga tombol tersebut
-  // tetap aktif untuk Owner虽然 API tetap menolak, tampilannya menyesatkan.
-  const writeLabel=/\b(?:simpan|ubah|edit|hapus|buat|tambah|catat|laporkan|jalankan|proses|tandai|mulai|ambil|daftar|bayar|setor|tarik|setujui|tolak|kirim|unggah|upload|impor|import|restore|pulihkan|arsip|aktifkan|nonaktifkan|cabut|batalkan|selesaikan|konfirmasi|promosi|promote|redeem|void|checkout|check.?in|check.?out|clock.?in|clock.?out|absen|buka|tutup|terapkan|terbitkan|cairkan|naikkan|turunkan|publikasikan|set|atur)\w*/i;
+  // Daftar 1 = aksi tulis stabil. Daftar 2 = kata kerja berawalan ("Terapkan").
+  const writeLabel=/\b(?:simpan|ubah|edit|hapus|buat|tambah\w*|catat|laporkan|jalankan|proses|tandai|mulai|ambil|daftar(?:kan)?|bayar|setor|tarik|setujui|tolak|kirim|unggah|upload|impor|import|restore|pulihkan|arsip\w*|aktifkan|nonaktifkan|cabut|batalkan|selesaikan|konfirmasi|promosi|promote|redeem|void|checkout|check.?(?:in|out)|clock.?\w+|absen\w*|buka\s+(?:shift|tugas)|tutup\s+(?:shift|kas)|reset|bersihkan)\b|\b(?:terapkan|terbitkan|cairkan|naikkan|turunkan|publikasikan)\w*/i;
   const writeAttributes=['data-mutation','data-po-status','data-link-expense','data-pr-status','data-sinv-status','data-campaign-status','data-voucher-redeem','data-edit','data-delete','data-archive','data-restore','data-stock','data-void','data-product','data-plus','data-minus','data-post-inv','data-pay-inv','data-camp-approve','data-camp-snapshot','data-camp-send','data-charge-booking','data-pay-tx'];
   const role=()=>{try{if(root.sessionStorage?.getItem('hotel_logged_in')!=='true')return '';return String(root.sessionStorage?.getItem('hotel_staff_role')||root.sessionStorage?.getItem('hotel_role')||'').trim().toLowerCase();}catch(_){return '';}};
   const isOwner=r=>String(r||'').trim().toLowerCase()==='owner';

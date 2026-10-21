@@ -44,9 +44,9 @@ test('Shared policy and styling load before clients and are precached for offlin
  assert.ok(read('sw.js').includes(policyUrl));assert.ok(read('sw.js').includes(cssUrl));
  assert.ok(read('assets/chunks/app-shell.js').includes('TamasyaOwnerReadOnlyPolicy.componentProps'));
  const operations=read('assets/chunks/operations.js');
- assert.ok(operations.includes('taxAllowed=tamasyaHasCapability("manage_tax_rules"'),'Tax rule actions stay behind the manage_tax_rules capability, not a static role');
- assert.ok(/taxAllowed=tamasyaHasCapability\("manage_tax_rules",\[[^\]]+\]\)/.test(operations),'Tax rule capability keeps an explicit role fallback list');
- assert.ok(operations.includes('Hn=tamasyaHasCapability("perform_night_audit"'),'Night audit actions stay behind the perform_night_audit capability');
+ assert.ok(operations.includes('taxAllowed=tamasyaCap("manage_tax_rules"'),'Tax rule actions stay behind the manage_tax_rules capability, not a static role');
+ assert.ok(/taxAllowed=tamasyaCap\("manage_tax_rules",\[[^\]]+\]\)/.test(operations),'Tax rule capability keeps an explicit role fallback list');
+ assert.ok(operations.includes('Hn=tamasyaCap("perform_night_audit"'),'Night audit actions stay behind the perform_night_audit capability');
  assert.ok(!/\bma=\(q,ee\)=>/.test(operations),'Capability helper must not reuse a minified identifier name that can collide with local state');
 });
 test('Report dialog fits the available width and read-only field values remain legible',()=>{

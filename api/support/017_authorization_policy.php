@@ -162,6 +162,15 @@ function hasCapability($user, $capability, $fallbackRoles = []) {
         // mewajibkan metode selain GET/HEAD/OPTIONS, dan api.php memblokir Owner
         // pada setiap metode tersebut sebelum route dijalankan.
         $capability = (string)$capability;
+        // Owner memakai capability Admin HANYA untuk pembacaan. Pada metode tulis
+        // capability Owner selalu false: api.php sudah memblokir Owner pada
+        // metode tersebut, dan ini lapisan kedua bila ada route yang lupa
+        //(method guard).
+        if (!in_array(strtoupper((string)($_SERVER['REQUEST_METHOD'] ?? 'GET')), ['GET', 'HEAD', 'OPTIONS'], true)) return false;
+        // Katalog yang sengaja dinonaktifkan menutup akses untuk Owner juga,
+        // persis seperti Admin: Owner memakai paket yang sama.
+        if (function_exists('tamasyaRbacCatalogKeyState')
+            && tamasyaRbacCatalogKeyState('capabilities', $capability) === 'inactive') return false;
         // Semua capability view_* selalu boleh untuk Owner, walau katalog atau
         // preset belum tersedia (instalasi tanpa PDO / instalasi lama).
         if (str_starts_with($capability, 'view_')) return true;

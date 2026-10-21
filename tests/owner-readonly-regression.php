@@ -60,7 +60,15 @@ $data=['journalEntries'=>[['id'=>'journal']], 'journalLines'=>[['id'=>'line']], 
 ownerCheck(projectOperationsCenterDataForUser($data,$owner)===$data,'Owner operations projection retains all read records and costs');
 $sensitive=$data;$sensitive['operationalSettings']['smart_lock_bridge_token']='private-bridge-token';
 ownerCheck(projectOperationsCenterDataForUser($sensitive,$owner)['operationalSettings']['smart_lock_bridge_token']==='[TERSEMBUNYI]','Owner operational visibility retains credential masking');
-ownerCheck(!hasCapability($owner,'manage_tax_rules',['admin'])&&!hasCapability($owner,'perform_housekeeping',['admin']),'Expanded projection does not grant write capability');
+// Kontrak Owner: capability BACA sama dengan Admin, tetapi kemampuan MENULIS
+// tetap mustahil karena setiap metode selain GET/HEAD/OPTIONS ditolak untuk Owner.
+ownerCheck(hasCapability($owner,'manage_tax_rules',['admin'])&&hasCapability($owner,'perform_housekeeping',['admin']),'Expanded projection gives Owner the same read capability as Admin');
+$ownerMethodBefore=$_SERVER['REQUEST_METHOD']??'GET';
+$_SERVER['REQUEST_METHOD']='POST';
+ownerCheck(tamasyaOwnerMutationDenied($owner),'Owner still cannot write despite the Admin read capability');
+$_SERVER['REQUEST_METHOD']='GET';
+ownerCheck(!tamasyaOwnerMutationDenied($owner),'Owner can still read');
+$_SERVER['REQUEST_METHOD']=$ownerMethodBefore;
 ownerCheck($actual['currentUser']['role']==='owner'&&$actual['currentUser']['permissions']['readOnly']===true,'Hotel response keeps actual Owner identity and read-only preset');
 // Execute the shipped overview with a PDO read fixture; no database/server is started.
 function tamasyaGrowthFeatureStatus(){return ['enabled'=>true,'modules'=>[]];}

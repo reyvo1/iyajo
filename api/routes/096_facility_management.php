@@ -62,6 +62,15 @@ function tamasyaFacilityQuotaRemaining(PDO $pdo, string $facilityId, string $use
 
 try {
     $command=trim((string)($method==='GET'?($_GET['command']??'facility-list'):($input['command']??'')));
+    // Semua aksi tulis fasilitas mewajibkan POST. Tanpa penjaga ini, aksi tulis
+    // bisa dipicu lewat query string pada GET, dan Owner yang memakai capability
+    // Admin untuk pembacaan ikut lolos penjaga capability.
+    $facilityWriteCommands=['facility-type-save','facility-save','facility-book','facility-booking-cancel','facility-booking-activate','facility-booking-complete'];
+    if(in_array($command,$facilityWriteCommands,true)&&$method!=='POST'){
+        http_response_code(405);
+        echo tamasyaJsonEncode(['success'=>false,'error'=>'Aksi tulis fasilitas wajib memakai POST.']);
+        return;
+    }
     $fetchAll=static function(PDO $pdo,string $sql,array $args=[]): array {$s=$pdo->prepare($sql);$s->execute($args);return $s->fetchAll(PDO::FETCH_ASSOC)?:[];};
     $fetchOne=static function(PDO $pdo,string $sql,array $args=[]): ?array {$s=$pdo->prepare($sql);$s->execute($args);return $s->fetch(PDO::FETCH_ASSOC)?:null;};
     switch ($command) {

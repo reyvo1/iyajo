@@ -46,12 +46,12 @@ console.log(`PASS all ${assetModules.length} asset modules parse as ES modules (
 // A `const` helper used above its own declaration throws a TDZ ReferenceError
 // when the chunk is evaluated, which the browser reports as a chunk load
 // failure and turns into a full page reload.
-const capabilityHelperRe=/(?:const|let|var)\s+(tamasyaHasCapability)\s*=\s*\(q,ee\)=>\{/g;
-const capabilityCallRe=/(?<![A-Za-z0-9_$])tamasyaHasCapability\("/g;
+const capabilityHelperRe=/(?:const|let|var)\s+(tamasyaCap)\s*=\s*\(q,ee\)=>\{/g;
+const capabilityCallRe=/(?<![A-Za-z0-9_$])tamasyaCap\("/g;
 for(const file of assetModules){
  const source=fs.readFileSync(file,'utf8');
  const definitions=[...source.matchAll(capabilityHelperRe)];
- const hoisted=/function\s+tamasyaHasCapability\s*\(/.test(source);
+ const hoisted=/function\s+tamasyaCap\s*\(/.test(source);
  const calls=[...source.matchAll(capabilityCallRe)];
  if(hoisted)continue;
  for(const definition of definitions){

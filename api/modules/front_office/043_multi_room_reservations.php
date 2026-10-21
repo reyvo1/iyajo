@@ -5,6 +5,10 @@ if (!defined('TAMASYA_API_ENTRY')) { http_response_code(404); exit; }
 function tamasyaMultiRoomRequire(PDO $pdo,array $actor,bool $write=false): void {
     $roles=$write?['admin','manager','receptionist']:['admin','manager','receptionist','finance','owner'];
     if($write){
+        // Owner observes the Admin workspace and never changes anything.
+        // Penolakan ini lapisan kedua: api.php sudah memblokir Owner pada
+        // setiap metode selain GET/HEAD/OPTIONS.
+        if(function_exists('tamasyaIsOwnerRole')&&tamasyaIsOwnerRole($actor))throw new DomainException('Owner adalah role read-only dan tidak dapat mengubah data.');
         // Tulis grup = penjualan: boleh via role baseline ATAU centangan
         // sell_room_access per akun. Tab Kamar tetap wajib dicentang.
         if(!hasCapability($actor,'sell_room_access',$roles)||!tamasyaHasRoomsWorkspaceAccess($actor))throw new DomainException('Akses reservasi grup tidak diizinkan.',403);
