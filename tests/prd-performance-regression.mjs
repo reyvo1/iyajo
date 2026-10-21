@@ -24,7 +24,8 @@ const lazyAssets=[
   'assets/website-cms-guard.js',
   'assets/guest-center.css',
   'assets/employee-self-service.css',
-  'assets/website-cms-guard.css'
+  'assets/website-cms-guard.css',
+  'assets/wholesale-contract-addon.js'
 ];
 
 test('optional route addons are absent from eager PMS shell',()=>{

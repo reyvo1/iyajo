@@ -141,9 +141,13 @@ eager → **tanya dulu**).
     `wholesale-rate-bookings` (rekonsiliasi).
   - Uji: `tests/wholesale-rates-regression.php` (20) + `tests/wholesale-contract-rate-mysql-uat.php`
     (19 statis + 22 fungsional di MariaDB 10.11 → 41 cek).
-  **Yang belum:** UI di growth suite (tab rate/kontrak) — bundle minified, perlu penyuntingan
-  sumber minified atau build ulang; endpoint pemesanan harus mengirim `wholesalePlanId` +
-  `wholesaleCompanyName`.
+  - UI: `assets/wholesale-contract-addon.js` (add-on, dimuat sesuai rute `rooms`/`reservations`
+    lewat `assets/runtime-addon-loader.js`, **tidak** eager dan **tidak** di-precache SW):
+    panel "Tarif kontrak" (buat/nonaktifkan paket, cari harga inap, daftar reservasi kontrak)
+    + chip paket terpilih. Saat pemesanan dibuat, add-on menambah `wholesalePlanId` +
+    `wholesaleCompanyName` ke permintaan **hanya bila** inap dan tipe kamar cocok dengan pilihan.
+  **Sisa:** panel growth suite belum menampilkan tarif kontrak (bundle minified); tecla "Pakai paket
+  ini" memakai panel add-on, dan kuotasi bisa dipanggil dari kanal apa pun lewat API.
 
 ### 4.3 P1-4 — RBAC terpusat di HQ → **backend + UI selesai**
 

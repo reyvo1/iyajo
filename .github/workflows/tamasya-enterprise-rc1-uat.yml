@@ -113,6 +113,7 @@ jobs:
           php tests/hq-role-presets-regression.php
           php tests/wholesale-rates-regression.php
           php tests/wholesale-contract-rate-mysql-uat.php
+          php tests/wholesale-contract-addon-regression.php
           php tests/smtp-diagnostics-regression.php
           php tests/negotiation-settlement-characterisation.php
           php tests/r164-custody-cleanup-regression.php

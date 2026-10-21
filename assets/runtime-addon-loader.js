@@ -1,7 +1,4 @@
-/* TAMASYA PRD performance loader.
- * Optional UI addons are loaded only when their route/role needs them.
- * Core transaction, auth, offline and navigation code remains in the canonical shell.
- */
+/* TAMASYA PRD performance loader: optional UI addons load only when their route needs them. */
 (() => {
   'use strict';
   if (window.__TAMASYA_RUNTIME_ADDON_LOADER__) return;
@@ -80,7 +77,7 @@
   }
 
   const loadGuestCenter = () => Promise.all([
-    loadStyle('assets/guest-center.css?v=20260815-r7-reservation-root-sync-r3-workflow-root-r4-room-blocker-owner-r5&fix=20260816-ops-guest3'),
+    loadStyle('assets/guest-center.css?v=20261021-r15'),
     loadScript('assets/guest-center.js', '20261021-r15')
   ]);
   const loadEmployeeSelfService = () => Promise.all([
@@ -98,6 +95,7 @@
   ]);
   const loadSystemHealth = () => loadScript('assets/system-health-addon.js', '20261009-r164-receipt-health');
   const loadGrowthLink = () => loadScript('assets/growth-pms-link-addon.js', BUILD);
+  const loadWholesaleContract = () => loadScript('assets/wholesale-contract-addon.js', BUILD);
 
   function ensureForRoute(route, initial = false) {
     const current = String(route || '').trim().replace(/-/g, '_');
@@ -108,6 +106,7 @@
     };
 
     if (['rooms', 'reservations', 'support', 'operations'].includes(current)) run(loadGuestCenter, true);
+    if(['rooms','reservations'].includes(current))run(loadWholesaleContract,true);
     if (current === 'report' || current === 'finance') run(loadReportTools, false);
     if (current === 'website') run(loadWebsiteTools, false);
 
@@ -128,7 +127,7 @@
     ensureForRoute(route, initial);
   });
 
-  // System Health is admin-only and should cost nothing until the operator opens it.
+  // System Health: hanya dibuka operator, jadi dimuat saat itu juga.
   window.addEventListener('tamasya-open-system-health', () => {
     const alreadyLoaded = resources.has('script:assets/system-health-addon.js') || Boolean(window.TamasyaSystemHealth);
     if (alreadyLoaded) return;
