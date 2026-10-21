@@ -102,6 +102,13 @@ find "$STAGING_DIR/tests" -name "*.py" -delete 2>/dev/null || true
 rm -f "$STAGING_DIR/.env" "$STAGING_DIR/.env.*" 2>/dev/null || true
 find "$STAGING_DIR" -maxdepth 2 -name ".env" -o -maxdepth 2 -name ".env.*" 2>/dev/null | while IFS= read -r leftover; do rm -f "$leftover"; done
 
+# Panduan di dalam paket tidak boleh menyebut sha256 paket itu sendiri: nilainya
+# berubah begitu panduannya ikut berubah. Baris itu diganti dengan penunjuk ke
+# manifest isi paket.
+if [ -f "$STAGING_DIR/deploy/DEPLOY-ID.md" ]; then
+  sed -i 's#^| SHA-256 | .*#| SHA-256 paket | Lihat `DEPLOY-SHA256SUMS.txt` (sha256 tiap berkas) dan catatan pengiriman #; s#^| Isi | .*#| Isi | 370 berkas + `DEPLOY-SHA256SUMS.txt` #' "$STAGING_DIR/deploy/DEPLOY-ID.md" 2>/dev/null || true
+fi
+
 # Manifest isi paket. Operator memakai berkas ini untuk memverifikasi bahwa
 # hasil ekstraksi di server sama persis dengan paket yang dikirim, sebelum
 # aplikasi dijalankan.
