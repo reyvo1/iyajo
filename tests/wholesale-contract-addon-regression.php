@@ -47,6 +47,8 @@ $check(str_contains($addon, 'wholesale-rate-lookup'), 'Add-on memakai endpoint k
 $check(str_contains($addon, 'wholesale-rate-save'), 'Add-on memakai endpoint simpan paket kontrak');
 $check(str_contains($addon, 'wholesale-rate-bookings'), 'Add-on memakai endpoint daftar reservasi kontrak');
 $check(str_contains($addon, "method: 'POST', command: 'wholesale-rate-bookings'"), 'Daftar reservasi kontrak diambil dengan POST (server hanya melayani perintah ini di jalur tulis)');
+$check(str_contains($addon, 'WHOLESALE_SCHEMA_MISSING'), 'Add-on mengenali kondisi skema tarif belum ada');
+$check(str_contains($addon, 'IMPORT-RBAC-PHPMYADMIN.sql'), 'Add-on memberi instruksi impor, bukan pesan teknis');
 $check(str_contains($addon, 'sessionStorage.setItem(SELECTION_KEY'), 'Paket terpilih disimpan di sesi, bukan di memori halaman');
 $check(str_contains($addon, 'tamasya_wholesale_contract_selection'), 'Kunci penyimpanan paket terpilih bernama jelas');
 $check(!preg_match('/[\x{4e00}-\x{9fff}]/u', $addon), 'Teks add-on bebas karakter asing');

@@ -2,7 +2,7 @@
  *  Ditulis tangan (bukan minified) supaya mudah diaudit dan dirawat.
  *  Panel ini read-only: tidak ada aksi tulis, Owner pun hanya bisa membaca. */
 import {f,t} from "../app-core.js?v=20261021-core1";
-import {Vi} from "./app-shared.js?v=20261021-r18";
+import {Vi} from "./app-shared.js?v=20261021-r19";
 
 const PAGE_SIZE=25;
 
@@ -265,10 +265,10 @@ function TamasyaGovernancePanel(props){
         t.jsx("h3",{className:"text-sm font-semibold text-slate-100",children:"Audit & Kendali"}),
         t.jsx("p",{className:"text-[11px] text-slate-400",children:"Jejak audit, pemeriksaan hak akses, ulasan tamu, dan kesehatan sistem. Semuanya hanya dibaca."}))),
     t.jsx("div",{className:"flex flex-wrap items-center gap-2"},
-      t.jsx("button",{onClick:()=>setOpen(v=>!v),className:"rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-white/25",children:open?"Tutup Audit & Izin":"Buka Audit & Izin"}),
+      t.jsx("button",{onClick:()=>setOpen(v=>!v),className:"rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-white/25",children:open?"Tutup Audit & Kendali":"Buka Audit & Kendali (Log Audit, Inspektur Izin, Ulasan, Kesehatan)"}),
       open?t.jsxs("div",{className:"flex gap-1"},
         t.jsx("button",{onClick:()=>setTab("audit"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="audit"?"bg-white/10 text-white":"text-slate-400"),children:"Log Audit"}),
-        t.jsx("button",{onClick:()=>setTab("inspector"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="inspector"?"bg-white/10 text-white":"text-slate-400"),children:"Inspector Izin"}),
+        t.jsx("button",{onClick:()=>setTab("inspector"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="inspector"?"bg-white/10 text-white":"text-slate-400"),children:"Inspektur Izin"}),
         t.jsx("button",{onClick:()=>setTab("health"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="health"?"bg-white/10 text-white":"text-slate-400"),children:"Kesehatan"}),
         t.jsx("button",{onClick:()=>setTab("reviews"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="reviews"?"bg-white/10 text-white":"text-slate-400"),children:"Ulasan"})):null),
     open?(tab==="audit"?t.jsx(AuditLogPanel,{open:true}):tab==="inspector"?t.jsx(PermissionInspectorPanel,{open:true}):tab==="reviews"?t.jsx(GuestReviewsPanel,{open:true}):t.jsx(SystemHealthPanel,{open:true})):null);

@@ -45,6 +45,15 @@
   const contractMoney=(value,currency)=>{const c=String(currency||'IDR').toUpperCase();try{return new Intl.NumberFormat('id-ID',{style:'currency',currency:c,maximumFractionDigits:0}).format(Number(value||0));}catch(_){return c+' '+Number(value||0).toLocaleString('id-ID');}};
   function renderContract(){
     const plans=state.data?.wholesalePlans||[],bookings=state.data?.wholesaleBookings||[];
+    const schemaReady=state.data?.wholesaleSchemaReady!==false;
+    if(!schemaReady){
+      const notice=document.createElement('div');
+      notice.className='panel';
+      notice.style.cssText='border-color:#b98b2f;background:rgba(185,139,47,.12)';
+      notice.innerHTML='<h2>Tarif kontrak belum siap</h2><p class="muted">Tabel tarif kontrak belum ada di database ini. Jalankan <code>deploy/IMPORT-RBAC-PHPMYADMIN.sql</code> di phpMyAdmin (aman dijalankan berulang kali), lalu muat ulang halaman. Selama itu, pemesanan memakai tarif rak seperti biasa.</p>';
+      const box=document.getElementById('contract-list');
+      if(box&&box.parentNode)box.parentNode.insertBefore(notice,box);
+    }
     const list=$('contract-list');
     if(list)list.innerHTML=table(['Kode','Paket','Perusahaan','Tipe kamar','Berlaku','Malam','Status'],plans.map(p=>`<tr><td><strong>${esc(p.code)}</strong></td><td>${esc(p.name)}</td><td>${esc(p.company_name||'—')}</td><td>${esc(p.room_type||'Semua tipe')}</td><td>${esc(p.valid_from)} → ${esc(p.valid_to)}</td><td>${esc(p.min_nights)}–${esc(p.max_nights)}${Number(p.cut_off_days)>0?` · cut off ${esc(p.cut_off_days)} hari`:''}</td><td>${esc(p.status)}</td></tr>`));
     const booked=$('contract-bookings');

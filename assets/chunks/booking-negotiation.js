@@ -1,5 +1,5 @@
 import {f,t} from '../app-core.js?v=20261021-core1';
-import {Oc} from './app-shared.js?v=20261021-r18';
+import {Oc} from './app-shared.js?v=20261021-r19';
 const money=value=>window.TamasyaCurrencyDisplay.formatNumber(value);
 // The entered figure is what the guest hands over now; cash received earlier stays
 // closed in its own shift and is added back to reach the new booking total. The

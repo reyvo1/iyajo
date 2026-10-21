@@ -60,7 +60,10 @@
     let payload = null;
     try { payload = await response.json(); } catch (_) { payload = null; }
     if (!response.ok || !payload || payload.success === false) {
-      const message = payload?.error || payload?.message || `Permintaan tarif kontrak gagal (${response.status}).`;
+      const raw = payload?.error || payload?.message || `Permintaan tarif kontrak gagal (${response.status}).`;
+      const message = payload?.code === 'WHOLESALE_SCHEMA_MISSING'
+        ? 'Tabel tarif kontrak belum ada di database ini. Jalankan deploy/IMPORT-RBAC-PHPMYADMIN.sql di phpMyAdmin, lalu muat ulang halaman.'
+        : raw;
       throw new Error(message);
     }
     return payload.data || {};

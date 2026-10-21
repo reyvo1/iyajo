@@ -14,7 +14,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 cd "$ROOT"
-ZIP="${1:-tamasya-production-20261021-r18.zip}"
+ZIP="${1:-tamasya-production-20261021-r19.zip}"
 [[ -f "$ZIP" ]] || { echo "FAIL paket deploy tidak ditemukan: $ZIP"; exit 1; }
 [[ -s "$ZIP" ]] || { echo "FAIL paket deploy kosong: $ZIP"; exit 1; }
 

@@ -130,7 +130,7 @@ journal_entries/lines│ facility_bookings, service_requests,
 ```
 
 
-## 10. Tabel & kolom baru (rilis 20261021-r18)
+## 10. Tabel & kolom baru (rilis 20261021-r19)
 
 | Tabel / kolom | Isi |
 |---|---|

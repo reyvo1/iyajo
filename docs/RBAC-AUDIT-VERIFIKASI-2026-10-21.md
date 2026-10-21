@@ -1,7 +1,7 @@
 # Verifikasi Remediasi Audit Total RBAC
 
 Rujukan: `LAPORAN-AUDIT-TOTAL-RBAC-2026-10-20.md` (F-01..F-11).
-Rilis: `20261021-r18` · Commit: `HEAD` + perbaikan F-03 residual.
+Rilis: `20261021-r19` · Commit: `HEAD` + perbaikan F-03 residual.
 CI: 9/9 job sukses, (jumlah assertion UAT fluctuates per run; rujuk run CI terakhir), 50/50 browser test (25 uji x 2 proyek).
 
 ## 1. Status per temuan
@@ -143,7 +143,7 @@ Tidak ada endpoint publik yang menulis tanpa pengawan. Regresi ini dijaga `tests
 ## 5. Verifikasi lain pada rilis ini
 
 - **Zona waktu UAT:** container CI memakai UTC, PHP memakai `APP_TIMEZONE` (Asia/Makassar). Skenario UAT kini memakai tanggal server (`tests/uat_rc1/server_time.py`), bukan jam mesin. Ini yang menggagalkan Full UAT pada jendela 8 jam per hari.
-- **Cache aset:** versi rilis dinaikkan ke `20261021-r18`; token React core tetap terpisah (`20261021-core1`) agar service worker tidak memprecache dua identitas React. Panjang token sengaja dijaga sama dengan rilis sebelumnya supaya budget "initial static module graph" (970.000 byte) tidak tergerus oleh bump versi.
+- **Cache aset:** versi rilis dinaikkan ke `20261021-r19`; token React core tetap terpisah (`20261021-core1`) agar service worker tidak memprecache dua identitas React. Panjang token sengaja dijaga sama dengan rilis sebelumnya supaya budget "initial static module graph" (970.000 byte) tidak tergerus oleh bump versi.
 - **Budget aset static:** 969.929 / 970.000 byte (slack 71 byte). Helper capability frontend dinamai `tamasyaCap` (bukan `tamasyaHasCapability`) supaya 45 pemanggilan tidak menambah ukuran bundel yang dimuat awal.
 - **Database:** 125 tabel, seluruh kolom/index/FK identik dengan baseline; 9 tabel RBAC ter-seed penuh; nilai preset sudah memuat `view_reports`, `daily_summary`, `view_support_inbox`, `manage_facilities`.
 

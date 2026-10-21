@@ -73,4 +73,13 @@ $inspectorCheck(str_contains($staffChunk, 't.jsx(TamasyaGovernancePanel,{})'), '
 $inspectorCheck(!str_contains($appCore, 'governance.js'), 'Panel governance tidak masuk graph eager (tetap lazy)');
 $inspectorCheck(!str_contains($appShell, 'TamasyaGovernancePanel'), 'App-shell tidak perlu perubahan: panel terpasang di chunk staf');
 
+$governanceCheck = function (bool $ok, string $label) use (&$checks): void {
+    $checks++;
+    if (!$ok) { throw new RuntimeException('FAIL ' . $label); }
+    echo 'PASS ' . $label . "\n";
+};
+$governance = $read('assets/chunks/governance.js');
+$governanceCheck(str_contains($governance, 'Audit & Kendali'), 'Panel audit dan kendali punya judul yang terlihat');
+$governanceCheck(str_contains($governance, 'Buka Audit & Kendali'), 'Tombol buka panel menyebut apa isinya');
+$governanceCheck(str_contains($governance, 'Inspektur Izin'), 'Label tab inspektur izin memakai bahasa yang benar');
 echo 'Permission inspector: ' . $checks . " passed; 0 failed.\n";

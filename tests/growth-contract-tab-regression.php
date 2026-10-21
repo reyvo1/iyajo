@@ -66,6 +66,10 @@ $check(str_contains($js, 'function renderExchangeRates('), 'Growth Suite merende
 $check(str_contains($js, "api('exchange-rate-save'"), 'Penyimpanan kurs memakai endpoint growth suite');
 $check(str_contains($server, "case 'exchange-rate-save':"), 'Server Growth Suite punya aksi simpan kurs');
 $check(str_contains($server, "'exchangeRates'"), 'Server Growth Suite mengirim kurs mata uang');
+$check(str_contains($server, "modules']['contract']=\$canRoomRead"), 'Tab kontrak tetap tampil walau skema belum ada');
+$check(str_contains($server, "'wholesaleSchemaReady'"), 'Server memberi tahu apakah skema tarif kontrak sudah siap');
+$check(str_contains($js, 'wholesaleSchemaReady'), 'Growth Suite memeriksa kesiapan skema');
+$check(str_contains($js, 'IMPORT-RBAC-PHPMYADMIN.sql'), 'Growth Suite memberi instruksi impor bila skema belum ada');
 $check(str_contains($server, 'tamasyaSaveExchangeRate('), 'Penyimpanan kurs memakai helper yang sama dengan API kurs');
 $check(str_contains($read('api/support/012_domain_primitives.php'), 'function tamasyaSaveExchangeRate('), 'Helper simpan kurs tersedia');
 $check(str_contains($read('api/routes/089_exchange_rates.php'), 'tamasyaSaveExchangeRate('), 'API kurs memakai helper yang sama');

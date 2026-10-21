@@ -108,7 +108,7 @@ termonitor pusat, migrasi fleet otomatis, kunci IoT fisik, kamera wajah
 tamu, aplikasi tamu (lihat `HANDOFF-IOT-BRIDGE-FASE0-2026-10-16.md`).
 
 
-## 8.1 Fitur yang sudah berjalan di kode (rilis 20261021-r18)
+## 8.1 Fitur yang sudah berjalan di kode (rilis 20261021-r19)
 
 Dokumen ini menggambarkan produk. Fitur berikut sudah ada di kode dan teruji
 otomatis (CI 9/9 + uji fungsional MariaDB + UAT browser):

@@ -270,7 +270,11 @@ try {
                 if(isset($data['features']['modules'])&&is_array($data['features']['modules'])){
                     $contractReady=false;
                     try{$contractReady=tamasyaTableExists($pdo,'wholesale_rate_plans');}catch(Throwable $contractProbe){$contractReady=false;}
-                    $data['features']['modules']['contract']=$contractReady&&$canRoomRead;
+                    // Tabnya tetap tampil walau skema belum ada: kalau tabnya
+                    // disembunyikan, pengguna mengira fitur tidak ada. Yang
+                    // berubah adalah isinya: ada catatan tindakan impor.
+                    $data['features']['modules']['contract']=$canRoomRead;
+                    $data['wholesaleSchemaReady']=$contractReady;
                 }
                 if(tamasyaGrowthModuleEnabled('rate')&&$canRoomRead){
                     // Tarif kontrak B2B. Skema mungkin belum ada di property lama,
