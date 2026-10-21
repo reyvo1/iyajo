@@ -69,4 +69,20 @@ $hqCheck(str_contains($hqApp, "api('rbac-preset-state')"), 'Kontrol HQ memuat st
 $hqCheck(str_contains($hqApp, "api('rbac-preset-publish'"), 'Kontrol HQ bisa menerbitkan revisi baru');
 $hqCheck(str_contains($hqApp, "api('rbac-preset-publish',{},{})"), 'Terbitkan memakai POST');
 
+/* Halaman HQ yang memuat app.js harus punya setiap id yang dipakai skrip itu.
+ * Ini mencegah halaman HQ mati total karena satu elemen yang salah tempat. */
+$hqIndexHtml = $read('hq/index.html');
+$hqIndexIds = [];
+preg_match_all('/id="([a-zA-Z0-9_-]+)"/', $hqIndexHtml, $hqIdMatch);
+foreach ($hqIdMatch[1] as $hqId) { $hqIndexIds[$hqId] = true; }
+preg_match_all("/\$\('([a-zA-Z0-9_-]+)'\)/", $hqApp, $hqRefMatch);
+$hqDynamicIds = ['role-presets-publish'];
+$hqMissing = [];
+foreach (array_unique($hqRefMatch[1]) as $hqRef) {
+    if (isset($hqIndexIds[$hqRef]) || in_array($hqRef, $hqDynamicIds, true)) { continue; }
+    $hqMissing[] = $hqRef;
+}
+$hqCheck(count($hqMissing) === 0, 'Semua elemen yang dipakai hq/app.js ada di hq/index.html (tidak ada halaman HQ yang mati)');
+$hqCheck(str_contains($hqApp, 'if(rolePresetsButton)') || str_contains($hqApp, "if(\$('role-presets'))"), 'Pemanggilan elemen yang mungkin tidak ada dilindungi');
+
 echo 'HQ role presets: ' . $checks . " passed; 0 failed.\n";
