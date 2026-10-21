@@ -192,3 +192,21 @@ test('Public review page: served, and an invalid token is refused',async({page,r
   expect([400,403,404,409]).toContain(bad.status());
   writeEvidence('public-review',info,{pass:true,status:response.status()});
 });
+
+test('POS page: the money helper is always present and the page has no script error',async({page,request},info)=>{
+  const pageErrors=[];
+  page.on('pageerror',error=>pageErrors.push(String(error)));
+  await installAuth(page,request);
+  await page.goto('/pos.html');
+  await page.waitForTimeout(2500);
+  // Helper format uang harus selalu ada, walau berkas currency-display.js tidak
+  // sempat termuat: setiap pemakai memasang penawarnya sendiri.
+  const helper=await page.evaluate(()=>({
+    defined:typeof window.TamasyaCurrencyDisplay==='object'&&window.TamasyaCurrencyDisplay!==null,
+    sample:window.TamasyaCurrencyDisplay?window.TamasyaCurrencyDisplay.formatRupiah(1234.5):null
+  }));
+  expect(helper.defined,'the money helper must exist on the POS page').toBe(true);
+  expect(helper.sample).toBe('Rp 1.235');
+  expect(pageErrors,`pos page error: ${pageErrors.join(' | ')}`).toEqual([]);
+  writeEvidence('pos-money-helper',info,{pass:true,helper});
+});

@@ -1,3 +1,4 @@
+window.TamasyaCurrencyDisplay=window.TamasyaCurrencyDisplay||{formatNumber:function(v,p){if(v==null||v===''||!Number.isFinite(Number(v)))return '\u2014';var f=new Intl.NumberFormat('id-ID',p?{minimumFractionDigits:2,maximumFractionDigits:2}:{maximumFractionDigits:0});var t=f.format(Number(v));if(p)t=t.replace(/,00$/,'');return t==='-0'?'0':t;},formatRupiah:function(v,p){var t=this.formatNumber(v,p);return t==='\u2014'?t:'Rp '+t;},formatNumberExact:function(v){return this.formatNumber(v,true);},formatRupiahExact:function(v){return this.formatRupiah(v,true);}};
 (() => {
   'use strict';
   const state={data:{},offline:false,currentFolio:null,currentGroup:null,currentPo:null,endpoint:null};

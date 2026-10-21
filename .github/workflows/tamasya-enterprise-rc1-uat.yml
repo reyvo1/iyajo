@@ -117,6 +117,7 @@ jobs:
           php tests/growth-contract-tab-regression.php
           php tests/exchange-rate-mysql-uat.php
           php tests/import-sql-sync-regression.php
+          node tests/uat_local/ui_money_helper_regression.mjs
           php tests/smtp-diagnostics-regression.php
           php tests/negotiation-settlement-characterisation.php
           php tests/r164-custody-cleanup-regression.php
