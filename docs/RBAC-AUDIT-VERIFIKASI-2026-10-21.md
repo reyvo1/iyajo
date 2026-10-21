@@ -66,6 +66,23 @@ Penambahan helper capability pada 12 chunk_MINIFIED menyebabkan 5 `SyntaxError` 
 
 Perbaikan: helper di-rename ke `tamasyaHasCapability` (nama unik), deklarasi ganda dihapus, `staff.js` dikembalikan ke sumber pra-audit, dan `&&` dipulihkan. `tests/multi-room-ui-regression.mjs` kini **memulihkan** link-check ES-module asli dan menambah guard: seluruh modul aset harus parse sebagai ES module, helper tidak boleh dipakai sebelum diinisialisasi, dan setiap komponen capability-gated wajib menerima `currentPermissions` di setiap render site.
 
+### N-06 — Tiga test RBAC utama tidak pernah dijalankan CI (MEDIUM, **SUDAH DIPERBAIKI**)
+
+Audit ulang terhadap `.github/workflows/tamasya-enterprise-rc1-uat.yml` menunjukkan **10 file test di `tests/` tidak dieksekusi** oleh source regression suite, termasuk:
+
+- `tests/dynamic-rbac-regression.php` (Dynamic RBAC)
+- `tests/role-preset-regression.php` (Role preset / Kelola Jabatan)
+- `tests/rbac-e2e-regression.php` (E2E RBAC Flow)
+
+Artinya regression F-01..F-08 **tidak pernah diperiksa CI** — itulah alasan bug sisaan F-03 (N-01) bisa lolos tanpa terdeteksi.
+
+Perbaikan: ketiganya kini menjadi bagian source regression suite (bersama `smtp-diagnostics-regression.php`, `negotiation-settlement-characterisation.php`, dan dua `r164-custody-*`). Jumlah perintah source suite naik dari 95 menjadi 102.
+
+Yang tetap di luar CI karena memang butuh layanan eksternal (bukan kelalaian):
+- `tests/telegram-markdown-regression.php` — memanggil API Telegram sungguhan.
+- `tests/catalog-price-browser-local.py` — butuh browser lokal.
+- `tests/refresh_audit_manifest.py` — utilitas pemeliharaan, bukan test.
+
 ## 3. Cakupan F-06 secara jujur
 
 Yang **sudah** capability-based (44 gerbang, 13 capability, 10 chunk): `view_reports`, `manage_operational_settings`, `reconcile_payments`, `view_guest_identity`, `perform_housekeeping`, `manage_tax_rules`, `view_audit_log`, `resolve_night_audit`, `perform_night_audit`, `manage_room_access`, `manage_facilities`, `manage_backup`, `correct_booking_audit`.

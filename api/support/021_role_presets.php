@@ -369,6 +369,14 @@ function tamasyaRolePresetAccountDiff(array $preset, string $role, $currentPermi
  *  baris lama yang belum memuat kunci registry terbaru ditambal dari seed saat
  *  dibaca (idempoten) supaya penerapan tidak pernah menuliskan false diam-diam
  *  untuk capability yang baru ada. */
+/** Pastikan baris paket untuk setiap jabatan (terutama jabatan kustom) ada.
+ *  Dipanggil saat akun dibuat atau jabatan/role berubah, supaya override NULL
+ *  langsung mengikuti paket jabatan. Kegagalan (tabel belum ada) ditoleransi:
+ *  paket akan berlaku setelah migrasi dijalankan. */
+function tamasyaRolePresetEnsureRows(PDO $pdo): void {
+    try { tamasyaRolePresetRows($pdo); } catch (Throwable $e) { }
+}
+
 function tamasyaRolePresetRows(PDO $pdo): array {
     $exists = (int)$pdo->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'role_capability_presets'")->fetchColumn();
     if ($exists === 0) {

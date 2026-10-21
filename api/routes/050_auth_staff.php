@@ -437,12 +437,18 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                 $hashed_password = password_hash($password, PASSWORD_DEFAULT);
                 if (isset($input['permissions'])) {
                     $permissions = json_encode($normalizedPermissions);
-                } elseif ($jobTitle !== null && !array_key_exists($jobTitle, tamasyaRolePresetSeed())) {
-                    // Jabatan dinamis tidak punya baseline hardcoded: salin paket default
-                    // base_role-nya sebagai override eksplisit akun (idempoten dengan panel).
-                    $permissions = json_encode(tamasyaRolePresetDefaultFor($jobTitle, $role));
                 } else {
+                    // Jabatan dinamis mengikuti paket preset-nya, jadi override akun
+                    // dibiarkan NULL. Menyalin paket default base_role ke kolom
+                    // permissions akan tersimpan sebagai override permanen dan
+                    // perubahan berikutnya di panel "Kelola Jabatan" tidak pernah
+                    // lagi sampai ke akun ini. Baris paket jabatan dipastikan ada
+                    // supaya paket langsung berlaku sejak akun dibuat.
                     $permissions = null;
+                    if ($jobTitle !== null && !array_key_exists($jobTitle, tamasyaRolePresetSeed())
+                        && function_exists('tamasyaRolePresetEnsureRows')) {
+                        tamasyaRolePresetEnsureRows($pdo);
+                    }
                 }
                 if ($hasStaffJobTitleColumn) {
                     $stmt = $pdo->prepare("INSERT INTO staff (id, name, username, password, role, job_title, status, salary, leave_start, leave_end, leave_reason, leave_type, two_factor_active, telegram_chat_id, permissions, password_changed_at, require_password_change) VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, NULL, ?, CURRENT_TIMESTAMP, 0)");
@@ -611,6 +617,10 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                     $fieldsToUpdate[] = "role = ?"; $params[] = $role;
                     if ($hasStaffJobTitleColumn) { $fieldsToUpdate[] = "job_title = ?"; $params[] = $jobTitle; }
                     if (!array_key_exists('permissions',$input) && $titleActuallyChanged) {
+                        if ($jobTitle !== null && !array_key_exists($jobTitle,tamasyaRolePresetSeed())
+                            && function_exists('tamasyaRolePresetEnsureRows')) {
+                            tamasyaRolePresetEnsureRows($pdo);
+                        }
                         // Jabatan/role baru adalah baseline baru. Override lama tidak boleh
                         // ikut terbawa ke jabatan yang hak aksesnya lebih rendah.
                         //

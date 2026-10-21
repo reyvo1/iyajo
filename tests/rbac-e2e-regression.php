@@ -75,7 +75,10 @@ e2eCheck(str_contains($route52, 'tamasyaEnforceOwnerReadOnly($loggedInStaff,(str
 
 /* ===== 5. OVERRIDE RESET SAAT ROLE/JABATAN BERUBAH (F-03) ===== */
 e2eCheck(str_contains($authRoutes, '$titleActuallyChanged') && str_contains($authRoutes, 'Jabatan/role baru adalah baseline baru'), '050 deteksi perubahan jabatan/role aktual');
-e2eCheck(str_contains($authRoutes, 'permissions = ?') && str_contains($authRoutes, 'tamasyaRolePresetDefaultFor'), '050 reset permissions ke preset baru saat berubah');
+// Override lama harus dikosongkan (NULL) supaya akun kembali mengikuti preset jabatan.
+// Salinan preset sebagai override akan mengunci akun selamanya.
+e2eCheck(str_contains($authRoutes, 'permissions = ?') && preg_match('/\$titleActuallyChanged\) \{.*?\$params\[\] = null;/s', $authRoutes) === 1 && !str_contains($authRoutes, 'tamasyaRolePresetDefaultFor'), '050 reset override ke NULL (bukan salinan preset) saat jabatan/role berubah');
+e2eCheck(str_contains($authRoutes, 'tamasyaRolePresetEnsureRows'), '050 memastikan baris paket jabatan ada agar override NULL langsung mengikuti preset');
 
 /* ===== 6. STAFF/LEAVES GUARD (F-04) ===== */
 e2eCheck(str_contains($authRoutes, 'requireDesktopTabAccess($loggedInStaff, \'staff\', [\'admin\',\'owner\'])'), '050 staff GET wajib tab staff');
