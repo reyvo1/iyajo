@@ -7,8 +7,8 @@ tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
 | Paket | `tamasya-production-20261021-r15.zip` |
 |---|---|
-| SHA-256 paket | `572cdb52e762970bc93a722b51180cb5017abc1eb16c9a3d0119fe91ddb675ea` |
-| Isi | 378 berkas + `DEPLOY-SHA256SUMS.txt` |
+| SHA-256 paket | `3920091c828f54b4c08ccfad4d5f376f4d014b074fd7e9419ea1e0ef706a6871` |
+| Isi | 377 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
 
@@ -27,6 +27,9 @@ phpMyAdmin -> pilih database -> Export -> SQL. Jangan lanjut tanpa backup.
 ## 3. Impor database (hanya bila perlu)
 
 Buka `deploy/IMPORT-RBAC-PHPMYADMIN.sql`, salin ke phpMyAdmin -> tab SQL -> Go.
+Berkas ini memuat seluruh migrasi (11 berkas) sekaligus: RBAC,-ulasan tamu, tarif kontrak, dan
+kurs mata uang. Langkah pertama menampilkan tabel mana yang sudah ada, langkah terakhir memverifikasi
+hasilnya. Amankan dijalankan berulang kali.
 File ini aman dijalankan berulang kali dan tidak menimpa paket izin yang
 sudah Anda simpan sendiri di UI "Kelola Jabatan".
 
@@ -99,3 +102,11 @@ di DevTools -> Application -> Service Workers.
    yang dipakai saat pemesanan.
 9. Kurs mata uang: tab Kontrak B2B di Growth Suite (atau API `exchange-rates`)
    mencatat kurs harian. Transaksi dalam mata uang lain ditolak bila kurs belum ada.
+
+## 10. Verifikasi paket sebelum dikirim ke server
+
+```
+bash tests/uat_prd/verify_deploy_bundle.sh
+```
+Memeriksa ZIP yang akan dikirim: manifest checksum cocok, berkas wajib ada, tidak ada rahasia,
+dan seluruh PHP/JS valid.
