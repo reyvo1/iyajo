@@ -46,6 +46,24 @@ SELECT 'wholesale_rate_bookings' AS table_name, IF((SELECT COUNT(*) FROM informa
 SELECT 'exchange_rates' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'exchange_rates') > 0, 1, 0) AS already_exists;
 
 
+-- ===== sumber: deploy/20261021_R19_FULL_SCHEMA_UPGRADE.sql =====
+-- ---------------------------------------------------------------------------
+-- TAMASYA: PENINGKATAN SKEMA LENGKAP (satu berkas, idempoten)
+--
+-- Jalankan berkas INI SAJA pada database properti yang sudah ada. Isinya
+-- menggabungkan seluruh migrasi yang pernah dibuat untuk rilis 20261021:
+-- jabatan dinamis, paket izin, registry RBAC, daftar role lama, mata uang
+-- dan kurs, ulasan tamu, serta tarif kontrak B2B.
+--
+-- Aman dijalankan berulang kali: CREATE TABLE IF NOT EXISTS, INSERT IGNORE, dan
+-- pemeriksaan information_schema untuk setiap kolom tambahan.
+--
+-- Jangan jalankan di database HQ bersama.
+-- ---------------------------------------------------------------------------
+
+SET @schema := DATABASE();
+
+
 -- ===== sumber: migrations/20261019_STAFF_JOB_TITLES.sql =====
 -- TAMASYA R19: jabatan dinamis (tambah/rename/hapus jabatan dari UI).
 -- Jalankan terhadap DB properti SETELAH backup terverifikasi; jangan pada DB HQ bersama.
@@ -714,6 +732,19 @@ SET @sql := IF(@wrb_breakdown = 0,
   'ALTER TABLE `wholesale_rate_bookings` ADD COLUMN `nightly_breakdown` text DEFAULT NULL AFTER `nights`',
   'SELECT ''wholesale_rate_bookings.nightly_breakdown already installed'' AS migration_status');
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+
+-- ---------------------------------------------------------------------------
+-- Verifikasi akhir
+-- ---------------------------------------------------------------------------
+SELECT 'TAMASYA 20261021: verifikasi peningkatan skema' AS migration_step;
+SELECT COUNT(*) AS tabel_terpasang FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN
+ ('staff_job_titles','role_capability_presets','rbac_roles','rbac_capabilities','rbac_desktop_tabs',
+  'rbac_notification_groups','rbac_access_groups','rbac_access_group_roles','rbac_legacy_role_sets',
+  'guest_reviews','guest_review_invites','wholesale_rate_plans','wholesale_rate_nights','wholesale_rate_bookings','exchange_rates');
+SELECT IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME='transactions' AND COLUMN_NAME='propertyAmount')>0,1,0) AS transactions_property_amount;
+SELECT IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME='wholesale_rate_bookings' AND COLUMN_NAME='nightly_breakdown')>0,1,0) AS wholesale_nightly_breakdown;
+-- Selesai. Lanjut ke deploy/DEPLOY-ID.md.
 
 
 -- ---------------------------------------------------------------------------

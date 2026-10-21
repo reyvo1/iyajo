@@ -252,7 +252,14 @@ try {
     if($method==='GET'){
         switch($command){
             case 'overview':
-                echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;
+                echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);
+                if(isset($data['features']['modules'])&&is_array($data['features']['modules'])){
+                    $contractOverview=true;
+                    try{$contractOverview=tamasyaTableExists($pdo,'wholesale_rate_plans');}catch(Throwable $contractProbe){$contractOverview=true;}
+                    $data['features']['modules']['contract']=$contractOverview;
+                    $data['wholesaleSchemaReady']=$contractOverview;
+                }
+break;
             case 'bootstrap':
                 if(!tamasyaGrowthSuiteEnabled()){echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;}
                 if(!tamasyaGrowthSchemaReady($pdo)){echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;}

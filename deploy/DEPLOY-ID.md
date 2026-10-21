@@ -7,7 +7,7 @@ tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
 | Paket | `tamasya-production-20261021-r19.zip` |
 |---|---|
-| SHA-256 paket | `92066fc231435c7bacf3d98d350d0e073a6e579329a1c16efe45d16ac360cc80` |
+| SHA-256 paket | `213bbc11616efcc0ee16b7e424ffc51deed425cdf3dfbee8f28f10b3cbc8fa7e` |
 | Isi | 356 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
@@ -38,7 +38,7 @@ Migrasi fitur baru (jika database Anda sudah ada):
 `migrations/20261021_WHOLESALE_RATES.sql` (paket tarif kontrak B2B), dan
 `migrations/20261021_WHOLESALE_RATE_LOCK.sql` (kunci tarif kontrak pada reservasi), dan
 `migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql` (nilai transaksi dalam mata uang property).
-Kelimanya idempoten. Migrasi lain (mis. katalog universal `20261009_R15_UNIVERSAL_CATALOG_ADDITIVE.sql`) tidak ikut berkas ini dan dipasang terpisah lewat `scripts/activate-growth-enterprise.php`. Tanpa migrasi, tab terkait akan memberi pesan jelas
+Semuanya idempoten. Migrasi lain (mis. katalog universal `20261009_R15_UNIVERSAL_CATALOG_ADDITIVE.sql`) tidak ikut berkas ini dan dipasang terpisah lewat `scripts/activate-growth-enterprise.php`. Tanpa migrasi, tab terkait akan memberi pesan jelas
 bahwa skema belum tersedia, bukan error fatal.
 
 Cek cepat apakah perlu: bagian LANGKAH 0 di file SQL menampilkan tabel mana

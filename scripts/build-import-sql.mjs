@@ -17,17 +17,7 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 
 /* Urutan ini penting: dasar RBAC lebih dulu, baru fitur yang bergantung padanya. */
 const sources = [
-  'migrations/20261019_STAFF_JOB_TITLES.sql',
-  'migrations/20261019_ROLE_CAPABILITY_PRESETS.sql',
-  'migrations/20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql',
-  'migrations/20261020_DAILY_SUMMARY_CAPABILITY.sql',
-  'migrations/20261021_DYNAMIC_RBAC.sql',
-  'migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql',
-  'migrations/20261021_TRANSACTION_CURRENCY.sql',
-  'migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql',
-  'migrations/20261021_GUEST_REVIEWS.sql',
-  'migrations/20261021_WHOLESALE_RATES.sql',
-  'migrations/20261021_WHOLESALE_RATE_LOCK.sql',
+  'deploy/20261021_R19_FULL_SCHEMA_UPGRADE.sql',
 ];
 
 /* Tabel yang dibaca langkah 0 supaya operator tahu apa yang sudah ada. */

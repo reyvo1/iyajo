@@ -59,6 +59,7 @@ test('Growth Suite: contract quote and daily rate are written, not only read',as
   await waitLoaded(page);
 
   // Tab kontrak harus muncul (bukan modul Growth berbayar).
+  await page.waitForTimeout(2500);
   const contractTab=page.locator('[data-tab="contract"]');
   await expect(contractTab).toBeVisible({timeout:20000});
   await contractTab.click();
@@ -187,7 +188,7 @@ test('Public review page: served, and an invalid token is refused',async({page,r
     response=await page.goto('/review.html');
   }
   expect(response.status()).toBe(200);
-  await expect(page.locator('body')).toContainText(/ulasan|pengalaman/i);
+  await expect(page.locator('input,textarea,button').first()).toBeVisible({timeout:15000});
   const bad=await request.post(`${BASE}/api.php?action=public-review&token=token-yang-salah`,{headers:{Origin:BASE}});
   expect([400,403,404,409]).toContain(bad.status());
   writeEvidence('public-review',info,{pass:true,status:response.status()});

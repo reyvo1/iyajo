@@ -18,20 +18,14 @@ if (!is_file($importPath)) { throw new RuntimeException('Berkas impor wajib tida
 $import = (string)file_get_contents($importPath);
 
 $required = [
-    'migrations/20261019_STAFF_JOB_TITLES.sql',
-    'migrations/20261019_ROLE_CAPABILITY_PRESETS.sql',
-    'migrations/20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql',
-    'migrations/20261020_DAILY_SUMMARY_CAPABILITY.sql',
-    'migrations/20261021_DYNAMIC_RBAC.sql',
-    'migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql',
-    'migrations/20261021_TRANSACTION_CURRENCY.sql',
-    'migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql',
-    'migrations/20261021_GUEST_REVIEWS.sql',
-    'migrations/20261021_WHOLESALE_RATES.sql',
-    'migrations/20261021_WHOLESALE_RATE_LOCK.sql',
+    'deploy/20261021_R19_FULL_SCHEMA_UPGRADE.sql',
 ];
 foreach ($required as $source) {
     $check(str_contains($import, '-- ===== sumber: ' . $source . ' ====='), 'Berkas impor memuat ' . $source);
+}
+$upgrade = (string)file_get_contents($root . '/deploy/20261021_R19_FULL_SCHEMA_UPGRADE.sql');
+foreach (['20261019_STAFF_JOB_TITLES','20261019_ROLE_CAPABILITY_PRESETS','20261021_DYNAMIC_RBAC','20261021_LEGACY_ROLE_SETS_COMPLETE','20261021_TRANSACTION_CURRENCY','20261021_TRANSACTION_PROPERTY_AMOUNT','20261021_GUEST_REVIEWS','20261021_WHOLESALE_RATES','20261021_WHOLESALE_RATE_LOCK'] as $migration) {
+    $check(str_contains($upgrade, $migration), 'Migrasi gabungan memuat ' . $migration);
 }
 $check(str_contains($import, 'LANGKAH 0'), 'Berkas impor punya langkah pemeriksaan tabel yang sudah ada');
 $check(str_contains($import, 'LANGKAH TERAKHIR'), 'Berkas impor punya langkah verifikasi akhir');
