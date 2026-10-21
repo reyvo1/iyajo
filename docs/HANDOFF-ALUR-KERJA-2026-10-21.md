@@ -1,7 +1,29 @@
 # Konteks & Alur Kerja TAMASYA — handoff untuk sesi berikutnya
 
-Rilis: `20261021-r15` · commit: `1e71fc4` · CI: **9/9 hijau** (run `39581013911`, 1522/1522 assertion UAT, 60/60 browser).
+Rilis: `20261021-r15` · commit: `0c174cd` · CI: **9/9 hijau** (run `39604075134`).
+Skema: **131 tabel** · suite lokal: **111 perintah** (harus `set -euo pipefail`).
+Paket deploy: `tamasya-production-20261021-r15.zip` (371 berkas, sha256
+`c2b5de96086531df96b100b19bdd1d14bed820678520eaaf18ef5e5975deabb0`) +
+`deploy/DEPLOY-ID.md` + `deploy/IMPORT-RBAC-PHPMYADMIN.sql`.
+
 Dokumen ini adalah sumber konteks tunggal. **Baca ini dulu sebelum mengubah apa pun.**
+Kalau konteks sesi ini hilang, dokumen ini + `git log` + CI sudah cukup untuk
+melanjutkan tanpa kehilangan apa pun.
+
+### 0.1 Commit terakhir (semua hijau, urut dari yang terbaru)
+
+| Commit | Isi |
+|---|---|
+| `0c174cd` | Panduan di dalam ZIP tidak lagi menyebut sha256 paketnya sendiri (mustahil); paket menyertakan `DEPLOY-SHA256SUMS.txt` (370 entri, 0 mismatch) |
+| `f19771b` | Manifest checksum isi paket + panduan deploy (sha256, migrasi baru, langkah verifikasi) |
+| `46beb61` | **P2-5 tarif wholesale/kontrak B2B**: 3 tabel, `api/routes/088_wholesale_rates.php`, migrasi, test 20 cek |
+| `b75d12b` | **P1-4 UI HQ**: tombol "Paket izin jabatan" + daftar paket, terbitkan revisi, status penerapan per properti (test 27 cek) |
+| `1c87f8c` | **P1-4 backend HQ**: paket jabatan kanonik + state per properti, apply/pull, cron pull, command 052 |
+| `20ea66b` | **P2-6 ulasan tamu**: panel UI + halaman publik `webpublic/review.html` |
+| `d99b411` | Dokumentasi status fitur ulasan tamu |
+
+Run CI yang relevan: `39604075134` (HEAD), `39598954297` (wholesale),
+`39597750603` (UI HQ), `39597303626` (backend HQ) — semuanya **success**.
 
 ---
 
@@ -24,6 +46,11 @@ Dokumen ini adalah sumber konteks tunggal. **Baca ini dulu sebelum mengubah apa 
 | `tests/legacy-role-set-coverage.php` | Semua daftar role wajib terpetakan (18 cek) | ✅ |
 | `tests/currency-foundation-regression.php` | Skema+helper+posting (24 cek) | ✅ |
 | `tests/system-health-regression.php` | Health dashboard (19 cek) | ✅ |
+| `api/routes/087_guest_reviews.php` | Ulasan tamu: undangan sekali pakai, penilaian, moderasi, rate limit | ✅ teruji |
+| `api/routes/088_wholesale_rates.php` | Tarif kontrak B2B: paket per tanggal, kunci tarif saat reservasi | ✅ teruji |
+| `hq/schema.sql` + `hq/core.php` + `hq/api.php` | HQ: paket jabatan kanonik (`hq_role_presets`) + state per properti (`hq_role_preset_state`) | ✅ teruji |
+| `hq/app.js` + `hq/control.html` | UI HQ: panel paket izin jabatan (baca, terbitkan, status penerapan) | ✅ teruji |
+| `webpublic/review.html` + `webpublic/assets/review.js` | Halaman ulasan publik (token sekali pakai) | ✅ teruji |
 | `docs/RBAC-AUDIT-VERIFIKASI-2026-10-21.md` | Status F-01..F-11 vs laporan audit 2026-10-20 | ✅ |
 
 ---
