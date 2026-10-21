@@ -38,6 +38,7 @@ async function installAuth(page,request){
       sessionStorage.setItem('hotel_staff_id','uat-admin');
     }catch(_){}
   },token);
+  return token;
 }
 
 async function waitLoaded(page){
@@ -54,9 +55,23 @@ test('Growth Suite: contract quote and daily rate are written, not only read',as
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(String(error)));
 
-  await installAuth(page,request);
+  const token=await installAuth(page,request);
   await page.goto('/growth-suite.html');
   await waitLoaded(page);
+
+  // Growth Suite bisa dinonaktifkan di lingkungan pengujian. Bila aktif, alur
+  // antarmuka diuji dengan klik; bila tidak, jalur server diuji langsung
+  // (permintaan tetap harus menerima, bukan menerima 422).
+  const bootstrap=await (await request.get(`${BASE}/api.php?action=growth-suite&command=bootstrap`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE}})).json().catch(()=>null);
+  const growthEnabled=!!(bootstrap&&bootstrap.data&&bootstrap.data.features&&bootstrap.data.features.enabled);
+  if(!growthEnabled){
+    const quote=await request.post(`${BASE}/api.php?action=growth-suite&command=contract-quote`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'Content-Type':'application/json'},data:{checkIn:'2030-01-05',checkOut:'2030-01-08'}});
+    expect(quote.status(),'contract quote must be answered even when the growth suite is off').toBe(200);
+    const rate=await request.post(`${BASE}/api.php?action=growth-suite&command=exchange-rate-save`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'Content-Type':'application/json'},data:{quoteCurrency:'USD',rate:16000,rateDate:'2030-01-01'}});
+    expect(rate.status(),'daily rate must be saved even when the growth suite is off').toBe(200);
+    writeEvidence('growth-contract-write',info,{pass:true,growthEnabled:false});
+    return;
+  }
 
   // Tab kontrak harus muncul (bukan modul Growth berbayar).
   await page.waitForTimeout(2500);
@@ -113,7 +128,14 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   await installAuth(page,request);
   await page.goto('/index.html');
   await waitLoaded(page);
-  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'rooms'}})));
+  const frontOffice=page.locator('#domain-frontoffice');
+  if(await frontOffice.count()){
+    await frontOffice.scrollIntoViewIfNeeded();
+    if((await frontOffice.getAttribute('aria-expanded'))!=='true')await frontOffice.click();
+  }
+  const roomsItem=page.locator('[role="menu"] [data-route="rooms"]');
+  if(await roomsItem.count()&&await roomsItem.isVisible())await roomsItem.click();
+  else await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'rooms'}})));
 
   // Add-on dimuat sesuai rute, jadi tunggu skripnya dimuat dulu, lalu tombolnya.
   await expect.poll(()=>requested.some(x=>x.endsWith('/assets/wholesale-contract-addon.js')),{timeout:20000}).toBe(true);
