@@ -206,7 +206,7 @@ function tamasyaAssertManualTransactionReplayMatches(array $existing,array $inco
 function tamasyaCanonicalTransactionColumns(): array {
     return [
         'id','type','category','categoryId','categorySystemKey','amount','date','description','createdBy','createdAt',
-        'subcategory','subcategoryId','subcategorySystemKey','roomNumber','proofUrl','bankAccountId','bookingId','baseAmount','currency','exchangeRate','taxAmount','taxRate',
+        'subcategory','subcategoryId','subcategorySystemKey','roomNumber','proofUrl','bankAccountId','bookingId','baseAmount','currency','exchangeRate','propertyAmount','taxAmount','taxRate',
         'bookingSource','version','updatedAt','updatedBy','updatedSource','transactionKind','sourceEntity','sourceEntityId','isSystemGenerated','operationId',
         'shiftSessionId','lockedAt','reconciliationStatus','reconciliationReference','documentNumber','importBatchId','recordOrigin','shiftExempt','shiftExemptionReason',
         'taxNote','taxRuleId','taxSnapshotStatus','taxSource','serviceDate','historicalSourceType','historicalSourceReference','sourceReportedBy','reportingPeriod',
@@ -387,17 +387,36 @@ function tamasyaPostFinancialTransaction(PDO $pdo,array $tx,array $actor,string 
 
     tamasyaAssertOpenShiftCashCanCoverExpense($pdo,$tx);
 
-    // Setiap transaksi yang diposting melalui otoritas ini memakai mata uang
-    // property dan kurs 1 terhadap mata uang dasar. Dengan begitu satu database
-    // tidak pernah punya transaksi dengan nominal mata uang berbeda, sehingga
-    // penjumlahan di laporan tetap benar. Konversi antar mata uang belum
-    // dilakukan: bila suatu saat dibutuhkan, kurs disimpan di exchange_rates
-    // dan baseAmount menjadi jumlah dalam mata uang property.
+    // Mata uang transaksi. Bila pemanggil tidak menyebut mata uang, dipakai
+    // mata uang property. Bila pemanggil menyebut mata uang lain, kurs harus
+    // diketahui: dari nilai yang dikirim pemanggil, atau dari exchange_rates
+    // pada tanggal transaksi. Tanpa kurs, transaksi ditolak: nominal dalam
+    // mata uang asing tidak boleh dicatat seolah-olah sudah mata uang
+    // property.
+    $propertyCurrency=function_exists('tamasyaPropertyCurrency')?tamasyaPropertyCurrency($pdo):'IDR';
     if (!array_key_exists('currency',$tx) || trim((string)($tx['currency']??''))==='') {
-        $tx['currency']=function_exists('tamasyaPropertyCurrency')?tamasyaPropertyCurrency($pdo):'IDR';
+        $tx['currency']=$propertyCurrency;
     }
-    if (!array_key_exists('exchangeRate',$tx) || !is_numeric($tx['exchangeRate']??null)) {
+    $transactionCurrency=strtoupper(trim((string)$tx['currency']));
+    $tx['currency']=$transactionCurrency;
+    $transactionDate=(string)($tx['transactionDate']??$tx['date']??date('Y-m-d'));
+    if($transactionCurrency===$propertyCurrency){
         $tx['exchangeRate']=1;
+        $tx['propertyAmount']=round((float)($tx['amount']??0),2);
+    }else{
+        $rate=null;
+        if(array_key_exists('exchangeRate',$tx)&&is_numeric($tx['exchangeRate']??null)&&(float)$tx['exchangeRate']>0){
+            $rate=(float)$tx['exchangeRate'];
+        }else{
+            $rate=function_exists('tamasyaTransactionExchangeRate')
+                ?tamasyaTransactionExchangeRate($pdo,$propertyCurrency,$transactionCurrency,$transactionDate)
+                :null;
+        }
+        if($rate===null){
+            throw new RuntimeException('Kurs '.$transactionCurrency.' ke '.$propertyCurrency.' pada '.$transactionDate.' belum tersedia. Transaksi tidak disimpan; catat kurs terlebih dahulu.');
+        }
+        $tx['exchangeRate']=$rate;
+        $tx['propertyAmount']=round((float)($tx['amount']??0)*$rate,2);
     }
     // baseAmount SENGAJA tidak diisi di sini: nilai NULL adalah tanda pajak belum
     // diketahui (taxSnapshotStatus unresolved). Mengisinya otomatis akan

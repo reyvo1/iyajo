@@ -205,4 +205,25 @@ code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/deploy/
 code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/tests/")
 [[ "$code" == "403" || "$code" == "404" ]] || { echo "tests path exposed: $code"; exit 1; }
 
+# ---- Rehearsal permukaan fitur baru di stack yang sedang hidup --------------
+# Bukti bahwa fitur yang baru ditambahkan benar-benar terpasang di image
+# produksi dan tetap berpintu: tanpa sesi, permintaan harus ditolak, bukan
+# bocor. Ini menggantikan kebutuhan VPS sungguhan untuk tahap pra-produksi.
+feature_gated=0
+for action in wholesale-rates exchange-rates guest-reviews audit-logs permission-inspector system-health; do
+  code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/api.php?action=${action}" || true)
+  case "$code" in
+    401|403|409) feature_gated=$((feature_gated+1)) ;;
+    *) echo "FAIL feature action ${action} is not gated (http ${code})"; exit 1 ;;
+  esac
+done
+[[ "$feature_gated" -eq 6 ]] || { echo "FAIL expected 6 gated feature actions, got ${feature_gated}"; exit 1; }
+code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/api.php?action=wholesale-rates&command=wholesale-rate-lookup" -X POST -H 'Content-Type: application/json' -d '{"checkIn":"2026-01-01","checkOut":"2026-01-03"}' || true)
+[[ "$code" == "401" || "$code" == "403" ]] || { echo "FAIL wholesale contract lookup is reachable without a session (http ${code})"; exit 1; }
+code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/review.html" || true)
+[[ "$code" == "200" ]] || { echo "FAIL public review page is not served (http ${code})"; exit 1; }
+code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/api.php?action=public-review&token=invalid-token" || true)
+[[ "$code" == "400" || "$code" == "403" || "$code" == "404" || "$code" == "409" ]] || { echo "FAIL public review accepts an invalid token (http ${code})"; exit 1; }
+echo "PASS new feature surface is mounted in the production image and stays gated (6 actions, contract lookup, public review page)"
+
 echo "PASS horizontal SaaS PHP-FPM/Nginx/MySQL runtime: serialized storage init, api+api2+web+worker, 96 concurrent reads, restart persistence, replica-loss degradation and private-path denial"

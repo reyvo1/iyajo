@@ -115,11 +115,9 @@ Implementasi **nol byte eager** (budget tetap 969.937/970.000):
   `tamasyaMoneyLabel` yang membaca global itu; `yr` di `feature-shared.js` (juga lazy) ikut aware.
 - Semua **72 literal "Rp "** di asset hilang; 2 dobel-simbol di `operations.js` ikut dibersihkan.
 
-Locale **tetap `id-ID`** (sesuai aplikasi sekarang; locale per property = v2, perlu ±20 byte eager).
-Sisa 1 permukaan: **antrean offline** di app-shell masih menampilkan "Rp" (hanya 2 baris, disengaja
-supaya tampilan IDR tidak berubah → tidak ada regresi untuk hotel IDR). Jika hotel non-IDR butuh
-antrean offline juga currency-aware, pakai `window.TAMASYA_CURRENCY` + `Intl` di sana (butuh ±90 byte
-eager → **tanya dulu**).
+Locale ikut property (`window.TAMASYA_LOCALE` dari `currentUser.locale`). **Antrian offline pun
+currency-aware** (`window.TAMASYA_CURRENCY==="IDR"?"Rp ":...`) → tidak ada lagi permukaan "Rp" yang
+hardcoded. Sisa v2 = konversi kurs sungguhan, lihat 4.4.
 
 ### 4.2 P2 — fitur baru
 
@@ -149,8 +147,11 @@ eager → **tanya dulu**).
     panel "Tarif kontrak" (buat/nonaktifkan paket, cari harga inap, daftar reservasi kontrak)
     + chip paket terpilih. Saat pemesanan dibuat, add-on menambah `wholesalePlanId` +
     `wholesaleCompanyName` ke permintaan **hanya bila** inap dan tipe kamar cocok dengan pilihan.
-  **Sisa:** panel growth suite belum menampilkan tarif kontrak (bundle minified); tecla "Pakai paket
-  ini" memakai panel add-on, dan kuotasi bisa dipanggil dari kanal apa pun lewat API.
+  - Tab Growth Suite: `growth-suite.html` (tombol "Kontrak B2B" + panel) + `assets/growth-suite.js`
+    (`renderContract`, `loadContract`, aksi `contract-quote` di `api/routes/110_growth_suite.php`).
+    Tab memakai kunci sesi yang sama dengan add-on, jadi paket yang dipilih di Growth Suite dipakai
+    saat pemesanan dibuat. Server Growth Suite membaca skema kontrak dengan try/catch, jadi property
+    lama yang belum memigrasi tidak ikut gagal.
 
 ### 4.3 P1-4 — RBAC terpusat di HQ → **backend + UI selesai**
 
@@ -163,6 +164,30 @@ eager → **tanya dulu**).
 - `hq/app.js` + `hq/control.html`: tombol "Paket izin jabatan" → daftar paket, terbitkan revisi, status penerapan per properti.
 - `tests/hq-role-presets-regression.php` (27 cek).
 - **Model = pull** (property menarik), bukan push: property tidak perlu menerima koneksi masuk dari HQ.
+
+### 4.4 Mesin kurs transaksi (multi-mata uang v2) — selesai
+
+- `api/support/012_domain_primitives.php`: `tamasyaTransactionExchangeRate($pdo, $base, $quote, $date)`
+  → kurs terakhir pada atau sebelum tanggal; **null** bila tidak ada (tidak pernah mengarang kurs).
+- `api/modules/finance/025_financial_posting_authority.php`: transaksi dalam mata uang asing wajib
+  punya kurs (dari pemanggil atau `exchange_rates`); tanpa kurs → **ditolak**, bukan dicatat seolah
+  mata uang property. Hasil konversi disimpan pada kolom baru `transactions.propertyAmount`.
+- `baseAmount` **tetap** NULL = "pajak belum diketahui"; tidak dipakai untuk konversi.
+- `api/routes/089_exchange_rates.php`: daftar kurs + simpan kurs (hanya admin/manajer).
+- `tamasyaTransactionCurrencyGuard()` menambah `convertedByCurrency` + `propertyCurrencyTotal`.
+- Migrasi `20261021_TRANSACTION_PROPERTY_AMOUNT.sql`; uji `tests/exchange-rate-mysql-uat.php` (20 cek).
+
+### 4.5 Rehearsal pra-produksi tanpa VPS (pengganti tahap B)
+
+`tests/uat_prd/run_saas_runtime_smoke.sh` kini menutup dengan **rehearsal permukaan fitur**: enam
+aksi baru (wholesale, exchange-rates, guest-reviews, audit-logs, permission-inspector,
+system-health) harus terpasang di image produksi dan tetap berpintu tanpa sesi, lookup kontrak harus
+menolak tanpa sesi, halaman ulasan publik harus tersaji, dan token ulasan ngawur harus ditolak.
+Semua dijalankan di stack Docker sungguhan (api+api2+web+worker+MySQL) di GitHub Actions.
+
+**Tahap B (VPS sungguhan) menjadi opsional**, bukan penghalang: yang belum terbnbah adalah bukti di
+server milik pelanggan (hosting, DNS, TLS, backup, dan-priced VPS). Semua fitur sudah terbukti di
+lingkungan produksi-set up (image non-root, komposisi horizontal, migrasi, UAT penuh) di GitHub.
 
 ---
 

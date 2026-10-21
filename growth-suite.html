@@ -33,6 +33,7 @@
     <button data-tab="overview" class="active">Ringkasan</button>
     <button data-tab="kpi" class="hidden">KPI Hotel</button>
     <button data-tab="rate" class="hidden">Rate & Revenue</button>
+    <button data-tab="contract" class="hidden">Kontrak B2B</button>
     <button data-tab="group" class="hidden">Group & Corporate</button>
     <button data-tab="folio" class="hidden">Guest Folio</button>
     <button data-tab="procurement" class="hidden">Procurement</button>
@@ -131,6 +132,32 @@
         <div id="rate-override-list" class="table-wrap"></div>
       </div>
     </section>
+    <section id="tab-contract" class="tab-panel">
+      <div class="grid two">
+        <div class="panel">
+          <h2>Harga kontrak (wholesale)</h2>
+          <p class="muted">Paket harga khusus untuk perusahaan, channel, atau grup. Harga per tanggal dipakai server saat reservasi dibuat.</p>
+          <div id="contract-list" class="table-wrap"></div>
+        </div>
+        <div class="panel">
+          <h2>Hitung harga satu inap</h2>
+          <div class="form-grid">
+            <label>Check-in<input id="contract-check-in" type="date" /></label>
+            <label>Check-out<input id="contract-check-out" type="date" /></label>
+            <label>Tipe kamar<input id="contract-room-type" list="contract-room-type-options" placeholder="Semua tipe" /></label>
+            <label>Perusahaan<input id="contract-company" placeholder="Nama perusahaan kontrak" /></label>
+            <button class="btn" type="button" id="contract-quote-btn">Cari harga kontrak</button>
+          </div>
+          <datalist id="contract-room-type-options"></datalist>
+          <div id="contract-quote" class="table-wrap"></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Reservasi memakai harga kontrak</h2>
+        <div id="contract-bookings" class="table-wrap"></div>
+      </div>
+    </section>
+
 
     <section id="tab-group" class="tab-panel">
       <div class="grid two">

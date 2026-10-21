@@ -3006,6 +3006,7 @@ CREATE TABLE `transactions` (
   `amount` decimal(15,2) NOT NULL,
   `currency` varchar(10) NOT NULL DEFAULT 'IDR',
   `exchangeRate` decimal(18,8) NOT NULL DEFAULT 1.00000000,
+  `propertyAmount` decimal(15,2) DEFAULT NULL,
   `date` date NOT NULL,
   `description` varchar(255) NOT NULL,
   `createdBy` varchar(50) DEFAULT 'staff',

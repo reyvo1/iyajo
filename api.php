@@ -1373,6 +1373,7 @@ if ($loggedInStaff) {
         'system-health'=>['staff','config','db_config'],
         'guest-reviews'=>['staff','operations'],
         'wholesale-rates'=>['operations','report','rooms'],
+        'exchange-rates'=>['finance','report','operations'],
     ];
     $requiredDesktopTabs = $actionDesktopTabs[(string)$action] ?? [];
     if ($requiredDesktopTabs) {

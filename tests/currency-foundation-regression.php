@@ -54,8 +54,8 @@ $currencyCheck(str_contains($projection, "'currencyContext'] = tamasyaTransactio
 
 /* 4. Sisi tulis: otoritas posting keuangan mengisi mata uang. */
 $posting = $read('api/modules/finance/025_financial_posting_authority.php');
-$currencyCheck(str_contains($posting, "'currency','exchangeRate'"), 'Kolom currency dan exchangeRate masuk daftar kolom kanonik');
-$currencyCheck(str_contains($posting, "\$tx['currency']=function_exists('tamasyaPropertyCurrency')"), 'Otoritas posting mengisi mata uang property');
+$currencyCheck(str_contains($posting, "'currency','exchangeRate','propertyAmount'"), 'Kolom currency, exchangeRate, dan propertyAmount masuk daftar kolom kanonik');
+$currencyCheck(str_contains($posting, "\$tx['currency']=\$propertyCurrency"), 'Otoritas posting mengisi mata uang property');
 $currencyCheck(str_contains($posting, "\$tx['exchangeRate']=1"), 'Otoritas posting memakai kurs 1 untuk mata uang yang sama');
 $currencyCheck(!str_contains($posting, "\$tx['baseAmount']="), 'Otoritas posting tidak mengisi baseAmount (NULL berarti pajak belum diketahui)');
 

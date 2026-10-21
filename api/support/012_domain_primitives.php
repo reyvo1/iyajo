@@ -71,6 +71,30 @@ function tamasyaTransactionCurrencies(PDO $pdo): array {
 }
 
 /**
+ * Kurs transaksi untuk satu mata uang asing pada satu tanggal.
+ *
+ * Nilai balik adalah jumlah mata uang property untuk 1 unit mata uang
+ * transaksi. Mata uang yang sama dengan property bernilai 1. Bila tidak ada
+ * kurs yang berlaku pada atau sebelum tanggal tersebut, fungsi mengembalikan
+ * null: pemanggil wajib menolak, bukan memakai asumsi.
+ */
+function tamasyaTransactionExchangeRate(PDO $pdo, string $propertyCurrency, string $transactionCurrency, string $date): ?float
+{
+    $base = strtoupper(trim($propertyCurrency));
+    $quote = strtoupper(trim($transactionCurrency));
+    if ($base === '' || $quote === '') { return null; }
+    if ($base === $quote) { return 1.0; }
+    $rateDate = validIsoDate($date) ? $date : date('Y-m-d');
+    try {
+        $stmt = $pdo->prepare("SELECT `rate` FROM `exchange_rates` WHERE `base_currency` = ? AND `quote_currency` = ? AND `rate_date` <= ? ORDER BY `rate_date` DESC LIMIT 1");
+        $stmt->execute([$base, $quote, $rateDate]);
+        $value = $stmt->fetchColumn();
+    } catch (Throwable $error) { return null; }
+    if ($value === false || $value === null || !is_numeric($value) || (float)$value <= 0) { return null; }
+    return (float)$value;
+}
+
+/**
  * Ringkasan keamanan untuk agregasi uang: mata uang property, mata uang yang
  * dipakai, dan apakah ada pencampuran. Laporan yang menjumlahkan nominal
  * harus memeriksa mixedCurrencies sebelum menyajikan satu angka.
@@ -79,11 +103,27 @@ function tamasyaTransactionCurrencyGuard(PDO $pdo): array {
     $propertyCurrency = tamasyaPropertyCurrency($pdo);
     $currencies = tamasyaTransactionCurrencies($pdo);
     $foreign = array_values(array_filter($currencies, static fn($code) => $code !== $propertyCurrency));
+    $converted = [];
+    try {
+        $stmt = $pdo->query("SELECT `currency`, COALESCE(SUM(`propertyAmount`),0) AS converted_total, COUNT(*) AS row_count FROM `transactions` WHERE `propertyAmount` IS NOT NULL GROUP BY `currency` ORDER BY `currency`");
+        foreach ($stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [] as $row) {
+            $converted[strtoupper(trim((string)$row['currency']))] = [
+                'convertedTotal' => (float)$row['converted_total'],
+                'rowCount' => (int)$row['row_count'],
+            ];
+        }
+    } catch (Throwable $error) { $converted = []; }
+    $propertyTotal = 0.0;
+    foreach ($converted as $code => $row) {
+        if ($code === $propertyCurrency) { $propertyTotal += (float)$row['convertedTotal']; }
+    }
     return [
         'propertyCurrency' => $propertyCurrency,
         'locale' => tamasyaPropertyLocale($pdo),
         'currencies' => $currencies,
         'foreignCurrencies' => $foreign,
         'mixedCurrencies' => count($foreign) > 0,
+        'convertedByCurrency' => $converted,
+        'propertyCurrencyTotal' => round($propertyTotal, 2),
     ];
 }

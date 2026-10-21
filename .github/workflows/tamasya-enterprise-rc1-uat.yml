@@ -114,6 +114,8 @@ jobs:
           php tests/wholesale-rates-regression.php
           php tests/wholesale-contract-rate-mysql-uat.php
           php tests/wholesale-contract-addon-regression.php
+          php tests/growth-contract-tab-regression.php
+          php tests/exchange-rate-mysql-uat.php
           php tests/smtp-diagnostics-regression.php
           php tests/negotiation-settlement-characterisation.php
           php tests/r164-custody-cleanup-regression.php
@@ -1040,6 +1042,8 @@ jobs:
             "${cmd[@]}" "$db" < migrations/20261021_WHOLESALE_RATES.sql
             "${cmd[@]}" "$db" < migrations/20261021_WHOLESALE_RATE_LOCK.sql
             "${cmd[@]}" "$db" < migrations/20261021_WHOLESALE_RATE_LOCK.sql
+            "${cmd[@]}" "$db" < migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql
+            "${cmd[@]}" "$db" < migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql
           done
       - name: Prepare disposable canonical schema for the owner read contract
         env:
@@ -1059,6 +1063,7 @@ jobs:
             "${cmd[@]}" tamasya_owner_uat < migrations/20261021_GUEST_REVIEWS.sql
             "${cmd[@]}" tamasya_owner_uat < migrations/20261021_WHOLESALE_RATES.sql
             "${cmd[@]}" tamasya_owner_uat < migrations/20261021_WHOLESALE_RATE_LOCK.sql
+            "${cmd[@]}" tamasya_owner_uat < migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql
       - name: Owner read contract against MariaDB
         env:
           TAMASYA_CATALOG_UAT_DSN: mysql:host=127.0.0.1;dbname=tamasya_owner_uat;charset=utf8mb4
@@ -1076,6 +1081,14 @@ jobs:
         run: |
           set -euo pipefail
           php tests/wholesale-contract-rate-mysql-uat.php
+      - name: Exchange rate engine against MariaDB
+        env:
+          TAMASYA_CATALOG_UAT_DSN: mysql:host=127.0.0.1;dbname=tamasya_owner_uat;charset=utf8mb4
+          TAMASYA_CATALOG_UAT_USER: root
+          TAMASYA_CATALOG_UAT_PASS: tamasya_disposable_ci_only
+        run: |
+          set -euo pipefail
+          php tests/exchange-rate-mysql-uat.php
       - name: MariaDB 10.11 relational, transaction, and per-property UAT
         env:
           TAMASYA_CATALOG_UAT_DSN: mysql:host=127.0.0.1;dbname=tamasya_catalog_uat;charset=utf8mb4

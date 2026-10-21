@@ -253,6 +253,33 @@ try {
         switch($command){
             case 'overview':
                 echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;
+            case 'contract-quote':
+                // Kuotasi tarif kontrak untuk satu inap. Server yang menghitung
+                // nominal; Growth Suite hanya menampilkan.
+                if(!tamasyaGrowthSuiteEnabled()||!tamasyaGrowthSchemaReady($pdo)){http_response_code(409);echo tamasyaJsonEncode(['success'=>false,'error'=>'Growth Suite belum aktif pada property ini.']);break;}
+                if(!$canAnyTab(['rooms','operations','report','finance'])){http_response_code(403);echo tamasyaJsonEncode(['success'=>false,'error'=>'Izin membaca tarif kontrak tidak ada.']);break;}
+                $contractQuote=[
+                    'checkIn'=>trim((string)($input['checkIn']??'')),
+                    'checkOut'=>trim((string)($input['checkOut']??'')),
+                    'roomType'=>trim((string)($input['roomType']??'')),
+                    'companyName'=>trim((string)($input['companyName']??'')),
+                    'planId'=>trim((string)($input['planId']??'')),
+                ];
+                if($contractQuote['planId']===''){
+                    $candidates=[];
+                    try{
+                        $candidates=tamasyaWholesaleContractRateCandidates($pdo,strtolower(trim((string)($GLOBALS['tamasya_property_id']??''))),$contractQuote);
+                    }catch(Throwable $wholesaleSchemaMissing){$candidates=[];}
+                    echo tamasyaJsonEncode(['success'=>true,'data'=>['candidates'=>$candidates,'applicable'=>array_values(array_filter($candidates,function($row){return (bool)($row['applicable']??false);}))]]);break;
+                }
+                try{
+                    $contractQuoteResult=tamasyaWholesaleContractRateQuote($pdo,strtolower(trim((string)($GLOBALS['tamasya_property_id']??''))),$contractQuote);
+                    echo tamasyaJsonEncode(['success'=>true,'data'=>['quote'=>$contractQuoteResult]]);
+                }catch(Throwable $wholesaleSchemaMissing){
+                    http_response_code(409);
+                    echo tamasyaJsonEncode(['success'=>false,'error'=>'Skema tarif kontrak belum tersedia. Jalankan migrasi 20261021_WHOLESALE_RATES.sql.']);
+                }
+                break;
             case 'bootstrap':
                 if(!tamasyaGrowthSuiteEnabled()){echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;}
                 if(!tamasyaGrowthSchemaReady($pdo)){echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;}
@@ -264,6 +291,17 @@ try {
                 $canChannelRead=in_array($role,['admin','owner'],true)&&$canAnyTab(['operations','config']);
                 $canPaymentRead=in_array($role,['admin','manager','finance','owner'],true)&&$canAnyTab(['rooms','finance']);
                 if($canRoomRead)$data['roomTypes']=$fetchAll($pdo,"SELECT type,COUNT(*) AS room_count FROM rooms GROUP BY type ORDER BY type");
+                if(tamasyaGrowthModuleEnabled('rate')&&$canRoomRead){
+                    // Tarif kontrak B2B. Skema mungkin belum ada di property lama,
+                    // jadi pembacaan dibungkus: Growth Suite tidak boleh gagal
+                    // hanya karena tabel kontrak belum dimigrasi.
+                    $data['wholesalePlans']=[];$data['wholesaleBookings']=[];
+                    try{
+                        $wholesaleProperty=strtolower(trim((string)($GLOBALS['tamasya_property_id']??'')));
+                        $data['wholesalePlans']=$fetchAll($pdo,"SELECT id,code,name,company_name,room_type,currency,valid_from,valid_to,min_nights,max_nights,cut_off_days,include_tax,breakfast_included,status FROM wholesale_rate_plans WHERE property_id=? ORDER BY status,code",[$wholesaleProperty]);
+                        $data['wholesaleBookings']=$fetchAll($pdo,"SELECT booking_id,plan_id,plan_code,company_name,stay_from,stay_to,nights,total,currency,created_at FROM wholesale_rate_bookings WHERE property_id=? ORDER BY created_at DESC LIMIT 100",[$wholesaleProperty]);
+                    }catch(Throwable $wholesaleSchemaMissing){$data['wholesalePlans']=[];$data['wholesaleBookings']=[];}
+                }
                 if(tamasyaGrowthModuleEnabled('rate')&&$canRoomRead){$data['ratePlans']=$fetchAll($pdo,"SELECT id,code,name,room_type,base_rate,min_rate,max_rate,currency,active,version FROM growth_rate_plans ORDER BY active DESC,room_type,name");$data['rateRules']=$fetchAll($pdo,"SELECT id,plan_id,name,priority,condition_json,adjustment_type,adjustment_value,valid_from,valid_to,active,version FROM growth_rate_rules ORDER BY plan_id,priority,id");$data['rateOverrides']=$fetchAll($pdo,"SELECT id,plan_id,stay_date,room_type,rate,min_stay,stop_sell,closed_to_arrival,closed_to_departure,note,version FROM growth_rate_overrides WHERE stay_date>=DATE_SUB(CURDATE(),INTERVAL 31 DAY) ORDER BY stay_date DESC,plan_id LIMIT 1000");}
                 if(tamasyaGrowthModuleEnabled('group')&&$canGroupRead){$data['companies']=$fetchAll($pdo,"SELECT id,code,name,status FROM growth_companies ORDER BY status,name LIMIT 1000");$data['groups']=$fetchAll($pdo,"SELECT g.id,g.group_code,g.company_id,g.name,g.arrival_date,g.departure_date,g.room_block_qty,g.status,g.billing_mode,g.version,c.name AS company_name,(SELECT COUNT(*) FROM growth_group_booking_links l WHERE l.group_id=g.id) AS booking_count FROM growth_group_reservations g LEFT JOIN growth_companies c ON c.id=g.company_id ORDER BY g.arrival_date DESC,g.id DESC LIMIT 1000");}
                 if(tamasyaGrowthModuleEnabled('procurement')&&$canProcurementRead){$data['vendors']=$fetchAll($pdo,"SELECT id,code,name,payment_terms_days,status,version FROM growth_vendors ORDER BY status,name LIMIT 1000");$data['purchaseOrders']=$fetchAll($pdo,"SELECT po.id,po.po_number,po.vendor_id,po.order_date,po.expected_date,po.status,po.subtotal,po.tax_amount,po.total_amount,po.currency,po.version,v.name AS vendor_name,COALESCE((SELECT SUM(p.amount_applied) FROM growth_purchase_order_payments p WHERE p.po_id=po.id),0) AS paid_amount FROM growth_purchase_orders po JOIN growth_vendors v ON v.id=po.vendor_id ORDER BY po.order_date DESC,po.id DESC LIMIT 1500");}
