@@ -309,6 +309,14 @@ try {
                 $canChannelRead=in_array($role,['admin','owner'],true)&&$canAnyTab(['operations','config']);
                 $canPaymentRead=in_array($role,['admin','manager','finance','owner'],true)&&$canAnyTab(['rooms','finance']);
                 if($canRoomRead)$data['roomTypes']=$fetchAll($pdo,"SELECT type,COUNT(*) AS room_count FROM rooms GROUP BY type ORDER BY type");
+                // Tab kontrak adalah fitur inti, bukan modul Growth berbayar:
+                // tabnya tampil begitu Growth Suite aktif, skema tarif kontrak
+                // tersedia, dan staf berhak membaca tarif.
+                if(isset($data['features']['modules'])&&is_array($data['features']['modules'])){
+                    $contractReady=false;
+                    try{$contractReady=tamasyaTableExists($pdo,'wholesale_rate_plans');}catch(Throwable $contractProbe){$contractReady=false;}
+                    $data['features']['modules']['contract']=$contractReady&&$canRoomRead;
+                }
                 if(tamasyaGrowthModuleEnabled('rate')&&$canRoomRead){
                     // Tarif kontrak B2B. Skema mungkin belum ada di property lama,
                     // jadi pembacaan dibungkus: Growth Suite tidak boleh gagal

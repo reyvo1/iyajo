@@ -89,7 +89,7 @@
     const clear = document.createElement('button');
     clear.type = 'button';
     clear.textContent = 'Hapus';
-    clear.style.cssText = 'margin-left:10px;padding:4px 9px;border-radius:8px;border:1px solid #7fb3e0;background:transparent;color:#dceaf8;cursor:pointer;font:600 12px system-ui';
+    clear.style.cssText = 'margin-left:auto;padding:5px 10px;border-radius:9px;border:1px solid #334155;background:#1e293b;color:#cbd5e1;cursor:pointer;font:600 12px system-ui';
     clear.addEventListener('click', () => saveSelection(null));
     chip.appendChild(clear);
   };
@@ -157,7 +157,9 @@
     if (!box) {
       box = document.createElement('div');
       box.id = 'tamasya-wholesale-notice';
-      box.style.cssText = 'position:fixed;z-index:2147483000;right:16px;bottom:74px;max-width:420px;padding:11px 14px;border-radius:12px;background:#3b2f12;color:#ffe9b8;border:1px solid #b98b2f;box-shadow:0 8px 24px rgba(0,0,0,.35);font:600 13px system-ui';
+      // Pemberitahuan muncul di atas tengah layar supaya tidak pernah
+      // menutupi tombol mengambang di pojok kanan bawah.
+      box.style.cssText = 'position:fixed;z-index:2147483000;left:50%;transform:translateX(-50%);top:18px;max-width:min(520px,calc(100vw - 36px));padding:11px 14px;border-radius:12px;background:#3b2f12;color:#ffe9b8;border:1px solid #b98b2f;box-shadow:0 8px 24px rgba(0,0,0,.35);font:600 13px system-ui';
       document.body.appendChild(box);
     }
     box.textContent = message;
@@ -166,36 +168,47 @@
   };
 
   /* ===== 4. Panel tarif kontrak ===== */
-  const panelStyle = 'position:fixed;z-index:2147483001;right:16px;bottom:74px;width:min(760px,calc(100vw - 32px));max-height:min(78vh,900px);overflow:auto;background:#0f1c2e;color:#e8f0f8;border:1px solid #2f4a6f;border-radius:14px;box-shadow:0 18px 48px rgba(0,0,0,.45);font:13px system-ui;padding:16px';
+  // Panel mengikuti bentuk modal aplikasi: layar gelap blur di belakang, kartu
+  // terpusat. Tombol pemicu tetap mengambang di pojok kanan bawah seperti
+  // tombol laporan.
+  const overlayStyle = 'position:fixed;inset:0;z-index:2147483000;background:rgba(2,6,23,.82);backdrop-filter:blur(7px);display:flex;align-items:center;justify-content:center;padding:18px';
+  const modalStyle = 'box-sizing:border-box;min-width:0;width:min(780px,100%);max-height:92vh;overflow:auto;background:#0f172a;color:#e2e8f0;border:1px solid rgba(148,163,184,.2);border-radius:24px;box-shadow:0 30px 80px rgba(0,0,0,.45);padding:22px;font-family:system-ui';
+  const fieldStyle = 'width:100%;min-width:0;box-sizing:border-box;padding:10px;border:1px solid #334155;background:#020617;color:#e2e8f0;border-radius:11px;font:13px system-ui';
 
   const buildPanel = () => {
     if (document.getElementById('tamasya-wholesale-panel')) return;
+    const overlay = document.createElement('div');
+    overlay.id = 'tamasya-wholesale-overlay';
+    overlay.hidden = true;
+    overlay.style.cssText = overlayStyle;
     const panel = document.createElement('section');
     panel.id = 'tamasya-wholesale-panel';
-    panel.hidden = true;
-    panel.style.cssText = panelStyle;
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', 'Tarif kontrak B2B');
+    panel.style.cssText = modalStyle;
     panel.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
-        <h2 style="margin:0;font-size:16px">Tarif kontrak B2B</h2>
+        <h2 style="margin:0;font-size:20px;color:#fff">Tarif kontrak B2B</h2>
         <div style="display:flex;gap:8px">
-          <button type="button" data-act="refresh" style="padding:6px 10px;border-radius:8px;border:1px solid #3c6ea5;background:#14304d;color:#dceaf8;cursor:pointer">Muat ulang</button>
-          <button type="button" data-act="close" style="padding:6px 10px;border-radius:8px;border:1px solid #3c6ea5;background:transparent;color:#dceaf8;cursor:pointer">Tutup</button>
+          <button type="button" data-act="refresh" style="padding:9px 14px;border:1px solid rgba(99,102,241,.55);background:#1e293b;color:#cbd5e1;cursor:pointer;font:600 12px system-ui">Muat ulang</button>
+          <button type="button" data-act="close" style="padding:9px 14px;border:1px solid #334155;background:transparent;color:#cbd5e1;cursor:pointer;font:600 12px system-ui">Tutup</button>
         </div>
       </div>
       <div style="margin-top:12px;display:grid;gap:14px">
         <div>
-          <h3 style="margin:0 0 6px;font-size:14px">Cari paket untuk satu inap</h3>
+          <h3 style="margin:0 0 6px;font-size:14px;color:#fff">Cari paket untuk satu inap</h3>
           <div style="display:flex;flex-wrap:wrap;gap:6px" data-role="quote-form">
-            <input data-role="q-checkin" type="date" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8" title="Check-in">
-            <input data-role="q-checkout" type="date" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8" title="Check-out">
+            <input data-role="q-checkin" type="date" style="${fieldStyle}" title="Check-in">
+            <input data-role="q-checkout" type="date" style="${fieldStyle}" title="Check-out">
             <input data-role="q-roomtype" type="text" placeholder="Tipe kamar" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8;min-width:130px">
             <input data-role="q-company" type="text" placeholder="Nama perusahaan" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8;min-width:150px">
-            <button type="button" data-act="quote" style="padding:6px 12px;border-radius:8px;border:1px solid #3c6ea5;background:#1d4d7d;color:#fff;cursor:pointer">Cari harga</button>
+            <button type="button" data-act="quote" style="padding:9px 14px;border:0;border-radius:11px;background:linear-gradient(135deg,#312e81,#4f46e5);color:#fff;cursor:pointer;font:700 12px system-ui">Cari harga</button>
           </div>
           <div data-role="quote-result" style="margin-top:8px"></div>
         </div>
         <div>
-          <h3 style="margin:0 0 6px;font-size:14px">Paket tersimpan</h3>
+          <h3 style="margin:0 0 6px;font-size:14px;color:#fff">Paket tersimpan</h3>
           <div data-role="plans" style="max-height:210px;overflow:auto"></div>
           <details style="margin-top:8px">
             <summary style="cursor:pointer">Buat paket baru</summary>
@@ -207,8 +220,8 @@
                 <input data-role="p-roomtype" type="text" placeholder="Tipe kamar (opsional)" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8;min-width:150px">
               </div>
               <div style="display:flex;flex-wrap:wrap;gap:6px">
-                <input data-role="p-from" type="date" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8" title="Masa berlaku mulai">
-                <input data-role="p-to" type="date" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8" title="Masa berlaku sampai">
+                <input data-role="p-from" type="date" style="${fieldStyle}" title="Masa berlaku mulai">
+                <input data-role="p-to" type="date" style="${fieldStyle}" title="Masa berlaku sampai">
                 <input data-role="p-min" type="number" min="1" value="1" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8;width:86px" title="Minimal malam">
                 <input data-role="p-max" type="number" min="1" value="30" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8;width:86px" title="Maksimal malam">
                 <input data-role="p-cutoff" type="number" min="0" value="0" style="padding:6px 8px;border-radius:8px;border:1px solid #35597f;background:#0b1626;color:#e8f0f8;width:86px" title="Cut off hari">
@@ -220,16 +233,20 @@
           </details>
         </div>
         <div>
-          <h3 style="margin:0 0 6px;font-size:14px">Reservasi yang memakai harga kontrak</h3>
+          <h3 style="margin:0 0 6px;font-size:14px;color:#fff">Reservasi yang memakai harga kontrak</h3>
           <div data-role="locked" style="max-height:180px;overflow:auto"></div>
         </div>
       </div>`;
-    document.body.appendChild(panel);
+    overlay.appendChild(panel);
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) { overlay.hidden = true; return; }
+    });
     panel.addEventListener('click', (event) => {
       const target = event.target.closest('[data-act]');
       if (!target) return;
       const act = target.getAttribute('data-act');
-      if (act === 'close') { panel.hidden = true; return; }
+      if (act === 'close') { overlay.hidden = true; return; }
       if (act === 'refresh') { refreshPanel().catch((error) => notify(error.message)); return; }
       if (act === 'quote') { runQuote().catch((error) => notify(error.message)); return; }
       if (act === 'save-plan') { savePlan().catch((error) => notify(error.message)); return; }
@@ -244,19 +261,21 @@
     button.id = 'tamasya-wholesale-button';
     button.type = 'button';
     button.textContent = 'Tarif kontrak';
-    button.style.cssText = 'position:fixed;z-index:2147483000;right:16px;bottom:16px;padding:9px 14px;border-radius:12px;border:1px solid #3c6ea5;background:#14304d;color:#dceaf8;box-shadow:0 8px 24px rgba(0,0,0,.35);font:600 12px system-ui;cursor:pointer';
+    // Gaya dan posisi mengikuti tombol laporan yang sudah ada (kanan bawah
+    // layar). Duduk DI ATAS tombol laporan supaya tidak saling menutupi.
+    button.style.cssText = 'position:fixed;right:22px;bottom:74px;z-index:2147482000;border:1px solid rgba(99,102,241,.55);background:linear-gradient(135deg,#312e81,#4f46e5);color:#fff;border-radius:16px;padding:12px 16px;font:700 13px/1.2 system-ui;box-shadow:0 14px 35px rgba(15,23,42,.38);cursor:pointer;display:flex;gap:8px;align-items:center';
     button.addEventListener('click', () => {
-      const panel = document.getElementById('tamasya-wholesale-panel');
-      if (!panel) return;
-      panel.hidden = !panel.hidden;
-      if (!panel.hidden) refreshPanel().catch((error) => notify(error.message));
+      const overlay = document.getElementById('tamasya-wholesale-overlay');
+      if (!overlay) return;
+      overlay.hidden = !overlay.hidden;
+      if (!overlay.hidden) refreshPanel().catch((error) => notify(error.message));
     });
     document.body.appendChild(button);
 
     const chip = document.createElement('div');
     chip.id = 'tamasya-wholesale-selection';
     chip.hidden = true;
-    chip.style.cssText = 'position:fixed;z-index:2147483000;right:16px;bottom:56px;padding:8px 12px;border-radius:10px;background:#123457;color:#e8f0f8;border:1px solid #4b7caf;box-shadow:0 8px 24px rgba(0,0,0,.35);font:600 12px system-ui;display:flex;align-items:center';
+    chip.style.cssText = 'position:fixed;right:22px;bottom:124px;z-index:2147482000;max-width:min(420px,calc(100vw - 44px));padding:10px 14px;border-radius:14px;background:#0f172a;color:#e2e8f0;border:1px solid rgba(148,163,184,.2);box-shadow:0 14px 35px rgba(15,23,42,.38);font:600 12px/1.4 system-ui;display:flex;align-items:center;gap:10px';
     document.body.appendChild(chip);
   };
 
@@ -285,7 +304,7 @@
           <td>${escapeHtml(row.room_type || 'semua')}</td>
           <td>${escapeHtml(row.valid_from)} → ${escapeHtml(row.valid_to)}</td>
           <td>${escapeHtml(row.status)}</td>
-          <td><button type="button" data-act="toggle-plan" data-plan="${escapeHtml(row.id)}" data-status="${escapeHtml(row.status)}" style="padding:3px 8px;border-radius:7px;border:1px solid #3c6ea5;background:transparent;color:#dceaf8;cursor:pointer">${row.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}</button></td>
+          <td><button type="button" data-act="toggle-plan" data-plan="${escapeHtml(row.id)}" data-status="${escapeHtml(row.status)}" style="padding:5px 10px;border:1px solid #334155;background:transparent;color:#cbd5e1;cursor:pointer;font:600 12px system-ui">${row.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}</button></td>
         </tr>`).join('')}</tbody></table>`;
     }
     const lockedRows = Array.isArray(locked.rows) ? locked.rows : [];
@@ -328,7 +347,7 @@
         </div>
         <div style="display:flex;align-items:center;gap:10px">
           <b style="font-size:15px">${escapeHtml(money(row.total, row.currency))}</b>
-          <button type="button" data-act="use-plan" data-plan="${escapeHtml(row.planId)}" style="padding:6px 12px;border-radius:8px;border:1px solid #3c6ea5;background:#1d4d7d;color:#fff;cursor:pointer">Pakai paket ini</button>
+          <button type="button" data-act="use-plan" data-plan="${escapeHtml(row.planId)}" style="padding:9px 14px;border:0;border-radius:11px;background:linear-gradient(135deg,#312e81,#4f46e5);color:#fff;cursor:pointer;font:700 12px system-ui">Pakai paket ini</button>
         </div>
       </div>
       <div style="margin-top:6px;font-size:11px;opacity:.7">${(row.nights || []).map((night) => `${escapeHtml(night.stayDate)}: ${escapeHtml(money(night.price, row.currency))}`).join(' &middot; ')}</div>

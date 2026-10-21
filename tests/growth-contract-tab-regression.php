@@ -37,7 +37,9 @@ $check(str_contains($js, 'function renderContract('), 'Growth Suite merender pak
 $check(str_contains($js, 'function loadContract('), 'Growth Suite menghitung harga kontrak');
 $check(str_contains($js, "api('contract-quote'"), 'Permintaan harga kontrak memakai endpoint growth suite');
 $check(str_contains($js, "name==='contract'"), 'Pindah tab memuat data kontrak');
-$check(str_contains($js, 'contract:feature('), 'Tab kontrak mengikuti modul rate');
+$check(str_contains($js, 'contract:feature('), 'Tab kontrak punya flag sendiri');
+$check(!str_contains($js, "contract:feature('rate')"), 'Tab kontrak tidak terikat modul rate Growth (fitur inti)');
+$check(str_contains($server, "modules']['contract']"), 'Server menentukan sendiri apakah tab kontrak tampil');
 $check(str_contains($js, 'data-contract-use='), 'Ada tombol pakai paket ini');
 $check(str_contains($js, 'tamasya_wholesale_contract_selection'), 'Paket terpilih memakai kunci yang sama dengan add-on');
 $check(str_contains($addon, 'tamasya_wholesale_contract_selection'), 'Add-on tarif kontrak memakai kunci yang sama');

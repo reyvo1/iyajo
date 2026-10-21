@@ -1,13 +1,13 @@
-# Deploy TAMASYA - Rilis 20261021-r16
+# Deploy TAMASYA - Rilis 20261021-r17
 
 Paket ini berisi perbaikan RBAC (audit F-01..F-11), perbaikan chunk-load yang
 sebelumnya membuat Halaman UAT gagal, dan fitur baru: penampil log audit,
 inspektur izin, dasbor kesehatan sistem, dukungan multi-mata uang, ulasan
 tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
-| Paket | `tamasya-production-20261021-r16.zip` |
+| Paket | `tamasya-production-20261021-r17.zip` |
 |---|---|
-| SHA-256 paket | `7b852a7e187d91fe94c7294e266ebbc546af5084de0ca4f906a6147226f6afce` |
+| SHA-256 paket | `863aa812185379d45b3042e10e0049ff3b6fad5b724ed7f97f92bcb40d0c133a` |
 | Isi | 377 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
@@ -47,8 +47,8 @@ yang sudah ada. Semua sudah ada (angka 1) -> tidak wajib impor, tapi aman.
 ## 4. Upload & ekstrak
 
 ```
-unzip tamasya-production-20261021-r16.zip
-cd tamasya-production-20261021-r16
+unzip tamasya-production-20261021-r17.zip
+cd tamasya-production-20261021-r17
 ```
 
 Arahkan document root web server ke folder ini.
@@ -80,7 +80,7 @@ chmod 640 .env db_credentials.php
 
 ## 8. Cache browser (WAJIB dibaca)
 
-Rilis ini memakai token versi baru (`20261021-r16`). Server Anda masih menjalankan
+Rilis ini memakai token versi baru (`20261021-r17`). Server Anda masih menjalankan
 `20261021-r15`, jadi **tanpa langkah ini browser akan tetap memakai aset lama** dari
 cache service worker dan fitur baru tidak akan terlihat:
 
@@ -92,7 +92,7 @@ cache service worker dan fitur baru tidak akan terlihat:
 
 ## 9. Cache browser (lama)
 
-Rilis ini memakai token versi baru (`20261021-r16`), jadi service worker
+Rilis ini memakai token versi baru (`20261021-r17`), jadi service worker
 mengunduh ulang aset secara otomatis. Bila browser masih menampilkan versi
 lama: hard refresh (Ctrl+Shift+R) atau increment "Unregister service worker"
 di DevTools -> Application -> Service Workers.

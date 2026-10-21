@@ -174,6 +174,46 @@ test('PRD shared-hosting shell lazy-loads optional addons only when their capabi
   writeEvidence('prd-lazy-addons',info,{pass:true,requested:[...new Set(requested.filter(x=>x.includes('/assets/')))]});
 });
 
+test('Contract rate panel: the trigger clears the report button and opens a centred modal',async({page},info)=>{
+  const requested=[];
+  page.on('request',request=>{try{requested.push(new URL(request.url()).pathname);}catch{}});
+  await page.goto('/index.html');
+  await expect(page.locator('#tab-dashboard')).toBeVisible();
+  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'rooms'}})));
+  await expect.poll(()=>requested.some(x=>x.endsWith('/assets/wholesale-contract-addon.js'))).toBe(true);
+
+  const trigger=page.locator('#tamasya-wholesale-button');
+  await expect(trigger).toBeVisible();
+  const triggerBox=await trigger.boundingBox();
+  expect(triggerBox).not.toBeNull();
+
+  // Tombol kontrak tidak boleh menutupi tombol laporan yang sudah ada.
+  const reportButton=page.locator('#tamasya-report-center-btn');
+  let reportBox=null;
+  if(await reportButton.count()&&await reportButton.isVisible()){
+    reportBox=await reportButton.boundingBox();
+    const separated=triggerBox.y+triggerBox.height<=reportBox.y
+      ||reportBox.y+reportBox.height<=triggerBox.y
+      ||triggerBox.x+triggerBox.width<=reportBox.x
+      ||reportBox.x+reportBox.width<=triggerBox.x;
+    expect(separated,'contract rate trigger overlaps the report button').toBe(true);
+  }
+
+  // Panel harus modal terpusat, bukan kartu di pojok.
+  await trigger.click();
+  const modal=page.locator('#tamasya-wholesale-panel');
+  await expect(modal).toBeVisible();
+  const modalBox=await modal.boundingBox();
+  const viewportWidth=info.project.name==='mobile'?390:1440;
+  expect(modalBox.x).toBeGreaterThanOrEqual(0);
+  expect(modalBox.x+modalBox.width).toBeLessThanOrEqual(viewportWidth);
+  const centredGap=Math.abs((viewportWidth-(modalBox.x+modalBox.width))-modalBox.x);
+  expect(centredGap).toBeLessThanOrEqual(40);
+  await page.locator('#tamasya-wholesale-panel [data-act="close"]').click();
+  await expect(modal).toBeHidden();
+  writeEvidence('contract-rate-panel',info,{pass:true,trigger:triggerBox,report:reportBox,modal:modalBox});
+});
+
 test('R16.4 finance React hooks mount cleanly and preserve top-level routes',async({page},info)=>{
   const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto('/index.html');
@@ -506,7 +546,7 @@ test('Fresh service worker precaches the exact React module for offline import',
     // Memo does not import the PMS React bundle, so the vendor cannot be warmed
     // accidentally before this check of the newly installed precache.
     await page.goto(BASE+'/internal-memo.html');
-    const vendor='assets/chunks/vendor-react.js?v=20261021-r16';
+    const vendor='assets/chunks/vendor-react.js?v=20261021-r17';
     const cached=await page.evaluate(async vendor=>{
       await navigator.serviceWorker.register('./sw.js');await navigator.serviceWorker.ready;
       const cacheKeys=await caches.keys();
