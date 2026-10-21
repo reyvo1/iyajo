@@ -28,7 +28,7 @@ check('All lazy chunk imports reference exactly the SAME React app-core module i
 check('Finance chunk has a cache-busted URL after React Hook repair',()=>assert.match(core,/finance\.js\?v=20261009-r164-browserfix1/));
 check('Service worker precaches EXACT indexed root React module URL',()=>{
   assert.ok(sw.includes('"./assets/app-core.js?v='+entry[1]+'"'));
-  assert.ok(!sw.includes('"./assets/app-core.js?v=20261008-r15"'));
+  assert.ok(!sw.includes('"./assets/app-core.js?v=20261021-rbac-r1"'));
 });
 check('Old intact Playwright finance/navigation assertions are still active',()=>{
   const spec=read('tests/uat_rc1/browser/rc1-ui.spec.mjs');
