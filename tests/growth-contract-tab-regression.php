@@ -48,6 +48,13 @@ $check(str_contains($js, 'contractMoney('), 'Nominal kontrak diformat mengikuti 
 $check(str_contains($server, "'wholesalePlans'"), 'Server Growth Suite mengirim paket kontrak');
 $check(str_contains($server, "'wholesaleBookings'"), 'Server Growth Suite mengirim reservasi kontrak');
 $check(str_contains($server, "case 'contract-quote':"), 'Server Growth Suite punya aksi kuotasi kontrak');
+$postGate = strpos($server, "if(\$method!=='POST')");
+$quoteCase = strpos($server, "case 'contract-quote':");
+$rateCase = strpos($server, "case 'exchange-rate-save':");
+$getGate = strpos($server, "if(\$method==='GET')");
+$check($postGate !== false && $quoteCase > $postGate, 'Aksi kuotasi kontrak berada di cabang POST (UI mengirim POST)');
+$check($postGate !== false && $rateCase > $postGate, 'Aksi simpan kurs berada di cabang POST (UI mengirim POST)');
+$check($getGate === false || $quoteCase < $getGate || $quoteCase > $postGate, 'Aksi kuotasi kontrak tidak tertinggal di cabang GET');
 $check(str_contains($server, 'tamasyaWholesaleContractRateQuote('), 'Kuotasi memakai helper tarif kontrak yang sama dengan server');
 $check(str_contains($server, 'catch(Throwable $wholesaleSchemaMissing)'), 'Skema kontrak yang belum ada tidak menggagalkan Growth Suite');
 

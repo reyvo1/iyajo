@@ -49,7 +49,7 @@ const ASSETS_TO_CACHE = [
   "./assets/pos-minibar.js?v=20261021-r18",
   "./assets/internal-memo.css?v=20261021-r18",
   "./assets/internal-memo.js",
-  "./assets/master-data-workspace.js?v=20261009-catalog-r1623",
+  "./assets/master-data-workspace.js?v=20261009-catalog-price-onestep1",
   "./assets/ui-core.js?v=20261021-r18",
   "./assets/flexible-maintenance-addon.js?v=20261021-r18",
   "./assets/date-display-id.js?v=20260829-fix39-refsafe",

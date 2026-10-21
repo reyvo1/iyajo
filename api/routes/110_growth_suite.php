@@ -253,51 +253,6 @@ try {
         switch($command){
             case 'overview':
                 echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;
-            case 'exchange-rate-save':
-                // Mencatat kurs harian. Tanpa kurs, transaksi dalam mata uang
-                // asing ditolak server, jadi kurs dicatat dari Growth Suite.
-                if(!tamasyaGrowthSuiteEnabled()||!tamasyaGrowthSchemaReady($pdo)){http_response_code(409);echo tamasyaJsonEncode(['success'=>false,'error'=>'Growth Suite belum aktif pada property ini.']);break;}
-                if(!$canAnyTab(['finance','operations','report'])){http_response_code(403);echo tamasyaJsonEncode(['success'=>false,'error'=>'Izin mencatat kurs tidak ada.']);break;}
-                $rateBase=tamasyaPropertyCurrency($pdo);
-                try{
-                    $rateId=tamasyaSaveExchangeRate($pdo,$rateBase,trim((string)($input['quoteCurrency']??'')),(float)($input['rate']??0),trim((string)($input['rateDate']??'')),trim((string)($input['source']??'manual')),(string)($loggedInStaff['id']??''));
-                    writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Mencatat kurs transaksi','exchange_rate',$rateId,null,['baseCurrency'=>$rateBase,'quoteCurrency'=>strtoupper(trim((string)($input['quoteCurrency']??''))),'rate'=>(float)($input['rate']??0),'rateDate'=>trim((string)($input['rateDate']??''))],'exchange_rate');
-                    echo tamasyaJsonEncode(['success'=>true,'data'=>['id'=>$rateId]]);
-                }catch(InvalidArgumentException $rateInvalid){
-                    http_response_code(422);
-                    echo tamasyaJsonEncode(['success'=>false,'error'=>$rateInvalid->getMessage()]);
-                }catch(Throwable $rateSchemaMissing){
-                    http_response_code(409);
-                    echo tamasyaJsonEncode(['success'=>false,'error'=>'Tabel kurs belum tersedia. Jalankan migrasi 20261021_TRANSACTION_CURRENCY.sql.']);
-                }
-                break;
-            case 'contract-quote':
-                // Kuotasi tarif kontrak untuk satu inap. Server yang menghitung
-                // nominal; Growth Suite hanya menampilkan.
-                if(!tamasyaGrowthSuiteEnabled()||!tamasyaGrowthSchemaReady($pdo)){http_response_code(409);echo tamasyaJsonEncode(['success'=>false,'error'=>'Growth Suite belum aktif pada property ini.']);break;}
-                if(!$canAnyTab(['rooms','operations','report','finance'])){http_response_code(403);echo tamasyaJsonEncode(['success'=>false,'error'=>'Izin membaca tarif kontrak tidak ada.']);break;}
-                $contractQuote=[
-                    'checkIn'=>trim((string)($input['checkIn']??'')),
-                    'checkOut'=>trim((string)($input['checkOut']??'')),
-                    'roomType'=>trim((string)($input['roomType']??'')),
-                    'companyName'=>trim((string)($input['companyName']??'')),
-                    'planId'=>trim((string)($input['planId']??'')),
-                ];
-                if($contractQuote['planId']===''){
-                    $candidates=[];
-                    try{
-                        $candidates=tamasyaWholesaleContractRateCandidates($pdo,strtolower(trim((string)($GLOBALS['tamasya_property_id']??''))),$contractQuote);
-                    }catch(Throwable $wholesaleSchemaMissing){$candidates=[];}
-                    echo tamasyaJsonEncode(['success'=>true,'data'=>['candidates'=>$candidates,'applicable'=>array_values(array_filter($candidates,function($row){return (bool)($row['applicable']??false);}))]]);break;
-                }
-                try{
-                    $contractQuoteResult=tamasyaWholesaleContractRateQuote($pdo,strtolower(trim((string)($GLOBALS['tamasya_property_id']??''))),$contractQuote);
-                    echo tamasyaJsonEncode(['success'=>true,'data'=>['quote'=>$contractQuoteResult]]);
-                }catch(Throwable $wholesaleSchemaMissing){
-                    http_response_code(409);
-                    echo tamasyaJsonEncode(['success'=>false,'error'=>'Skema tarif kontrak belum tersedia. Jalankan migrasi 20261021_WHOLESALE_RATES.sql.']);
-                }
-                break;
             case 'bootstrap':
                 if(!tamasyaGrowthSuiteEnabled()){echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;}
                 if(!tamasyaGrowthSchemaReady($pdo)){echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;}
@@ -496,7 +451,52 @@ $pairStmt=$pdo->prepare("SELECT * FROM growth_purchase_order_payments WHERE po_i
             break;
         case 'payment-link-transaction':
             $requireModule('payment');requireRoles($loggedInStaff,['admin','manager','finance']);$intentId=trim((string)($input['intentId']??''));$txId=trim((string)($input['transactionId']??''));if($intentId===''||$txId==='')throw new InvalidArgumentException('Intent dan transactionId wajib.');$pdo->beginTransaction();try{$s=$pdo->prepare("SELECT * FROM growth_payment_intents WHERE id=? FOR UPDATE");$s->execute([$intentId]);$before=$s->fetch(PDO::FETCH_ASSOC)?:null;if(!$before)throw new InvalidArgumentException('Payment intent tidak ditemukan.');$t=$pdo->prepare("SELECT id,bookingId,type,amount,transactionKind,operationId FROM transactions WHERE id=? FOR UPDATE");$t->execute([$txId]);$tx=$t->fetch(PDO::FETCH_ASSOC)?:null;if(!$tx||strtolower((string)$tx['type'])!=='income'||(string)$tx['bookingId']!==(string)$before['booking_id'])throw new InvalidArgumentException('Transaksi harus pemasukan canonical milik booking yang sama.');if(!moneyMatches((float)$tx['amount'],(float)$before['amount'],0.01))throw new RuntimeException('Nominal transaksi berbeda dari payment intent.');$pdo->prepare("UPDATE growth_payment_intents SET status='confirmed',confirmed_transaction_id=?,updated_at=CURRENT_TIMESTAMP WHERE id=?")->execute([$txId,$intentId]);$after=$fetchOne($pdo,"SELECT * FROM growth_payment_intents WHERE id=?",[$intentId]);tamasyaGrowthAudit($pdo,$loggedInStaff,'Menautkan canonical booking payment ke payment intent','growth_payment_intent',$intentId,$before,['intent'=>$after,'transaction'=>$tx]);bumpServerRevision($pdo);tamasyaFinancialCommit($pdo);echo tamasyaJsonEncode(['success'=>true,'data'=>$after,'sourceOfTruth'=>'transactions']);}catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}break;
-        default: throw new InvalidArgumentException('Command Growth Suite POST tidak dikenal.');
+                    case 'exchange-rate-save':
+                // Mencatat kurs harian. Tanpa kurs, transaksi dalam mata uang
+                // asing ditolak server, jadi kurs dicatat dari Growth Suite.
+                if(!tamasyaGrowthSuiteEnabled()||!tamasyaGrowthSchemaReady($pdo)){http_response_code(409);echo tamasyaJsonEncode(['success'=>false,'error'=>'Growth Suite belum aktif pada property ini.']);break;}
+                if(!$canAnyTab(['finance','operations','report'])){http_response_code(403);echo tamasyaJsonEncode(['success'=>false,'error'=>'Izin mencatat kurs tidak ada.']);break;}
+                $rateBase=tamasyaPropertyCurrency($pdo);
+                try{
+                    $rateId=tamasyaSaveExchangeRate($pdo,$rateBase,trim((string)($input['quoteCurrency']??'')),(float)($input['rate']??0),trim((string)($input['rateDate']??'')),trim((string)($input['source']??'manual')),(string)($loggedInStaff['id']??''));
+                    writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Mencatat kurs transaksi','exchange_rate',$rateId,null,['baseCurrency'=>$rateBase,'quoteCurrency'=>strtoupper(trim((string)($input['quoteCurrency']??''))),'rate'=>(float)($input['rate']??0),'rateDate'=>trim((string)($input['rateDate']??''))],'exchange_rate');
+                    echo tamasyaJsonEncode(['success'=>true,'data'=>['id'=>$rateId]]);
+                }catch(InvalidArgumentException $rateInvalid){
+                    http_response_code(422);
+                    echo tamasyaJsonEncode(['success'=>false,'error'=>$rateInvalid->getMessage()]);
+                }catch(Throwable $rateSchemaMissing){
+                    http_response_code(409);
+                    echo tamasyaJsonEncode(['success'=>false,'error'=>'Tabel kurs belum tersedia. Jalankan migrasi 20261021_TRANSACTION_CURRENCY.sql.']);
+                }
+                break;
+            case 'contract-quote':
+                // Kuotasi tarif kontrak untuk satu inap. Server yang menghitung
+                // nominal; Growth Suite hanya menampilkan.
+                if(!tamasyaGrowthSuiteEnabled()||!tamasyaGrowthSchemaReady($pdo)){http_response_code(409);echo tamasyaJsonEncode(['success'=>false,'error'=>'Growth Suite belum aktif pada property ini.']);break;}
+                if(!$canAnyTab(['rooms','operations','report','finance'])){http_response_code(403);echo tamasyaJsonEncode(['success'=>false,'error'=>'Izin membaca tarif kontrak tidak ada.']);break;}
+                $contractQuote=[
+                    'checkIn'=>trim((string)($input['checkIn']??'')),
+                    'checkOut'=>trim((string)($input['checkOut']??'')),
+                    'roomType'=>trim((string)($input['roomType']??'')),
+                    'companyName'=>trim((string)($input['companyName']??'')),
+                    'planId'=>trim((string)($input['planId']??'')),
+                ];
+                if($contractQuote['planId']===''){
+                    $candidates=[];
+                    try{
+                        $candidates=tamasyaWholesaleContractRateCandidates($pdo,strtolower(trim((string)($GLOBALS['tamasya_property_id']??''))),$contractQuote);
+                    }catch(Throwable $wholesaleSchemaMissing){$candidates=[];}
+                    echo tamasyaJsonEncode(['success'=>true,'data'=>['candidates'=>$candidates,'applicable'=>array_values(array_filter($candidates,function($row){return (bool)($row['applicable']??false);}))]]);break;
+                }
+                try{
+                    $contractQuoteResult=tamasyaWholesaleContractRateQuote($pdo,strtolower(trim((string)($GLOBALS['tamasya_property_id']??''))),$contractQuote);
+                    echo tamasyaJsonEncode(['success'=>true,'data'=>['quote'=>$contractQuoteResult]]);
+                }catch(Throwable $wholesaleSchemaMissing){
+                    http_response_code(409);
+                    echo tamasyaJsonEncode(['success'=>false,'error'=>'Skema tarif kontrak belum tersedia. Jalankan migrasi 20261021_WHOLESALE_RATES.sql.']);
+                }
+                break;
+default: throw new InvalidArgumentException('Command Growth Suite POST tidak dikenal.');
     }
 } catch(Throwable $growthError) {
     if($pdo instanceof PDO && $pdo->inTransaction()){try{$pdo->rollBack();}catch(Throwable $ignored){}}

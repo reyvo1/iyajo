@@ -82,7 +82,10 @@ import {connectRealtime} from './realtime_client.js';
       };
     }catch(error){if(current===generation)$('message').textContent=error.message;}
   }
-  $('role-presets').onclick=()=>{showRolePresets();};
+  // Halaman HQ lain (mis. konsol administrasi) tidak memakai modul ini, jadi
+  // elemen tombol boleh tidak ada.
+  const rolePresetsButton=$('role-presets');
+  if(rolePresetsButton)rolePresetsButton.onclick=()=>{showRolePresets();};
 
   $('login-form').onsubmit = async event => {
     event.preventDefault(); token = $('token').value.trim();companyScope=$('login-company').value.trim(); cached = null; $('message').textContent = '';
@@ -95,7 +98,7 @@ import {connectRealtime} from './realtime_client.js';
       $('delivery-panel').hidden=destinations.data.length===0;
       $('properties').innerHTML = user.propertyIds.map(id => `<label><input type="checkbox" value="${esc(id)}" checked>${esc(id)}</label>`).join('');
       stopRealtime?.();stopRealtime=connectRealtime({ticket:async()=>(await api('realtime-ticket')).data,changed:()=>{if(reportData&&!loading)$('report-form').requestSubmit();},status:value=>{$('realtime-status').textContent=value==='connected'?'Pembaruan langsung aktif':'Pembaruan berkala';}});
-      $('login-panel').hidden = true; $('workspace').hidden = false; $('logout').hidden = false; $('role-presets').hidden = false;
+      $('login-panel').hidden = true; $('workspace').hidden = false; $('logout').hidden = false; if($('role-presets'))$('role-presets').hidden = false;
     } catch (error) { if(current===generation){token = ''; $('message').textContent = error.message;} }
   };
   $('report-form').onsubmit = async event => {

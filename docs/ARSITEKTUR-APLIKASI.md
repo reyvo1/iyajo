@@ -18,7 +18,7 @@ HQ ── snapshot HMAC ── hq/ (DB terpisah)
 - **`api.php`**: pintu tunggal (`?action=` / REST). Bootstrap fail-closed:
   PHP≥8.2, `APP_TIMEZONE`, identitas properti, kunci enkripsi, CORS/host,
   rate-limit, cek skema/klaster → dispatch ke `api/routes/`.
-- **`api/routes/`** (28 file): batas HTTP per domain. Contoh:
+- **`api/routes/`** (35 file): batas HTTP per domain. Contoh:
   `020_hotel_booking.php` (booking/kamar/bayar/checkout/grup),
   `040_transactions_sync.php` (kas + sync offline),
   `050_auth_staff.php` (login + CRUD staf),

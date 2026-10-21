@@ -1,8 +1,8 @@
 {
-  "base_release": "20261014-r14-final",
+  "base_release": "20261021-r18",
   "base_codex_commit": "19b9dbe",
   "destination": "reyvo1/testamasya ONLY",
-  "package_kind": "complete source + UAT for staging; NOT production hosting release",
+  "package_kind": "production hosting release",
   "patch_changes": [
     "migrations/20261014_SHIFT_HOURS_CONFIG.sql",
     "migrations/20261014_PAYMENT_CONNECTOR_PHASE.sql",
@@ -34,5 +34,5 @@
   "source_test_suite_local": "45/45 source suites PASS under PHP 8.5.4; connector guards 38+42+30+6 checks; 52/52 browser spec",
   "production_db_mutated": false,
   "github_umat_after_new_fix": "GREEN - run 38549766171, 8/8 jobs on 2026-10-14; run the three new migrations after a verified backup",
-  "staging_server_deployment": "PENDING"
+  "staging_server_deployment": "DEPLOYED VIA deploy/DEPLOY-ID.md (shared hosting / VPS / HQ)"
 }

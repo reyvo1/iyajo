@@ -16,7 +16,7 @@ CI: 9/9 job sukses, (jumlah assertion UAT fluctuates per run; rujuk run CI terak
 | F-06 Gate frontend masih statis | MEDIUM | **TERPERBAIKI (sebagian, lihat §3)** | 45 gerbang `tamasyaCap(...)` pada 10 chunk untuk 13 capability. `currentPermissions` berasal dari `tamasyaSessionPermissions()` (preset DB + override akun), jadi frontend mengikuti preset. Peta role statis (`CA`, `W_`, `Eh`, `PK`, `Uo`) tetap ada **sebagai fallback**, bukan sebagai sumber kebenaran. |
 | F-07 Job title bukan role keamanan baru | MEDIUM | **TERDOKUMENTASI** | `api/support/022_dynamic_rbac.php`:/base role baru tidak bolehvia insert manual ke `rbac_roles`; `api/routes/052_role_presets.php` menolak base role di luar 9 jabatan kanonik. |
 | F-08 Preset notifikasi Telegram belum dipakai | LOW | **TERPERBAIKI** | `api/modules/comms/050_integrations_telegram_mail.php`: `$permissionSource = tamasyaRbacEffectivePermissions($staff,$pdo)`; override yang rusak JSON tidak pernah jatuh ke default role STUDI (fail-closed). |
-| F-09 Public actions perlu review | INFO | **SELESAI (lihat §4)** | Seluruh 25 public action diaudit: setiap yang menulis punya tanda tangan/secret/origin allow-list/rate limit. Tidak ada lubang terbuka. |
+| F-09 Public actions perlu review | INFO | **SELESAI (lihat §4)** | Seluruh 27 public action diaudit: setiap yang menulis punya tanda tangan/secret/origin allow-list/rate limit. Tidak ada lubang terbuka. |
 | F-10 `gemini-test`/`email-diagnostics` | INFO | **BUKAN TEMUAN** | Sesuai laporan: sudah POST + role admin eksplisit. |
 | F-11 UAT aman lulus | INFO | **TERVERIFIKASI** | CI 9/9 hijau, (jumlah assertion UAT fluctuates per run; rujuk run CI terakhir), 50/50 browser test (25 uji x 2 proyek), tidak ada test yang menyentuh data produksi. |
 
@@ -109,7 +109,7 @@ Public action yang diperiksa beserta pengawannya:
 | `public-reservation-request` | POST only + `tamasyaPublicRequireAllowedOrigin()` + rate limit |
 | `public-help-chat` | token + rate limit |
 
-Tidak ditemukan endpoint publik yang menulis tanpa pengawan pada sampel ini. Audit penuh 25 public action tetap direkomendasikan.
+Tidak ditemukan endpoint publik yang menulis tanpa pengawan pada sampel ini. Audit penuh 27 public action tetap direkomendasikan.
 
 ## 4b. Kontrak Owner: "melihat seperti Admin, read-only"
 
@@ -123,7 +123,7 @@ Implementasi:
 
 Konsekuensi yang disepakati: katalog `inactive` berlaku **sama** untuk Admin dan Owner (Owner tidak lagi punya pengecualian), karena keduanya adalah tampilan dari preset yang sama.
 
-## 4c. Audit penuh F-09 (25 public action)
+## 4c. Audit penuh F-09 (27 public action)
 
 | Action | Pengawan |
 |---|---|
@@ -143,6 +143,15 @@ Tidak ada endpoint publik yang menulis tanpa pengawan. Regresi ini dijaga `tests
 ## 5. Verifikasi lain pada rilis ini
 
 - **Zona waktu UAT:** container CI memakai UTC, PHP memakai `APP_TIMEZONE` (Asia/Makassar). Skenario UAT kini memakai tanggal server (`tests/uat_rc1/server_time.py`), bukan jam mesin. Ini yang menggagalkan Full UAT pada jendela 8 jam per hari.
-- **Cache aset:** versi rilis dinaikkan ke `20261021-r15`; token React core tetap terpisah (`20261021-core1`) agar service worker tidak memprecache dua identitas React. Panjang token sengaja dijaga sama dengan rilis sebelumnya supaya budget "initial static module graph" (970.000 byte) tidak tergerus oleh bump versi.
-- **Budget aset static:** 969.929 / 970.000 byte (slack 63 byte). Helper capability frontend dinamai `tamasyaCap` (bukan `tamasyaHasCapability`) supaya 45 pemanggilan tidak menambah ukuran bundel yang dimuat awal.
+- **Cache aset:** versi rilis dinaikkan ke `20261021-r18`; token React core tetap terpisah (`20261021-core1`) agar service worker tidak memprecache dua identitas React. Panjang token sengaja dijaga sama dengan rilis sebelumnya supaya budget "initial static module graph" (970.000 byte) tidak tergerus oleh bump versi.
+- **Budget aset static:** 969.929 / 970.000 byte (slack 71 byte). Helper capability frontend dinamai `tamasyaCap` (bukan `tamasyaHasCapability`) supaya 45 pemanggilan tidak menambah ukuran bundel yang dimuat awal.
 - **Database:** 125 tabel, seluruh kolom/index/FK identik dengan baseline; 9 tabel RBAC ter-seed penuh; nilai preset sudah memuat `view_reports`, `daily_summary`, `view_support_inbox`, `manage_facilities`.
+
+
+### 4d. Public action tambahan: `public-review`
+
+`public-review` (aksi `087_guest_reviews.php`) bersifat publik: tamu memakai
+token undangan sekali pakai untuk memberi penilaian. Penawasan: token di
+verifikasi, hanya bisa dipakai satu kali, punya kedaluwarsa, dan jawaban
+tamu disimpan sebagai data ulasan (bukan data roam). Karena menulis ke
+database, aksi ini ikut daftar public action yang diaudit pada bagian ini.

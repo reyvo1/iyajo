@@ -289,7 +289,7 @@
     plansBox.textContent = 'Memuat…';
     const [plans, locked] = await Promise.all([
       api('wholesale-rates'),
-      api('wholesale-rates', { command: 'wholesale-rate-bookings' }).catch(() => ({ rows: [] })),
+      api('wholesale-rates', { method: 'POST', command: 'wholesale-rate-bookings' }).catch(() => ({ rows: [] })),
     ]);
     const rows = Array.isArray(plans.rows) ? plans.rows : [];
     if (!rows.length) {

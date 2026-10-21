@@ -106,7 +106,7 @@
     };
 
     if (['rooms', 'reservations', 'support', 'operations'].includes(current)) run(loadGuestCenter, true);
-    if(current==='rooms')run(loadWholesaleContract,true);
+    if(current==='rooms'||current==='reservations')run(loadWholesaleContract,true);
     if (current === 'report' || current === 'finance') run(loadReportTools, false);
     if (current === 'website') run(loadWebsiteTools, false);
 

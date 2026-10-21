@@ -7,7 +7,7 @@ tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
 | Paket | `tamasya-production-20261021-r18.zip` |
 |---|---|
-| SHA-256 paket | `01f3e95a61bc976212a5687729c2edc5c8caa5049eede47a1e37a04ff3c719f6` |
+| SHA-256 paket | `b51a67d34bb814439d9b8f8e8d55b1844478445b1df38e408b759fce52880e98` |
 | Isi | 376 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
@@ -38,7 +38,7 @@ Migrasi fitur baru (jika database Anda sudah ada):
 `migrations/20261021_WHOLESALE_RATES.sql` (paket tarif kontrak B2B), dan
 `migrations/20261021_WHOLESALE_RATE_LOCK.sql` (kunci tarif kontrak pada reservasi), dan
 `migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql` (nilai transaksi dalam mata uang property).
-Kelimanya idempoten. Tanpa migrasi, tab terkait akan memberi pesan jelas
+Kelimanya idempoten. Migrasi lain (mis. katalog universal `20261009_R15_UNIVERSAL_CATALOG_ADDITIVE.sql`) tidak ikut berkas ini dan dipasang terpisah lewat `scripts/activate-growth-enterprise.php`. Tanpa migrasi, tab terkait akan memberi pesan jelas
 bahwa skema belum tersedia, bukan error fatal.
 
 Cek cepat apakah perlu: bagian LANGKAH 0 di file SQL menampilkan tabel mana
@@ -108,7 +108,7 @@ di DevTools -> Application -> Service Workers.
    `php tests/regression.php` bila Anda ikut menyalin folder `tests/`.
 6. Verifikasi integritas paket: `sha256sum -c DEPLOY-SHA256SUMS.txt`
    (jalankan dari dalam folder hasil ekstraksi).
-7. HQ: buka `hq/control.html` -> tombol "Paket izin jabatan" untuk melihat
+7. HQ: buka `hq/index.html` -> tombol "Paket izin jabatan" untuk melihat
    paket kanonik, menerbitkan revisi, dan status penerapan per properti.
 8. Tarif kontrak: buka tab Kamar -> tombol "Tarif kontrak" atau tab Growth Suite ->
    "Kontrak B2B" untuk membuat paket, mencari harga per inap, dan memilih paket

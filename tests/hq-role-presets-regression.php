@@ -58,7 +58,11 @@ $hqCheck(str_contains($cron, 'tidak boleh menghentikan cron'), 'Kegagalan tarik 
 /* UI HQ: tombol + panel paket izin jabatan */
 $hqApp = $read('hq/app.js');
 $hqHtml = $read('hq/control.html');
-$hqCheck(str_contains($hqHtml, 'id="role-presets"'), 'Kontrol HQ punya tombol paket izin jabatan');
+$hqIndex = $read('hq/index.html');
+$hqCheck(str_contains($hqIndex, 'id="role-presets"'), 'Halaman HQ punya tombol paket izin jabatan');
+$hqCheck(!str_contains($hqHtml, 'id="role-presets"'), 'Halaman konsol HQ tidak punya tombol yang tidak terjangkau');
+$hqCheck(str_contains($hqApp, 'rolePresetsButton') && str_contains($hqApp, 'if(rolePresetsButton)'), 'Handler paket izin jabatan dilindungi agar tidak mematikan dashboard HQ');
+$hqCheck(str_contains($hqIndex, './app.js'), 'Halaman HQ yang memuat tombol juga memuat app.js');
 $hqCheck(str_contains($hqApp, 'showRolePresets'), 'Kontrol HQ punya penampil paket izin jabatan');
 $hqCheck(str_contains($hqApp, "api('rbac-presets')"), 'Kontrol HQ memuat paket dari API HQ');
 $hqCheck(str_contains($hqApp, "api('rbac-preset-state')"), 'Kontrol HQ memuat status penerapan per properti');

@@ -2,7 +2,7 @@
 
 Baseline: `V137_FRESH_CANONICAL_MULTI_HOTEL`. Satu database = satu hotel
 (DB-per-properti; tidak ada `tenant_id` di tabel inti).
-Sumber: `database_setup.sql` (125 tabel) + `migrations/`.
+Sumber: `database_setup.sql` (131 tabel) + `migrations/`.
 
 ## Konvensi umum
 
@@ -143,3 +143,4 @@ journal_entries/lines│ facility_bookings, service_requests,
 | `rbac_roles`, `rbac_capabilities`, `rbac_desktop_tabs`, `rbac_notification_groups`, `rbac_access_groups`, `rbac_access_group_roles`, `rbac_legacy_role_sets` | Registry RBAC dinamis + pemetaan daftar role lama ke access group |
 | `staff_job_titles` | Jabatan dinamis; setiap jabatan punya `base_role` dari role kanonik |
 | `audit_logs` | Jejak audit enterprise (viewer, filter, redaksi) |
+| `tamasya_catalog_items`, `tamasya_catalog_rates`, `tamasya_catalog_transaction_lines` | Katalog universal (fitur opsional). Tabelnya dibuat oleh `migrations/20261009_R15_UNIVERSAL_CATALOG_ADDITIVE.sql` + `R16_2_CATALOG_TRANSACTION_SNAPSHOTS.sql` dan **tidak** ikut `database_setup.sql` maupun berkas impor. Pasang lewat `scripts/activate-growth-enterprise.php` bila katalog universal diaktifkan |

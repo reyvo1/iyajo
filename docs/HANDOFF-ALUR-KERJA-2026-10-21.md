@@ -2,7 +2,7 @@
 
 Rilis: `20261021-r18` · commit: `HEAD` · CI: **9/9 hijau** (run terakhir + transkrip di repo).
 Skema: **131 tabel** · suite lokal: **116 perintah** (harus `set -euo pipefail`).
-Paket deploy: `tamasya-production-20261021-r18.zip` (377 berkas, sha256 `01f3e95a61bc976212a5687729c2edc5c8caa5049eede47a1e37a04ff3c719f6`) +
+Paket deploy: `tamasya-production-20261021-r18.zip` (377 berkas; sha256 paket ada di `deploy/DEPLOY-ID.md`) +
 `deploy/DEPLOY-ID.md` + `deploy/IMPORT-RBAC-PHPMYADMIN.sql`.
 
 Dokumen ini adalah sumber konteks tunggal. **Baca ini dulu sebelum mengubah apa pun.**
@@ -161,8 +161,8 @@ hardcoded. Sisa v2 = konversi kurs sungguhan, lihat 4.4.
 - `api/support/021_role_presets.php`: `tamasyaRolePresetApplyPayload()` (upsert, hanya jabatan kanonik, nilai dinormalisasi) + `tamasyaRolePresetPullFromHq()` (pull via token HQ).
 - `api/routes/052_role_presets.php`: command `role-preset-apply` (admin) + `role-preset-state` (baca).
 - `maintenance_cron.php`: menarik paket HQ tiap siklus; kegagalan tidak menghentikan cron.
-- `hq/app.js` + `hq/control.html`: tombol "Paket izin jabatan" → daftar paket, terbitkan revisi, status penerapan per properti.
-- `tests/hq-role-presets-regression.php` (27 cek).
+- `hq/app.js` + `hq/index.html`: tombol "Paket izin jabatan" → daftar paket, terbitkan revisi, status penerapan per properti.
+- `tests/hq-role-presets-regression.php` (30 cek).
 - **Model = pull** (property menarik), bukan push: property tidak perlu menerima koneksi masuk dari HQ.
 
 ### 4.4 Mesin kurs transaksi (multi-mata uang v2) — selesai
@@ -173,7 +173,8 @@ hardcoded. Sisa v2 = konversi kurs sungguhan, lihat 4.4.
   punya kurs (dari pemanggil atau `exchange_rates`); tanpa kurs → **ditolak**, bukan dicatat seolah
   mata uang property. Hasil konversi disimpan pada kolom baru `transactions.propertyAmount`.
 - `baseAmount` **tetap** NULL = "pajak belum diketahui"; tidak dipakai untuk konversi.
-- `api/routes/089_exchange_rates.php`: daftar kurs + simpan kurs (hanya admin/manajer).
+- `api/routes/089_exchange_rates.php`: daftar kurs + simpan kurs (hanya admin/manajer). Endpoint ini dipakai
+  kanal lain; antarmuka konsol memakai aksi `exchange-rate-save` di Growth Suite (helper yang sama).
 - UI kurs: tab "Kontrak B2B" di Growth Suite (`growth-suite.html` + `assets/growth-suite.js`) ->
   tabel kurs harian + form catat kurs. Server Growth Suite memakai helper
   `tamasyaSaveExchangeRate()` yang sama dengan API kurs, jadi tidak ada dua aturan berbeda.
