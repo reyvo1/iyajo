@@ -54,3 +54,14 @@ dan `webpublic/` tetap terpisah (publik tanpa auth).
    atau CI akan merah — lihat pelajaran R14.
 4. Setiap perubahan JS yang menyentuh module graph wajib lolos probe Chromium
    sebelum push — lihat pelajaran duplicate React.
+
+
+## Peta penomoran ke handoff 2026-10-21
+
+`P2_ROADMAP.md` memakai penomoran P2 sendiri; handoff `docs/HANDOFF-ALUR-KERJA-2026-10-21.md`
+memakai penomoran P2 untuk fitur baru. Yang sama refers ke:
+
+| Handoff | Roadmap | Status |
+|---|---|---|
+| P2-5 tarif kontrak B2B | P2-7 (rencana) | selesai di `20261021-r18` |
+| P2-6 ulasan tamu | P2-8 (rencana) | selesai di `20261021-r18` |

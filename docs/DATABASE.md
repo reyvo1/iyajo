@@ -128,3 +128,18 @@ transactions ⇄ bookings (bookingId) ⇄ rooms (roomNumber)
 journal_entries/lines│ facility_bookings, service_requests,
                      │ pos_sales, vacancy_reports
 ```
+
+
+## 10. Tabel & kolom baru (rilis 20261021-r18)
+
+| Tabel / kolom | Isi |
+|---|---|
+| `wholesale_rate_plans` | Paket tarif kontrak: perusahaan/channel, tipe kamar, masa berlaku, min/maks malam, cut-off, pajak, sarapan |
+| `wholesale_rate_nights` | Harga kontrak per tanggal dalam satu paket |
+| `wholesale_rate_bookings` | Kunci tarif kontrak yang dipakai sebuah reservasi (per tanggal, lewat `nightly_breakdown`) |
+| `guest_reviews` + `guest_review_invites` | Ulasan tamu: undangan sekali pakai, penilaian, moderasi, balasan |
+| `exchange_rates` | Kurs harian antara mata uang property dan mata uang asing |
+| `transactions.currency` / `exchangeRate` / `propertyAmount` | Mata uang nominal, kurs yang dipakai, dan nilainya dalam mata uang property. `baseAmount` tetap NULL = "pajak belum diketahui" |
+| `rbac_roles`, `rbac_capabilities`, `rbac_desktop_tabs`, `rbac_notification_groups`, `rbac_access_groups`, `rbac_access_group_roles`, `rbac_legacy_role_sets` | Registry RBAC dinamis + pemetaan daftar role lama ke access group |
+| `staff_job_titles` | Jabatan dinamis; setiap jabatan punya `base_role` dari role kanonik |
+| `audit_logs` | Jejak audit enterprise (viewer, filter, redaksi) |

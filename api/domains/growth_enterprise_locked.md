@@ -1,4 +1,4 @@
-# GROWTH & ENTERPRISE — TERKUNCI 🔒
+# GROWTH & ENTERPRISE — AKTIF 🔒
 Status: pembukaan Growth/Enterprise diotorisasi pemilik pada 5 Oktober 2026.
 Aktivasi eksplisit lewat scripts/activate-growth-enterprise.php pada kedua node setelah schema dan backup diverifikasi. Default runtime tetap fail-closed.
 

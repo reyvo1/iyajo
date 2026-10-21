@@ -1,11 +1,11 @@
-/* UI rounds IDR to whole rupiah; exact helpers and stored money retain cents. */
-(function(root){
- 'use strict';
- const whole=new Intl.NumberFormat('id-ID',{maximumFractionDigits:0}),exact=new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2});
- function formatNumber(value,precise=false){
-  if(value===null||value===undefined||value===''||!Number.isFinite(Number(value)))return '—';
-  let text=(precise?exact:whole).format(Number(value));if(precise)text=text.replace(/,00$/,'');return text==='-0'?'0':text;
- }
- function formatRupiah(value,precise=false){const text=formatNumber(value,precise);return text==='—'?text:'Rp '+text;}
- root.TamasyaCurrencyDisplay=Object.freeze({formatNumber,formatRupiah,formatNumberExact:v=>formatNumber(v,true),formatRupiahExact:v=>formatRupiah(v,true)});
+/* Format uang tampilan: ikut mata uang & locale property. */
+(function(root){'use strict';
+const C=v=>String(v==null?'':v).trim();
+const cur=()=>{const c=C(root.TAMASYA_CURRENCY).toUpperCase();return /^[A-Z]{3}$/.test(c)?c:'IDR';};
+const loc=()=>{const c=C(root.TAMASYA_LOCALE);return /^[a-z]{2}(-[A-Za-z]{2,8})?$/.test(c)?c:'id-ID';};
+const cache={};
+const fmt=(l,p)=>(cache[l+p]||(cache[l+p]=new Intl.NumberFormat(l,p?{minimumFractionDigits:2,maximumFractionDigits:2}:{maximumFractionDigits:0})));
+function num(v,p){if(v==null||v===''||!Number.isFinite(Number(v)))return '—';let t=fmt(loc(),p).format(Number(v));if(p)t=t.replace(/,00$/,'');return t==='-0'?'0':t;}
+function rup(v,p){const t=num(v,p);if(t==='—')return t;const c=cur();return (c==='IDR'?'Rp ':c+' ')+t;}
+root.TamasyaCurrencyDisplay=Object.freeze({formatNumber:num,formatRupiah:rup,formatNumberExact:v=>num(v,true),formatRupiahExact:v=>rup(v,true)});
 })(window);

@@ -33,7 +33,7 @@ const sources = [
 /* Tabel yang dibaca langkah 0 supaya operator tahu apa yang sudah ada. */
 const watched = [
   'staff_job_titles', 'role_capability_presets', 'rbac_roles', 'rbac_capabilities',
-  'rbac_desktop_tabs', 'rbac_telegram_notifications', 'rbac_access_groups',
+  'rbac_desktop_tabs', 'rbac_notification_groups', 'rbac_access_groups', 'rbac_access_group_roles',
   'rbac_legacy_role_sets', 'guest_reviews', 'guest_review_invites',
   'wholesale_rate_plans', 'wholesale_rate_nights', 'wholesale_rate_bookings', 'exchange_rates',
 ];

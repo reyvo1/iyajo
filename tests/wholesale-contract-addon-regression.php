@@ -29,7 +29,10 @@ $loader = $read('assets/runtime-addon-loader.js');
 $check(!str_contains($index, 'assets/wholesale-contract-addon.js'), 'Add-on tarif kontrak tidak dimuat eager di halaman aplikasi (batas aset awal)');
 $check(str_contains($loader, "loadScript('assets/wholesale-contract-addon.js'"), 'Add-on tarif kontrak dimuat lewat runtime addon loader');
 $check(str_contains($loader, "loadWholesaleContract"), 'Runtime loader punya pemuat tarif kontrak');
-$check(str_contains($loader, "['rooms','reservations'].includes(current)") || str_contains($loader, "['rooms', 'reservations'].includes(current)"), 'Add-on tarif kontrak dimuat pada rute tempat pemesanan dibuat');
+$check(str_contains($loader, "current==='rooms'"), 'Add-on tarif kontrak dimuat pada rute tempat pemesanan dibuat');
+$wholesaleRouteLine='';
+foreach (explode("\n", $loader) as $loaderLine) { if (str_contains($loaderLine, 'loadWholesaleContract')) { $wholesaleRouteLine = $loaderLine; } }
+$check(!str_contains($wholesaleRouteLine, 'reservations'), 'Rute yang tidak ada di registry tab tidak dimuat (cabang mati dibuang)');
 $check(!str_contains($sw, 'assets/wholesale-contract-addon.js'), 'Add-on tarif kontrak tidak di-precache service worker (dimuat sesuai kebutuhan)');
 $check(str_contains($addon, 'window.fetch = async function'), 'Add-on membungkus fetch untuk menambahkan paket kontrak ke pemesanan');
 $check(str_contains($addon, "action === 'bookings'"), 'Penambahan paket kontrak hanya pada pembuatan pemesanan');

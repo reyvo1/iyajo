@@ -1,6 +1,6 @@
 # TAMASYA V137 Backend API
 
-`admin_app/api.php` adalah satu-satunya entry point HTTP publik untuk Admin/API.
+`api.php` adalah satu-satunya entry point HTTP publik untuk Admin/API.
 File di dalam `api/support/` dan `api/routes/` adalah modul internal dan tidak boleh
 dipanggil langsung dari browser, webhook, cron, atau aplikasi klien.
 
@@ -8,11 +8,11 @@ dipanggil langsung dari browser, webhook, cron, atau aplikasi klien.
 
 - TAMASYA adalah nama produk; identitas hotel/property berasal dari konfigurasi deployment.
 - Satu instalasi property memakai satu database terisolasi.
-- Core schema hanya dibuat dari `admin_app/database_setup.sql` pada database BARU/KOSONG.
+- Core schema hanya dibuat dari `database_setup.sql` pada database BARU/KOSONG.
 - Runtime HTTP tidak boleh menjalankan `CREATE TABLE`, `ALTER TABLE`, `DROP TABLE`, atau auto-repair schema.
-- `api/support/010_schema_contract.php` hanya membaca/mengecek kontrak schema.
-- Modul opsional Growth/Enterprise dipasang eksplisit melalui `admin_app/optional_modules_install.php` (CLI atau browser terlindungi).
-- `admin_app/database_verify.php` adalah verifier read-only untuk baseline fresh V137.
+- `api/modules/setup_admin/010_schema_contract.php` hanya membaca/mengecek kontrak schema.
+- Modul opsional Growth/Enterprise dipasang eksplisit melalui `optional_modules_install.php` (CLI atau browser terlindungi).
+- `database_verify.php` adalah verifier read-only untuk baseline fresh V137.
 
 ## Struktur
 
@@ -21,7 +21,7 @@ dipanggil langsung dari browser, webhook, cron, atau aplikasi klien.
 - `support/003_property_identity.php` — identitas property dari konfigurasi.
 - `support/005_runtime_observability.php` — observability dan schema inspection read-only.
 - `support/010_schema_contract.php` — helper kontrak schema read-only.
-- `support/015..107_*.php` — domain support modules.
+- `support/015..092_*.php` — domain support modules.
 - `routes/*.php` — endpoint handlers per domain.
 - `router.php` — dispatcher route.
 

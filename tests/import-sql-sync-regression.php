@@ -20,6 +20,8 @@ $import = (string)file_get_contents($importPath);
 $required = [
     'migrations/20261019_STAFF_JOB_TITLES.sql',
     'migrations/20261019_ROLE_CAPABILITY_PRESETS.sql',
+    'migrations/20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql',
+    'migrations/20261020_DAILY_SUMMARY_CAPABILITY.sql',
     'migrations/20261021_DYNAMIC_RBAC.sql',
     'migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql',
     'migrations/20261021_TRANSACTION_CURRENCY.sql',
@@ -35,6 +37,10 @@ $check(str_contains($import, 'LANGKAH 0'), 'Berkas impor punya langkah pemeriksa
 $check(str_contains($import, 'LANGKAH TERAKHIR'), 'Berkas impor punya langkah verifikasi akhir');
 $check(str_contains($import, 'information_schema'), 'Pemeriksaan memakai information_schema sehingga aman diulang');
 $check(!preg_match('/DROP\s+TABLE/i', $import), 'Berkas impor tidak pernah menghapus tabel');
+foreach (['rbac_roles','rbac_capabilities','rbac_desktop_tabs','rbac_notification_groups','rbac_access_groups','rbac_access_group_roles','rbac_legacy_role_sets','staff_job_titles','role_capability_presets','guest_reviews','guest_review_invites','wholesale_rate_plans','wholesale_rate_nights','wholesale_rate_bookings','exchange_rates'] as $table) {
+    $check(str_contains($import, $table), 'Berkas impor memuat tabel nyata: ' . $table);
+}
+$check(!str_contains($import, 'rbac_telegram_notifications'), 'Berkas impor tidak menyebut tabel yang tidak pernah ada');
 $check(is_file($root . '/scripts/build-import-sql.mjs'), 'Generator berkas impor tersedia');
 $generator = (string)file_get_contents($root . '/scripts/build-import-sql.mjs');
 foreach ($required as $source) {

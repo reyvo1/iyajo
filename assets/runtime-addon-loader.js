@@ -1,10 +1,10 @@
-/* TAMASYA PRD performance loader: optional UI addons load only when their route needs them. */
+/* TAMASYA PRD: add-on opsional dimuat sesuai rute. */
 (() => {
   'use strict';
   if (window.__TAMASYA_RUNTIME_ADDON_LOADER__) return;
   window.__TAMASYA_RUNTIME_ADDON_LOADER__ = true;
 
-  const BUILD = '20261021-r17';
+  const BUILD = '20261021-r18';
   const resources = new Map();
   let firstRouteSeen = false;
 
@@ -77,8 +77,8 @@
   }
 
   const loadGuestCenter = () => Promise.all([
-    loadStyle('assets/guest-center.css?v=20261021-r17'),
-    loadScript('assets/guest-center.js', '20261021-r17')
+    loadStyle('assets/guest-center.css?v=20261021-r18'),
+    loadScript('assets/guest-center.js', '20261021-r18')
   ]);
   const loadEmployeeSelfService = () => Promise.all([
     loadStyle('assets/employee-self-service.css?v=20260826-fix34-drawerscroll'),
@@ -106,7 +106,7 @@
     };
 
     if (['rooms', 'reservations', 'support', 'operations'].includes(current)) run(loadGuestCenter, true);
-    if(['rooms','reservations'].includes(current))run(loadWholesaleContract,true);
+    if(current==='rooms')run(loadWholesaleContract,true);
     if (current === 'report' || current === 'finance') run(loadReportTools, false);
     if (current === 'website') run(loadWebsiteTools, false);
 
@@ -127,7 +127,7 @@
     ensureForRoute(route, initial);
   });
 
-  // System Health: hanya dibuka operator, jadi dimuat saat itu juga.
+  // System Health dimuat saat operator membukanya.
   window.addEventListener('tamasya-open-system-health', () => {
     const alreadyLoaded = resources.has('script:assets/system-health-addon.js') || Boolean(window.TamasyaSystemHealth);
     if (alreadyLoaded) return;

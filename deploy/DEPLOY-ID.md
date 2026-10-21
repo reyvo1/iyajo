@@ -1,14 +1,14 @@
-# Deploy TAMASYA - Rilis 20261021-r17
+# Deploy TAMASYA - Rilis 20261021-r18
 
 Paket ini berisi perbaikan RBAC (audit F-01..F-11), perbaikan chunk-load yang
 sebelumnya membuat Halaman UAT gagal, dan fitur baru: penampil log audit,
 inspektur izin, dasbor kesehatan sistem, dukungan multi-mata uang, ulasan
 tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
-| Paket | `tamasya-production-20261021-r17.zip` |
+| Paket | `tamasya-production-20261021-r18.zip` |
 |---|---|
-| SHA-256 paket | `863aa812185379d45b3042e10e0049ff3b6fad5b724ed7f97f92bcb40d0c133a` |
-| Isi | 377 berkas + `DEPLOY-SHA256SUMS.txt` |
+| SHA-256 paket | `01f3e95a61bc976212a5687729c2edc5c8caa5049eede47a1e37a04ff3c719f6` |
+| Isi | 376 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
 
@@ -38,7 +38,7 @@ Migrasi fitur baru (jika database Anda sudah ada):
 `migrations/20261021_WHOLESALE_RATES.sql` (paket tarif kontrak B2B), dan
 `migrations/20261021_WHOLESALE_RATE_LOCK.sql` (kunci tarif kontrak pada reservasi), dan
 `migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql` (nilai transaksi dalam mata uang property).
-Keduanya idempoten. Tanpa migrasi, tab terkait akan memberi pesan jelas
+Kelimanya idempoten. Tanpa migrasi, tab terkait akan memberi pesan jelas
 bahwa skema belum tersedia, bukan error fatal.
 
 Cek cepat apakah perlu: bagian LANGKAH 0 di file SQL menampilkan tabel mana
@@ -47,16 +47,17 @@ yang sudah ada. Semua sudah ada (angka 1) -> tidak wajib impor, tapi aman.
 ## 4. Upload & ekstrak
 
 ```
-unzip tamasya-production-20261021-r17.zip
-cd tamasya-production-20261021-r17
+unzip tamasya-production-20261021-r18.zip
+cd tamasya-production-20261021-r18
 ```
 
 Arahkan document root web server ke folder ini.
 
 ## 5. Konfigurasi
 
-Salin `.env.example` menjadi `.env` (tidak ikut dalam paket, karena berisi
-kredensial produksi Anda) lalu isi:
+Buat `.env` sendiri di server (paket sengaja tidak membawa `.env` maupun
+`.env.example`; contoh isian ada di `.env.local.example` dan
+`.env.online.example` di repositori) lalu isi:
 
 - `APP_ENV=production`
 - `APP_ENCRYPTION_KEY` (32+ karakter, acak)
@@ -80,8 +81,8 @@ chmod 640 .env db_credentials.php
 
 ## 8. Cache browser (WAJIB dibaca)
 
-Rilis ini memakai token versi baru (`20261021-r17`). Server Anda masih menjalankan
-`20261021-r15`, jadi **tanpa langkah ini browser akan tetap memakai aset lama** dari
+Rilis ini memakai token versi baru (`20261021-r18`). Server Anda masih menjalankan
+versi sebelum `20261021-r18`, jadi **tanpa langkah ini browser akan tetap memakai aset lama** dari
 cache service worker dan fitur baru tidak akan terlihat:
 
 1. Login sebagai Admin -> buka Tab Kamar -> tombol "Tarif kontrak" harus muncul.
@@ -92,12 +93,12 @@ cache service worker dan fitur baru tidak akan terlihat:
 
 ## 9. Cache browser (lama)
 
-Rilis ini memakai token versi baru (`20261021-r17`), jadi service worker
+Rilis ini memakai token versi baru (`20261021-r18`), jadi service worker
 mengunduh ulang aset secara otomatis. Bila browser masih menampilkan versi
 lama: hard refresh (Ctrl+Shift+R) atau increment "Unregister service worker"
 di DevTools -> Application -> Service Workers.
 
-## 9. Verifikasi manual setelah deploy
+## 10. Verifikasi manual setelah deploy
 
 1. Login sebagai Admin -> menu "Kelola Jabatan" harus tampil.
 2. Buka Tab Kamar, Finance, Operations, Staff -> tidak boleh error console.
@@ -112,13 +113,16 @@ di DevTools -> Application -> Service Workers.
 8. Tarif kontrak: buka tab Kamar -> tombol "Tarif kontrak" atau tab Growth Suite ->
    "Kontrak B2B" untuk membuat paket, mencari harga per inap, dan memilih paket
    yang dipakai saat pemesanan.
-9. Kurs mata uang: tab Kontrak B2B di Growth Suite (atau API `exchange-rates`)
-   mencatat kurs harian. Transaksi dalam mata uang lain ditolak bila kurs belum ada.
+9. Kurs mata uang: tab "Kontrak B2B" di Growth Suite mencatat kurs harian
+   (server: aksi `exchange-rate-save`). Transaksi dalam mata uang lain ditolak
+   bila kurs belum ada.
 
-## 10. Verifikasi paket sebelum dikirim ke server
+## 11. Verifikasi paket sebelum dikirim ke server
+
+Jalankan dari repositori (paket rilis tidak menyertakan folder `tests/`):
 
 ```
-bash tests/uat_prd/verify_deploy_bundle.sh
+bash tests/uat_prd/verify_deploy_bundle.sh tamasya-production-20261021-r18.zip
 ```
 Memeriksa ZIP yang akan dikirim: manifest checksum cocok, berkas wajib ada, tidak ada rahasia,
 dan seluruh PHP/JS valid.

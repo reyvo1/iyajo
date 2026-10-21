@@ -105,14 +105,25 @@ find "$STAGING_DIR" -maxdepth 2 -name ".env" -o -maxdepth 2 -name ".env.*" 2>/de
 # Panduan di dalam paket tidak boleh menyebut sha256 paket itu sendiri: nilainya
 # berubah begitu panduannya ikut berubah. Baris itu diganti dengan penunjuk ke
 # manifest isi paket.
-if [ -f "$STAGING_DIR/deploy/DEPLOY-ID.md" ]; then
-  sed -i 's#^| SHA-256 | .*#| SHA-256 paket | Lihat `DEPLOY-SHA256SUMS.txt` (sha256 tiap berkas) dan catatan pengiriman #; s#^| Isi | .*#| Isi | 370 berkas + `DEPLOY-SHA256SUMS.txt` #' "$STAGING_DIR/deploy/DEPLOY-ID.md" 2>/dev/null || true
-fi
 
 # Manifest isi paket. Operator memakai berkas ini untuk memverifikasi bahwa
 # hasil ekstraksi di server sama persis dengan paket yang dikirim, sebelum
 # aplikasi dijalankan.
 echo "Writing deploy manifest..."
+
+# Panduan di dalam paket tidak boleh menyebut sha256 paket itu sendiri: nilainya
+# berubah begitu panduannya ikut berubah. Yang ditulisInstead penunjuk ke
+# manifest, dan jumlah berkas dihitung dari isi paket yang nyata. Pola heutama
+# hanya menyasar baris tabel sha256 dan baris jumlah berkas, bukan seluruh tabel.
+BUNDLE_FILE_COUNT="$(find "$STAGING_DIR" -type f ! -name "DEPLOY-SHA256SUMS.txt" | wc -l | tr -d ' ')"
+if [ -f "$STAGING_DIR/deploy/DEPLOY-ID.md" ]; then
+  awk -v count="$BUNDLE_FILE_COUNT" '
+    /^\| SHA-256 paket \|/ { print "| SHA-256 paket | Lihat `DEPLOY-SHA256SUMS.txt` (sha256 tiap berkas) dan catatan pengiriman |"; next }
+    /^\| Isi \| [0-9]+ berkas/ { print "| Isi | " count " berkas + `DEPLOY-SHA256SUMS.txt` |"; next }
+    { print }
+  ' "$STAGING_DIR/deploy/DEPLOY-ID.md" > "$STAGING_DIR/deploy/DEPLOY-ID.md.tmp" && mv "$STAGING_DIR/deploy/DEPLOY-ID.md.tmp" "$STAGING_DIR/deploy/DEPLOY-ID.md"
+fi
+
 ( cd "$STAGING_DIR" && find . -type f ! -name "DEPLOY-SHA256SUMS.txt" -printf "%P\0" | sort -z | xargs -0 sha256sum > DEPLOY-SHA256SUMS.txt )
 
 # Create zip

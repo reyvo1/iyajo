@@ -43,7 +43,7 @@ HQ ── snapshot HMAC ── hq/ (DB terpisah)
 2. **Capability** = override per akun (`hasCapability`), bisa menambah ATAU
    mencabut. Kunci penjualan: `sell_room_access`,
    `manage_stay_access`, `receive_payment_access` (+ 16 kunci sensitif).
-3. **Owner** = selalu read-only (`view_*` saja), ditegakkan di level fungsi.
+3. **Owner** = Admin untuk baca (semua capability Admin, `view_*` selalu boleh), tetapi **0 tulis** (semua metode selain GET/HEAD/OPTIONS ditolak global + guard route), ditegakkan di level fungsi.
 
 `desktopTabs` mengatur tampil menu web; `telegramNotifications` hanya notif.
 Telegram memakai 3 gerbang sinkron: keyboard dinamis + callback gate +

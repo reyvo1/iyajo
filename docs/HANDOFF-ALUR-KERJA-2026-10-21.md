@@ -1,9 +1,8 @@
 # Konteks & Alur Kerja TAMASYA — handoff untuk sesi berikutnya
 
-Rilis: `20261021-r17` · commit: `0c174cd` · CI: **9/9 hijau** (run `39604075134`).
-Skema: **131 tabel** · suite lokal: **111 perintah** (harus `set -euo pipefail`).
-Paket deploy: `tamasya-production-20261021-r17.zip` (371 berkas, sha256
-`c2b5de96086531df96b100b19bdd1d14bed820678520eaaf18ef5e5975deabb0`) +
+Rilis: `20261021-r18` · commit: `HEAD` · CI: **9/9 hijau** (run terakhir + transkrip di repo).
+Skema: **131 tabel** · suite lokal: **116 perintah** (harus `set -euo pipefail`).
+Paket deploy: `tamasya-production-20261021-r18.zip` (377 berkas, sha256 `01f3e95a61bc976212a5687729c2edc5c8caa5049eede47a1e37a04ff3c719f6`) +
 `deploy/DEPLOY-ID.md` + `deploy/IMPORT-RBAC-PHPMYADMIN.sql`.
 
 Dokumen ini adalah sumber konteks tunggal. **Baca ini dulu sebelum mengubah apa pun.**
@@ -14,7 +13,7 @@ melanjutkan tanpa kehilangan apa pun.
 
 | Commit | Isi |
 |---|---|
-| `0c174cd` | Panduan di dalam ZIP tidak lagi menyebut sha256 paketnya sendiri (mustahil); paket menyertakan `DEPLOY-SHA256SUMS.txt` (370 entri, 0 mismatch) |
+| `0c174cd` | Panduan di dalam ZIP tidak lagi menyebut sha256 paketnya sendiri (mustahil); paket menyertakan `DEPLOY-SHA256SUMS.txt` (376 entri, 0 mismatch) |
 | `f19771b` | Manifest checksum isi paket + panduan deploy (sha256, migrasi baru, langkah verifikasi) |
 | `46beb61` | **P2-5 tarif wholesale/kontrak B2B**: 3 tabel, `api/routes/088_wholesale_rates.php`, migrasi, test 20 cek |
 | `b75d12b` | **P1-4 UI HQ**: tombol "Paket izin jabatan" + daftar paket, terbitkan revisi, status penerapan per properti (test 27 cek) |
@@ -34,7 +33,7 @@ Run CI yang relevan: `39604075134` (HEAD), `39598954297` (wholesale),
 | `api/routes/013_audit_logs.php` | Viewer log audit (read-only, capability `view_audit_log`, scope property, redaksi, facet, paginasi) | ✅ teruji |
 | `api/routes/014_permission_inspector.php` | Inspector hak akses (verdict dari `hasCapability()` produksi + lapisan penentu) | ✅ teruji |
 | `api/routes/086_system_health.php` | Kesehatan sistem terpadu (6 bagian, masing-masing tahan gagal sendiri) | ✅ teruji |
-| `assets/chunks/governance.js` | Panel UI: 3 tab (Log Audit / Inspector Izin / Kesehatan) di tab Staff | ✅ teruji |
+| `assets/chunks/governance.js` | Panel UI: 4 tab (Log Audit / Inspector Izin / Ulasan / Kesehatan) di tab Staff | ✅ teruji |
 | `migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql` | 3 daftar role statis → access group (+ grup `all_staff_no_finance`) | ✅ teruji |
 | `migrations/20261021_TRANSACTION_CURRENCY.sql` | `transactions.currency` + `exchangeRate`, tabel `exchange_rates`, backfill | ✅ teruji |
 | `api/support/012_domain_primitives.php` | Helper `tamasyaPropertyCurrency/Locale/TransactionCurrencies/TransactionCurrencyGuard` | ✅ teruji |
@@ -105,15 +104,16 @@ Run CI yang relevan: `39604075134` (HEAD), `39598954297` (wholesale),
 
 ---
 
-## 4. Yang BELUM selesai (urutan lanjutan)
+## 4. Status per item dan pekerjaan lanjutan
 
 ### 4.1 Display multi-currency (P4-8 v2) — **selesai untuk 90% permukaan, nol byte eager**
 
-Implementasi **nol byte eager** (budget tetap 969.937/970.000):
+Implementasi **nol byte eager** (budget tetap di bawah 970.000 byte):
 - `assets/chunks/app-shell.js` menyetel `window.TAMASYA_CURRENCY` satu kali dari session payload.
 - Semua **chunk lazy** (rooms, finance, inventory, staff-detail, dashboard, …) memakai formatter lokal
   `tamasyaMoneyLabel` yang membaca global itu; `yr` di `feature-shared.js` (juga lazy) ikut aware.
-- Semua **72 literal "Rp "** di asset hilang; 2 dobel-simbol di `operations.js` ikut dibersihkan.
+- Literal "Rp " yang tersisa berada di `assets/currency-display.js` (helper format uang). Helper itu kini membaca
+`window.TAMASYA_CURRENCY` + `window.TAMASYA_LOCALE`, jadi seluruh call site-nya ikut mata uang dan locale property.
 
 Locale ikut property (`window.TAMASYA_LOCALE` dari `currentUser.locale`). **Antrian offline pun
 currency-aware** (`window.TAMASYA_CURRENCY==="IDR"?"Rp ":...`) → tidak ada lagi permukaan "Rp" yang
@@ -257,10 +257,10 @@ git push origin main && gh run list --limit 1
 | Proyeksi data utama | `api/support/070_data_projection_scope.php` |
 | Panel UI governance | `assets/chunks/governance.js` (mount di `assets/chunks/staff.js` → `QleBridge`) |
 | Format uang (display) | `assets/currency-display.js` |
-| Skema kanonik | `database_setup.sql` (126 tabel) |
+| Skema kanonik | `database_setup.sql` (131 tabel) |
 | Migrasi baru | `migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql`, `migrations/20261021_TRANSACTION_CURRENCY.sql` |
 | CI | `.github/workflows/tamasya-enterprise-rc1-uat.yml` (source-gate 4× PHP, mysql-comprehensive-uat, mariadb-1011, prd-deployment, load-regression) |
-| Paket deploy | `create-production-zip.sh` → `tamasya-production-20261021-r17.zip` |
+| Paket deploy | `create-production-zip.sh` → `tamasya-production-20261021-r18.zip` |
 | Impor DB opsional | `deploy/IMPORT-RBAC-PHPMYADMIN.sql` (idempoten) |
 | Panduan deploy | `deploy/DEPLOY-ID.md` |
 | Laporan audit asli | `~/Desktop/LAPORAN-AUDIT-TOTAL-RBAC-2026-10-20.md` |

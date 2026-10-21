@@ -106,3 +106,21 @@ Web menegakkan aturan yang sama di API (`requireCapability`).
 Billing langganan SaaS, signup otomatis, superadmin platform, backup
 termonitor pusat, migrasi fleet otomatis, kunci IoT fisik, kamera wajah
 tamu, aplikasi tamu (lihat `HANDOFF-IOT-BRIDGE-FASE0-2026-10-16.md`).
+
+
+## 8.1 Fitur yang sudah berjalan di kode (rilis 20261021-r18)
+
+Dokumen ini menggambarkan produk. Fitur berikut sudah ada di kode dan teruji
+otomatis (CI 9/9 + uji fungsional MariaDB + UAT browser):
+
+- **RBAC dinamis**: registry role/capability/tab/notifikasi + access group; Owner
+  membaca seperti Admin tetapi tidak dapat menulis (3 lapis: capability, metode
+  global, guard route).
+- **Jabatan dinamis** (tabel `staff_job_titles`) dengan base role kanonik.
+- **Paket izin jabatan terpusat di HQ** (publish per properti, ditarik property).
+- **Log audit enterprise** + **inspektur hak akses** + **dasbor kesehatan**.
+- **Ulasan tamu** (undangan sekali pakai, moderasi, halaman publik).
+- **Tarif kontrak B2B**: paket per tanggal, harga dihitung server, dikunci ke
+  reservasi, tampil di panel kasir dan di Growth Suite.
+- **Multi-mata uang**: penandaan mata uang, tampilan ikut property, kurs harian,
+  dan konversi tersimpan pada kolom terpisah.

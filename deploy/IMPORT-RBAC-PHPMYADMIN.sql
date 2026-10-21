@@ -16,8 +16,9 @@
 --   rbac_roles
 --   rbac_capabilities
 --   rbac_desktop_tabs
---   rbac_telegram_notifications
+--   rbac_notification_groups
 --   rbac_access_groups
+--   rbac_access_group_roles
 --   rbac_legacy_role_sets
 --   guest_reviews
 --   guest_review_invites
@@ -33,8 +34,9 @@ SELECT 'role_capability_presets' AS table_name, IF((SELECT COUNT(*) FROM informa
 SELECT 'rbac_roles' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_roles') > 0, 1, 0) AS already_exists;
 SELECT 'rbac_capabilities' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_capabilities') > 0, 1, 0) AS already_exists;
 SELECT 'rbac_desktop_tabs' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_desktop_tabs') > 0, 1, 0) AS already_exists;
-SELECT 'rbac_telegram_notifications' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_telegram_notifications') > 0, 1, 0) AS already_exists;
+SELECT 'rbac_notification_groups' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_notification_groups') > 0, 1, 0) AS already_exists;
 SELECT 'rbac_access_groups' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_access_groups') > 0, 1, 0) AS already_exists;
+SELECT 'rbac_access_group_roles' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_access_group_roles') > 0, 1, 0) AS already_exists;
 SELECT 'rbac_legacy_role_sets' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_legacy_role_sets') > 0, 1, 0) AS already_exists;
 SELECT 'guest_reviews' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guest_reviews') > 0, 1, 0) AS already_exists;
 SELECT 'guest_review_invites' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guest_review_invites') > 0, 1, 0) AS already_exists;
@@ -718,7 +720,7 @@ PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 -- LANGKAH TERAKHIR: verifikasi
 -- ---------------------------------------------------------------------------
 SELECT 'LANGKAH TERAKHIR: verifikasi impor' AS migration_step;
-SELECT COUNT(*) AS tabel_rbac FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('staff_job_titles','role_capability_presets','rbac_roles','rbac_capabilities','rbac_desktop_tabs','rbac_telegram_notifications','rbac_access_groups','rbac_legacy_role_sets','guest_reviews','guest_review_invites','wholesale_rate_plans','wholesale_rate_nights','wholesale_rate_bookings','exchange_rates');
+SELECT COUNT(*) AS tabel_rbac FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('staff_job_titles','role_capability_presets','rbac_roles','rbac_capabilities','rbac_desktop_tabs','rbac_notification_groups','rbac_access_groups','rbac_access_group_roles','rbac_legacy_role_sets','guest_reviews','guest_review_invites','wholesale_rate_plans','wholesale_rate_nights','wholesale_rate_bookings','exchange_rates');
 SELECT IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'transactions' AND COLUMN_NAME = 'propertyAmount') > 0, 1, 0) AS transactions_property_amount;
 SELECT IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wholesale_rate_bookings' AND COLUMN_NAME = 'nightly_breakdown') > 0, 1, 0) AS wholesale_nightly_breakdown;
 -- Selesai. Kembali ke deploy/DEPLOY-ID.md untuk langkah berikutnya.
