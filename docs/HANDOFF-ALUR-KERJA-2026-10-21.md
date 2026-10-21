@@ -95,8 +95,14 @@ antrean offline juga currency-aware, pakai `window.TAMASYA_CURRENCY` + `Intl` di
 eager → **tanya dulu**).
 
 ### 4.2 P2 — fitur baru
-- **Wholesale / contract rate (B2B)**: belum ada sama sekali (0 file). Perlu tabel rate kontrak +ixerfe ke growth suite.
-- **Review/feedback tamu**: belum ada (0 file).
+
+- **Review/feedback tamu** → **backend selesai** (`api/routes/087_guest_reviews.php`, tabel `guest_reviews` +
+  `guest_review_invites`, migrasi `20261021_GUEST_REVIEWS.sql`, `tests/guest-reviews-regression.php` 17 cek).
+  Alur: staf membuat undangan (token acak, kedaluwarsa 30 hari, sekali pakai) → tamu memberi rating 1..5 →
+  staf moderasi (tampilkan/sembunyikan/balas). **Yang belum:** tab UI di panel governance + halaman
+  publik `webpublic/review.html` (API `public-review` sudah siap, tinggal formnya).
+- **Wholesale / contract rate (B2B)**: belum ada sama sekali (0 file). Perlu tabel rate kontrak + integrasi
+  ke alur reservasi + UI growth suite. Ini item terbesar yang tersisa.
 
 ### 4.3 P1-4 — RBAC terpusat di HQ
 `hq/` tidak punya kendali RBAC (0 referensi `rbac_*`) → preset hanya per-property. Butuh perintah "push preset" dari HQ.
