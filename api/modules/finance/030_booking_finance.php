@@ -1846,6 +1846,35 @@ function createCanonicalBookingWorkflow(PDO $pdo, array $actor, array $payload, 
         $roomType=(string)($room['type']??$roomType);
         if($roomType==='')throw new RuntimeException('Tipe kamar server tidak tersedia.');
 
+        // Tarif kontrak B2B. Bila staf memilih paket kontrak, server yang
+        // berwenang atas nominal: total dihitung dari harga paket per tanggal,
+        // bukan dari angka yang dikirim browser. Paket yang tidak berlaku
+        // membuat reservasi ditolak, bukan kembali diam-diam ke tarif rak.
+        $wholesaleQuote=null;
+        $wholesalePlanId=trim((string)($payload['wholesalePlanId']??''));
+        if($wholesalePlanId!==''){
+            $wholesaleQuote=tamasyaWholesaleContractRateQuote($pdo,(string)($GLOBALS['tamasya_property_id']??''),[
+                'planId'=>$wholesalePlanId,
+                'roomType'=>$roomType,
+                'companyName'=>trim((string)($payload['wholesaleCompanyName']??($payload['companyName']??''))),
+                'checkIn'=>$checkIn,
+                'checkOut'=>$checkOut,
+            ]);
+            if(!$wholesaleQuote['applicable']){
+                $e=new InvalidArgumentException('Tarif kontrak tidak dapat dipakai: '.$wholesaleQuote['reason']);
+                tamasyaFailCanonicalBookingReceipt($pdo,$operationId,$e);throw $e;
+            }
+            $totalAmount=round((float)$wholesaleQuote['total'],2);
+            if($totalAmount<=0||$totalAmount>1000000000000){
+                $e=new InvalidArgumentException('Total tarif kontrak tidak valid.');
+                tamasyaFailCanonicalBookingReceipt($pdo,$operationId,$e);throw $e;
+            }
+            if($downPaymentAmount>$totalAmount+0.01){
+                $e=new InvalidArgumentException('Panjar booking melebihi total tarif kontrak.');
+                tamasyaFailCanonicalBookingReceipt($pdo,$operationId,$e);throw $e;
+            }
+        }
+
         $publicRow=null;
         if($publicRequestId!==''){
             $publicStmt=$pdo->prepare("SELECT public_request_id,room_type_id,status,linked_booking_id FROM public_reservation_requests WHERE public_request_id=? LIMIT 1 FOR UPDATE");
@@ -1933,6 +1962,10 @@ function createCanonicalBookingWorkflow(PDO $pdo, array $actor, array $payload, 
             $downPaymentAmount,$downPaymentAmount>0?$downPaymentMethod:null,$downPaymentAmount>0?($downPaymentBankAccountId?:null):null,$downPaymentAmount>0?$downPaymentDate:null,
             $isOpenEnded,$stayMode,$scheduledCheckInAt,$scheduledCheckOutAt,$actualCheckInAt,$checkoutDueAt,$accessMode,$createdAt,$actor['id']??null,$source]);
         if($lifecycleStatus==='active')finalizeActiveBookingOperationalState($pdo,$bookingId,$roomNumber,$actor,$source);
+        if($wholesaleQuote!==null){
+            $wholesaleQuote['propertyId']=(string)($GLOBALS['tamasya_property_id']??'');
+            tamasyaWholesaleContractRateLock($pdo,$wholesaleQuote,$bookingId,(string)($actor['id']??''));
+        }
 
         $requireShift=(int)($settings['require_open_shift_for_sale']??1)===1;
         // FIX28R1: for create+check-in, reuse the shift row already locked by the
@@ -2032,7 +2065,8 @@ function createCanonicalBookingWorkflow(PDO $pdo, array $actor, array $payload, 
         writeRequiredEnterpriseAudit($pdo,$actor,$lifecycleStatus==='active'?'Membuat check-in melalui workflow pusat':'Membuat reservasi melalui workflow pusat','booking',$bookingId,null,[
             'guestFingerprint'=>$identityFingerprint,'roomNumber'=>$roomNumber,'roomType'=>$roomType,'checkIn'=>$checkIn,'checkOut'=>$checkOut,'stayMode'=>$stayMode,'scheduledCheckInAt'=>$scheduledCheckInAt,'scheduledCheckOutAt'=>$scheduledCheckOutAt,'status'=>$lifecycleStatus,
             'paymentStatus'=>$final['paymentStatus']??'unpaid','ledgerNet'=>$final['amountPaid']??0,'totalAmount'=>$totalAmount,'bookingSource'=>$bookingSource,
-            'operationId'=>$operationId,'lifecycleIntent'=>$lifecycleIntent,'transactionIds'=>$txIds,'securityDeposit'=>$securityDepositSummary
+            'operationId'=>$operationId,'lifecycleIntent'=>$lifecycleIntent,'transactionIds'=>$txIds,'securityDeposit'=>$securityDepositSummary,
+                'wholesale'=>$wholesaleQuote===null?null:['planId'=>$wholesaleQuote['planId'],'planCode'=>$wholesaleQuote['planCode'],'nights'=>$wholesaleQuote['nightsCount'],'total'=>$wholesaleQuote['total'],'currency'=>$wholesaleQuote['currency']]
         ],$source,['channelId'=>$channel]);
         logActivity($pdo,$lifecycleStatus==='active'?'create_checkin':'create_reservation',($lifecycleStatus==='active'?'Check-in ':'Reservasi ').$guestName.' di Kamar '.$roomNumber.' melalui workflow pusat '.$channel,(string)($actor['id']??''),currentStaffLabel($actor));
         bumpServerRevision($pdo);

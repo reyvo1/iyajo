@@ -74,6 +74,7 @@ $__f = tamasyaResolveDomainSupportFile('020_identity_access_audit.php'); if ($__
 $__f = tamasyaResolveDomainSupportFile('025_financial_posting_authority.php'); if ($__f) { require_once $__f; } unset($__f);
 $__f = tamasyaResolveDomainSupportFile('026_financial_mutation_authority.php'); if ($__f) { require_once $__f; } unset($__f);
 $__f = tamasyaResolveDomainSupportFile('030_booking_finance.php'); if ($__f) { require_once $__f; } unset($__f);
+$__f = tamasyaResolveDomainSupportFile('031_wholesale_contract_rates.php'); if ($__f) { require_once $__f; } unset($__f);
 $__f = tamasyaResolveDomainSupportFile('035_guest_security_deposits.php'); if ($__f) { require_once $__f; } unset($__f);
 $__f = tamasyaResolveDomainSupportFile('039_operational_domain_records.php'); if ($__f) { require_once $__f; } unset($__f);
 $__f = tamasyaResolveDomainSupportFile('040_rooms_checkout_housekeeping.php'); if ($__f) { require_once $__f; } unset($__f);

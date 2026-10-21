@@ -58,6 +58,65 @@ try {
         return;
     }
 
+    // Pencarian tarif untuk kasir: paket mana yang berlaku untuk satu rentang
+    // inap, lengkap dengan harga per tanggal dan totalnya. Hasilnya dipakai
+    // staf untuk menawarkan harga kontrak ke tamu, dan harga yang sama
+    // dikunci server saat reservasi dibuat.
+    if ($command === 'wholesale-rate-lookup') {
+        if ($method !== 'POST') {
+            http_response_code(405);
+            echo tamasyaJsonEncode(['success' => false, 'error' => 'Pencarian tarif kontrak hanya dapat dilakukan dengan POST.']);
+            return;
+        }
+        requireCapability($loggedInStaff, 'sell_room_access', ['admin', 'manager', 'receptionist', 'finance']);
+        $checkIn = trim((string)($input['checkIn'] ?? ''));
+        $checkOut = trim((string)($input['checkOut'] ?? ''));
+        if (!validIsoDate($checkIn) || !validIsoDate($checkOut) || $checkOut <= $checkIn) {
+            http_response_code(422);
+            echo tamasyaJsonEncode(['success' => false, 'error' => 'Rentang tanggal pencarian tarif kontrak tidak valid.']);
+            return;
+        }
+        $criteria = [
+            'checkIn' => $checkIn,
+            'checkOut' => $checkOut,
+            'roomType' => trim((string)($input['roomType'] ?? '')),
+            'companyName' => trim((string)($input['companyName'] ?? '')),
+        ];
+        $planId = trim((string)($input['planId'] ?? ''));
+        if ($planId !== '') {
+            $criteria['planId'] = $planId;
+            $quote = tamasyaWholesaleContractRateQuote($pdo, $propertyId, $criteria);
+            $quote['propertyId'] = $propertyId;
+            echo tamasyaJsonEncode(['success' => true, 'readOnly' => true, 'data' => ['quote' => $quote]]);
+            return;
+        }
+        $candidates = tamasyaWholesaleContractRateCandidates($pdo, $propertyId, $criteria);
+        $applicable = array_values(array_filter($candidates, function ($row) { return (bool)($row['applicable'] ?? false); }));
+        echo tamasyaJsonEncode(['success' => true, 'readOnly' => true, 'data' => [
+            'candidates' => $candidates,
+            'applicable' => $applicable,
+            'currency' => tamasyaPropertyCurrency($pdo),
+        ]]);
+        return;
+    }
+
+    // Reservasi yang memakai tarif kontrak, untuk rekonsiliasi.
+    if ($command === 'wholesale-rate-bookings') {
+        requireCapability($loggedInStaff, 'sell_room_access', ['admin', 'manager', 'receptionist', 'finance']);
+        $rows = [];
+        try {
+            $stmt = $pdo->prepare("SELECT b.id,b.booking_id,b.plan_id,b.plan_code,b.company_name,b.stay_from,b.stay_to,b.nightly_price,b.nights,b.total,b.currency,b.created_at FROM `wholesale_rate_bookings` b WHERE b.property_id = ? ORDER BY b.created_at DESC LIMIT 200");
+            $stmt->execute([$propertyId]);
+            $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        } catch (Throwable $error) {
+            http_response_code(409);
+            echo tamasyaJsonEncode(['success' => false, 'code' => 'WHOLESALE_SCHEMA_MISSING', 'error' => 'Skema tarif wholesale belum tersedia di database ini. Jalankan migrasi 20261021_WHOLESALE_RATES.sql dan 20261021_WHOLESALE_RATE_LOCK.sql.']);
+            return;
+        }
+        echo tamasyaJsonEncode(['success' => true, 'readOnly' => true, 'data' => ['rows' => $rows]]);
+        return;
+    }
+
     if ($method !== 'POST') {
         http_response_code(405);
         echo tamasyaJsonEncode(['success' => false, 'error' => 'Aksi tarif wholesale hanya dapat ditulis dengan POST.']);

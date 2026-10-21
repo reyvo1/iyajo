@@ -128,13 +128,22 @@ eager → **tanya dulu**).
   Alur: staf membuat undangan (token acak, kedaluwarsa 30 hari, sekali pakai) → tamu memberi rating 1..5 →
   staf moderasi (tampilkan/sembunyikan/balas). **Yang belum:** tab UI di panel governance + halaman
   publik `webpublic/review.html` (API `public-review` sudah siap, tinggal formnya).
-- **Wholesale / contract rate (B2B)** → **backend + skema selesai** (`api/routes/088_wholesale_rates.php`,
-  3 tabel: `wholesale_rate_plans` / `_nights` / `_bookings`, migrasi `20261021_WHOLESALE_RATES.sql`,
-  `tests/wholesale-rates-regression.php` 20 cek). Paket tarif per tanggal untuk satu perusahaan/channel,
-  dikunci saat reservasi dibuat (`wholesale_rate_bookings`).
-  **Yang belum:** (a) integrasi ke alur pemesanan (pemanggilan tarif paket saat reservasi dibuat),
-  (b) UI di growth suite (tab rate) — keduanya butuh penyuntingan bundle minified, jadiDESC.
-  (c) Endpoint lookup tarif untuk kasir belum ada (baru daftar paket).
+- **Wholesale / contract rate (B2B)** → **server-side tuntas**:
+  - Skema: `wholesale_rate_plans` / `_nights` / `_bookings` (migrasi `20261021_WHOLESALE_RATES.sql`
+    + `20261021_WHOLESALE_RATE_LOCK.sql`), 131 tabel kanonik.
+  - `api/modules/finance/031_wholesale_contract_rates.php`: kuotasi, aturan fail-closed, kunci tarif.
+  - Integrasi alur pemesanan di `api/modules/finance/030_booking_finance.php` (titik yang dipakai
+    web, Telegram, OTA, dan grup): paket dipilih lewat `wholesalePlanId`; **server yang menghitung
+    nominal** (total browser ditolak), paket tidak berlaku → reservasi ditolak, bukan fallback tarif rak.
+  - Kunci tarif di `wholesale_rate_bookings` (+ `nightly_breakdown`): perubahan harga paket tidak
+    mengubah reservasi lama.
+  - `api/routes/088_wholesale_rates.php`: `wholesale-rate-lookup` (kuotasi kasir),
+    `wholesale-rate-bookings` (rekonsiliasi).
+  - Uji: `tests/wholesale-rates-regression.php` (20) + `tests/wholesale-contract-rate-mysql-uat.php`
+    (19 statis + 22 fungsional di MariaDB 10.11 → 41 cek).
+  **Yang belum:** UI di growth suite (tab rate/kontrak) — bundle minified, perlu penyuntingan
+  sumber minified atau build ulang; endpoint pemesanan harus mengirim `wholesalePlanId` +
+  `wholesaleCompanyName`.
 
 ### 4.3 P1-4 — RBAC terpusat di HQ → **backend + UI selesai**
 
