@@ -613,10 +613,15 @@ if(!$locked)throw new RuntimeException('Akun staff aktif tidak ditemukan.');
                     if (!array_key_exists('permissions',$input) && $titleActuallyChanged) {
                         // Jabatan/role baru adalah baseline baru. Override lama tidak boleh
                         // ikut terbawa ke jabatan yang hak aksesnya lebih rendah.
+                        //
+                        // Override dikosongkan (NULL), BUKAN diisi salinan preset. Salinan
+                        // preset disimpan sebagai override akun, sehingga override itu
+                        // menang atas preset jabatan selamanya: perubahan berikutnya di
+                        // panel "Kelola Jabatan" tidak pernah lagi sampai ke akun itu.
+                        // NULL membuat akun kembali mengikuti preset, sedangkan override
+                        // per akun tetap bisa ditulis eksplisit lewat kolom permissions.
                         $fieldsToUpdate[] = "permissions = ?";
-                        $params[] = ($jobTitle !== null && !array_key_exists($jobTitle,tamasyaRolePresetSeed()))
-                            ? json_encode(tamasyaRolePresetDefaultFor($jobTitle,$role))
-                            : null;
+                        $params[] = null;
                     }
                 }
                 if ($password !== null) { $fieldsToUpdate[] = "password = ?"; $params[] = password_hash($password, PASSWORD_DEFAULT); $fieldsToUpdate[] = "password_changed_at = CURRENT_TIMESTAMP"; $fieldsToUpdate[] = "require_password_change = 0"; }
