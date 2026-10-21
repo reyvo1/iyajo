@@ -1042,8 +1042,6 @@ jobs:
             "${cmd[@]}" "$db" < migrations/20261021_WHOLESALE_RATES.sql
             "${cmd[@]}" "$db" < migrations/20261021_WHOLESALE_RATE_LOCK.sql
             "${cmd[@]}" "$db" < migrations/20261021_WHOLESALE_RATE_LOCK.sql
-            "${cmd[@]}" "$db" < migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql
-            "${cmd[@]}" "$db" < migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql
           done
       - name: Prepare disposable canonical schema for the owner read contract
         env:

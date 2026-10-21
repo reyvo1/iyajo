@@ -220,7 +220,7 @@ done
 [[ "$feature_gated" -eq 6 ]] || { echo "FAIL expected 6 gated feature actions, got ${feature_gated}"; exit 1; }
 code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/api.php?action=wholesale-rates&command=wholesale-rate-lookup" -X POST -H 'Content-Type: application/json' -d '{"checkIn":"2026-01-01","checkOut":"2026-01-03"}' || true)
 [[ "$code" == "401" || "$code" == "403" ]] || { echo "FAIL wholesale contract lookup is reachable without a session (http ${code})"; exit 1; }
-code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/review.html" || true)
+code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/webpublic/review.html" || true)
 [[ "$code" == "200" ]] || { echo "FAIL public review page is not served (http ${code})"; exit 1; }
 code=$(curl -sS -o /dev/null -w '%{http_code}' "http://127.0.0.1:${PORT}/api.php?action=public-review&token=invalid-token" || true)
 [[ "$code" == "400" || "$code" == "403" || "$code" == "404" || "$code" == "409" ]] || { echo "FAIL public review accepts an invalid token (http ${code})"; exit 1; }
