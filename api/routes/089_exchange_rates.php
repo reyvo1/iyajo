@@ -82,9 +82,7 @@ try {
             return;
         }
         $source = trim((string)($input['source'] ?? 'manual')) ?: 'manual';
-        $id = 'fxr_' . substr(hash('sha256', $propertyCurrency . '|' . $quoteCurrency . '|' . $rateDate), 0, 32);
-        $stmt = $pdo->prepare("INSERT INTO `exchange_rates` (id,`base_currency`,`quote_currency`,`rate`,`rate_date`,`source`,`created_by`) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE `rate`=VALUES(`rate`),`source`=VALUES(`source`),`created_by`=VALUES(`created_by`)");
-        $stmt->execute([$id, $propertyCurrency, $quoteCurrency, $rate, $rateDate, $source, (string)($loggedInStaff['id'] ?? '')]);
+        $id = tamasyaSaveExchangeRate($pdo, $propertyCurrency, $quoteCurrency, $rate, $rateDate, $source, (string)($loggedInStaff['id'] ?? ''));
         writeRequiredEnterpriseAudit($pdo, $loggedInStaff, 'Mencatat kurs transaksi', 'exchange_rate', $id, null, [
             'baseCurrency' => $propertyCurrency, 'quoteCurrency' => $quoteCurrency, 'rate' => $rate, 'rateDate' => $rateDate, 'source' => $source,
         ], 'exchange_rate');

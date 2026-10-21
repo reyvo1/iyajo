@@ -95,6 +95,32 @@ function tamasyaTransactionExchangeRate(PDO $pdo, string $propertyCurrency, stri
 }
 
 /**
+ * Simpan kurs satu hari antara mata uang property dan mata uang asing.
+ * Menyimpan ulang hari yang sama memperbarui kurs pada hari itu.
+ */
+function tamasyaSaveExchangeRate(PDO $pdo, string $baseCurrency, string $quoteCurrency, float $rate, string $rateDate, string $source, string $actorId = ''): string
+{
+    $base = strtoupper(trim($baseCurrency));
+    $quote = strtoupper(trim($quoteCurrency));
+    if (!preg_match('/^[A-Z]{3}$/', $base) || !preg_match('/^[A-Z]{3}$/', $quote)) {
+        throw new InvalidArgumentException('Kode mata uang harus tiga huruf.');
+    }
+    if ($base === $quote) {
+        throw new InvalidArgumentException('Kurs untuk mata uang property sendiri tidak perlu dicatat.');
+    }
+    if (!is_finite($rate) || $rate <= 0) {
+        throw new InvalidArgumentException('Kurs harus lebih besar dari nol.');
+    }
+    if (!validIsoDate($rateDate)) {
+        throw new InvalidArgumentException('Tanggal kurs tidak valid.');
+    }
+    $id = 'fxr_' . substr(hash('sha256', $base . '|' . $quote . '|' . $rateDate), 0, 32);
+    $stmt = $pdo->prepare("INSERT INTO `exchange_rates` (id,`base_currency`,`quote_currency`,`rate`,`rate_date`,`source`,`created_by`) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE `rate`=VALUES(`rate`),`source`=VALUES(`source`),`created_by`=VALUES(`created_by`)");
+    $stmt->execute([$id, $base, $quote, $rate, $rateDate, trim($source) !== '' ? trim($source) : 'manual', $actorId !== '' ? $actorId : null]);
+    return $id;
+}
+
+/**
  * Ringkasan keamanan untuk agregasi uang: mata uang property, mata uang yang
  * dipakai, dan apakah ada pencampuran. Laporan yang menjumlahkan nominal
  * harus memeriksa mixedCurrencies sebelum menyajikan satu angka.

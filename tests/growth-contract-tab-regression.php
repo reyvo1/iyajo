@@ -49,4 +49,16 @@ $check(str_contains($server, "case 'contract-quote':"), 'Server Growth Suite pun
 $check(str_contains($server, 'tamasyaWholesaleContractRateQuote('), 'Kuotasi memakai helper tarif kontrak yang sama dengan server');
 $check(str_contains($server, 'catch(Throwable $wholesaleSchemaMissing)'), 'Skema kontrak yang belum ada tidak menggagalkan Growth Suite');
 
+/* Kurs mata uang: API, server, dan UI harus lengkap. */
+$check(str_contains($html, 'id="exchange-rate-list"'), 'Growth Suite punya tabel kurs mata uang');
+$check(str_contains($html, 'id="exchange-rate-save"'), 'Growth Suite punya tombol catat kurs');
+$check(str_contains($html, 'id="exchange-rate-currency"'), 'Growth Suite punya pilihan mata uang');
+$check(str_contains($js, 'function renderExchangeRates('), 'Growth Suite merender kurs mata uang');
+$check(str_contains($js, "api('exchange-rate-save'"), 'Penyimpanan kurs memakai endpoint growth suite');
+$check(str_contains($server, "case 'exchange-rate-save':"), 'Server Growth Suite punya aksi simpan kurs');
+$check(str_contains($server, "'exchangeRates'"), 'Server Growth Suite mengirim kurs mata uang');
+$check(str_contains($server, 'tamasyaSaveExchangeRate('), 'Penyimpanan kurs memakai helper yang sama dengan API kurs');
+$check(str_contains($read('api/support/012_domain_primitives.php'), 'function tamasyaSaveExchangeRate('), 'Helper simpan kurs tersedia');
+$check(str_contains($read('api/routes/089_exchange_rates.php'), 'tamasyaSaveExchangeRate('), 'API kurs memakai helper yang sama');
+
 echo 'Growth contract tab: ' . $checks . " passed; 0 failed.\n";

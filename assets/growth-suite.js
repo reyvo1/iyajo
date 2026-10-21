@@ -49,8 +49,29 @@
     if(list)list.innerHTML=table(['Kode','Paket','Perusahaan','Tipe kamar','Berlaku','Malam','Status'],plans.map(p=>`<tr><td><strong>${esc(p.code)}</strong></td><td>${esc(p.name)}</td><td>${esc(p.company_name||'—')}</td><td>${esc(p.room_type||'Semua tipe')}</td><td>${esc(p.valid_from)} → ${esc(p.valid_to)}</td><td>${esc(p.min_nights)}–${esc(p.max_nights)}${Number(p.cut_off_days)>0?` · cut off ${esc(p.cut_off_days)} hari`:''}</td><td>${esc(p.status)}</td></tr>`));
     const booked=$('contract-bookings');
     if(booked)booked.innerHTML=table(['Reservasi','Paket','Perusahaan','Inap','Malam','Total'],bookings.map(b=>`<tr><td><code>${esc(b.booking_id)}</code></td><td>${esc(b.plan_code||b.plan_id)}</td><td>${esc(b.company_name||'—')}</td><td>${esc(b.stay_from)} → ${esc(b.stay_to)}</td><td>${esc(b.nights)}</td><td><strong>${contractMoney(b.total,b.currency)}</strong></td></tr>`));
+    renderExchangeRates();
     const options=$('contract-room-type-options');
     if(options)options.innerHTML=(state.data?.roomTypes||[]).map(r=>`<option value="${esc(r.type)}">`).join('');
+  }
+  function renderExchangeRates(){
+    const rates=state.data?.exchangeRates||[];
+    const box=$('exchange-rate-list');
+    if(!box)return;
+    box.innerHTML=table(['Mata uang','Kurs','Tanggal','Sumber'],rates.map(r=>`<tr><td><strong>${esc(r.quote_currency)}</strong></td><td>${contractMoney(r.rate,r.base_currency)}</td><td>${esc(r.rate_date)}</td><td>${esc(r.source||'manual')}</td></tr>`));
+    const dateField=$('exchange-rate-date');
+    if(dateField&&!dateField.value)dateField.value=new Date().toISOString().slice(0,10);
+  }
+  async function saveExchangeRate(){
+    const quoteCurrency=($('exchange-rate-currency')?.value||'').trim().toUpperCase();
+    const rate=Number($('exchange-rate-value')?.value||0);
+    const rateDate=$('exchange-rate-date')?.value||'';
+    if(!quoteCurrency||!rate||!rateDate){toast('Mata uang, kurs, dan tanggal wajib diisi.',true);return;}
+    try{
+      await api('exchange-rate-save',{method:'POST',body:{quoteCurrency,rate,rateDate,source:'growth-suite'}});
+      toast('Kurs '+quoteCurrency+' dicatat.');
+      $('exchange-rate-value').value='';
+      await loadBootstrap(true);
+    }catch(error){toast(error.message,true);}
   }
   async function loadContract(){
     const box=$('contract-quote');
@@ -103,7 +124,7 @@
 $('channel-provider-form').onsubmit=async e=>{e.preventDefault();loading(true);try{const secret=$('channel-provider-secret').value;if(!$('channel-provider-code').value){toast('Kode provider wajib.',true);return;}const body={code:$('channel-provider-code').value,name:$('channel-provider-name').value,active:$('channel-provider-active').checked?1:0};if(secret)body.webhookSecret=secret;await api('channel-provider-save',{method:'POST',body});toast('Provider channel tersimpan. Webhook terverifikasi hanya membuat draft reservasi.');e.target.reset();await loadBootstrap(false);}catch(er){toast(er.message,true);}finally{loading(false);}};
     $('payment-intent-form').onsubmit=async e=>{e.preventDefault();loading(true);try{await api('payment-intent-create',{method:'POST',body:{bookingId:$('payment-booking').value,providerCode:$('payment-provider').value,amount:Number($('payment-amount').value)}});toast('Payment intent dibuat. Belum menjadi pembayaran.');e.target.reset();await loadBootstrap(false);}catch(er){toast(er.message,true);}finally{loading(false);}};$('payment-provider-form').onsubmit=async e=>{e.preventDefault();const secret=$('provider-secret').value;if(!secret&&!$('provider-code').value){toast('Kode provider wajib.',true);return;}loading(true);try{const body={code:$('provider-code').value,name:$('provider-name').value,active:$('provider-active').checked?1:0};if(secret)body.webhookSecret=secret;await api('payment-provider-save',{method:'POST',body});toast('Provider tersimpan. Webhook terverifikasi tidak mem posting uang.');e.target.reset();await loadBootstrap(false);}catch(er){toast(er.message,true);}finally{loading(false);}};
   }
-  function bindStatic(){document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));$('refresh-bootstrap').onclick=()=>loadBootstrap(true);$('load-kpi').onclick=()=>loadKpi();if($('contract-quote-btn'))$('contract-quote-btn').onclick=()=>loadContract();$('kpi-from').onchange=()=>loadKpi();$('kpi-to').onchange=()=>loadKpi();$('do-booking-search').onclick=()=>searchBookings('booking-search','booking-search-results',linkBooking);$('folio-search-btn').onclick=()=>searchBookings('folio-search','folio-search-results',loadFolio);$('print-folio').onclick=()=>window.print();}
+  function bindStatic(){document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));$('refresh-bootstrap').onclick=()=>loadBootstrap(true);$('load-kpi').onclick=()=>loadKpi();if($('contract-quote-btn'))$('contract-quote-btn').onclick=()=>loadContract();if($('exchange-rate-save'))$('exchange-rate-save').onclick=()=>saveExchangeRate();$('kpi-from').onchange=()=>loadKpi();$('kpi-to').onchange=()=>loadKpi();$('do-booking-search').onclick=()=>searchBookings('booking-search','booking-search-results',linkBooking);$('folio-search-btn').onclick=()=>searchBookings('folio-search','folio-search-results',loadFolio);$('print-folio').onclick=()=>window.print();}
   function initDefaults(){$('kpi-from').value=today().slice(0,8)+'01';$('kpi-to').value=today();const dates=new URLSearchParams(location.search);if(/^\d{4}-\d{2}-\d{2}$/.test(dates.get('from')||'')&&/^\d{4}-\d{2}-\d{2}$/.test(dates.get('to')||'')){$('kpi-from').value=dates.get('from');$('kpi-to').value=dates.get('to');}$('suggest-date').value=today();$('override-date').value=today();$('po-date').value=today();$('group-arrival').value=today();$('group-departure').value=propertyOffset(1);}
   async function init(){if(sessionStorage.getItem('hotel_logged_in')!=='true'){location.href='./login';return;}if(!['admin','manager','finance','owner'].includes(currentRole())){document.body.innerHTML='<main><div class="panel"><h1>Akses ditolak</h1><p>Growth Suite hanya tersedia untuk Administrator, Manajer, Keuangan, dan Owner read-only.</p><a class="btn secondary" href="./">Kembali ke PMS</a></div></main>';return;}const features=window.TAMASYA_RUNTIME_CONFIG&&window.TAMASYA_RUNTIME_CONFIG.features;if(!features||features.growthSuiteEnabled!==true){document.body.innerHTML='<main><div class="panel"><h1>Growth Suite dinonaktifkan</h1><p>Aktifkan TAMASYA_GROWTH_SUITE_ENABLED hanya setelah modul siap dan UAT dilakukan.</p><a class="btn secondary" href="./">Kembali ke PMS</a></div></main>';return;}bindStatic();bindForms();initDefaults();applyRoleVisibility();await resolveEndpoint(false);await loadBootstrap(true);const endpointTick=()=>{if(document.visibilityState==="visible")resolveEndpoint(true).catch(()=>{});if(document.visibilityState==="visible"&&document.getElementById("tab-kpi").classList.contains("active"))loadKpi(false);};setInterval(endpointTick,60000);window.addEventListener("focus",endpointTick);document.addEventListener("visibilitychange",endpointTick);;try{const qp=new URLSearchParams(location.search);const f=qp.get('focus');if(f==='kpi'){switchTab('kpi');}else if(f==='folio'&&qp.get('bookingId')){switchTab('folio');$('folio-search').value=qp.get('bookingId');loadFolio(qp.get('bookingId'));}else if(f==='group'){switchTab('group');if(qp.get('q')){$('booking-search').value=qp.get('q');searchBookings('booking-search','booking-search-results',linkBooking);}}}catch(e){console.warn('deep-link',e);}}
   window.addEventListener('DOMContentLoaded',init);

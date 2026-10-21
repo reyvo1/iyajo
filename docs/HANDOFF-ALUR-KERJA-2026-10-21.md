@@ -174,6 +174,9 @@ hardcoded. Sisa v2 = konversi kurs sungguhan, lihat 4.4.
   mata uang property. Hasil konversi disimpan pada kolom baru `transactions.propertyAmount`.
 - `baseAmount` **tetap** NULL = "pajak belum diketahui"; tidak dipakai untuk konversi.
 - `api/routes/089_exchange_rates.php`: daftar kurs + simpan kurs (hanya admin/manajer).
+- UI kurs: tab "Kontrak B2B" di Growth Suite (`growth-suite.html` + `assets/growth-suite.js`) ->
+  tabel kurs harian + form catat kurs. Server Growth Suite memakai helper
+  `tamasyaSaveExchangeRate()` yang sama dengan API kurs, jadi tidak ada dua aturan berbeda.
 - `tamasyaTransactionCurrencyGuard()` menambah `convertedByCurrency` + `propertyCurrencyTotal`.
 - Migrasi `20261021_TRANSACTION_PROPERTY_AMOUNT.sql`; uji `tests/exchange-rate-mysql-uat.php` (20 cek).
 

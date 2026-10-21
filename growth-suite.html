@@ -156,6 +156,22 @@
         <h2>Reservasi memakai harga kontrak</h2>
         <div id="contract-bookings" class="table-wrap"></div>
       </div>
+      <div class="grid two">
+        <div class="panel">
+          <h2>Kurs mata uang</h2>
+          <p class="muted">Transaksi dalam mata uang lain memakai kurs harian ini. Tanpa kurs, transaksi ditolak server.</p>
+          <div id="exchange-rate-list" class="table-wrap"></div>
+        </div>
+        <div class="panel">
+          <h2>Catat kurs hari ini</h2>
+          <div class="form-grid">
+            <label>Mata uang<select id="exchange-rate-currency"><option value="USD">USD</option><option value="EUR">EUR</option><option value="SGD">SGD</option><option value="JPY">JPY</option><option value="MYR">MYR</option><option value="AUD">AUD</option></select></label>
+            <label>Kurs (1 satuan asing = berapa mata uang property)<input id="exchange-rate-value" type="number" min="0" step="0.000001" required /></label>
+            <label>Tanggal<input id="exchange-rate-date" type="date" /></label>
+            <button class="btn" type="button" id="exchange-rate-save">Simpan kurs</button>
+          </div>
+        </div>
+      </div>
     </section>
 
 

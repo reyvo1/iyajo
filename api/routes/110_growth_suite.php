@@ -253,6 +253,24 @@ try {
         switch($command){
             case 'overview':
                 echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;
+            case 'exchange-rate-save':
+                // Mencatat kurs harian. Tanpa kurs, transaksi dalam mata uang
+                // asing ditolak server, jadi kurs dicatat dari Growth Suite.
+                if(!tamasyaGrowthSuiteEnabled()||!tamasyaGrowthSchemaReady($pdo)){http_response_code(409);echo tamasyaJsonEncode(['success'=>false,'error'=>'Growth Suite belum aktif pada property ini.']);break;}
+                if(!$canAnyTab(['finance','operations','report'])){http_response_code(403);echo tamasyaJsonEncode(['success'=>false,'error'=>'Izin mencatat kurs tidak ada.']);break;}
+                $rateBase=tamasyaPropertyCurrency($pdo);
+                try{
+                    $rateId=tamasyaSaveExchangeRate($pdo,$rateBase,trim((string)($input['quoteCurrency']??'')),(float)($input['rate']??0),trim((string)($input['rateDate']??'')),trim((string)($input['source']??'manual')),(string)($loggedInStaff['id']??''));
+                    writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Mencatat kurs transaksi','exchange_rate',$rateId,null,['baseCurrency'=>$rateBase,'quoteCurrency'=>strtoupper(trim((string)($input['quoteCurrency']??''))),'rate'=>(float)($input['rate']??0),'rateDate'=>trim((string)($input['rateDate']??''))],'exchange_rate');
+                    echo tamasyaJsonEncode(['success'=>true,'data'=>['id'=>$rateId]]);
+                }catch(InvalidArgumentException $rateInvalid){
+                    http_response_code(422);
+                    echo tamasyaJsonEncode(['success'=>false,'error'=>$rateInvalid->getMessage()]);
+                }catch(Throwable $rateSchemaMissing){
+                    http_response_code(409);
+                    echo tamasyaJsonEncode(['success'=>false,'error'=>'Tabel kurs belum tersedia. Jalankan migrasi 20261021_TRANSACTION_CURRENCY.sql.']);
+                }
+                break;
             case 'contract-quote':
                 // Kuotasi tarif kontrak untuk satu inap. Server yang menghitung
                 // nominal; Growth Suite hanya menampilkan.
@@ -301,6 +319,10 @@ try {
                         $data['wholesalePlans']=$fetchAll($pdo,"SELECT id,code,name,company_name,room_type,currency,valid_from,valid_to,min_nights,max_nights,cut_off_days,include_tax,breakfast_included,status FROM wholesale_rate_plans WHERE property_id=? ORDER BY status,code",[$wholesaleProperty]);
                         $data['wholesaleBookings']=$fetchAll($pdo,"SELECT booking_id,plan_id,plan_code,company_name,stay_from,stay_to,nights,total,currency,created_at FROM wholesale_rate_bookings WHERE property_id=? ORDER BY created_at DESC LIMIT 100",[$wholesaleProperty]);
                     }catch(Throwable $wholesaleSchemaMissing){$data['wholesalePlans']=[];$data['wholesaleBookings']=[];}
+                    $data['exchangeRates']=[];
+                    try{
+                        $data['exchangeRates']=$fetchAll($pdo,"SELECT id,base_currency,quote_currency,rate,rate_date,source,created_at FROM exchange_rates WHERE base_currency=? ORDER BY quote_currency,rate_date DESC LIMIT 200",[tamasyaPropertyCurrency($pdo)]);
+                    }catch(Throwable $exchangeSchemaMissing){$data['exchangeRates']=[];}
                 }
                 if(tamasyaGrowthModuleEnabled('rate')&&$canRoomRead){$data['ratePlans']=$fetchAll($pdo,"SELECT id,code,name,room_type,base_rate,min_rate,max_rate,currency,active,version FROM growth_rate_plans ORDER BY active DESC,room_type,name");$data['rateRules']=$fetchAll($pdo,"SELECT id,plan_id,name,priority,condition_json,adjustment_type,adjustment_value,valid_from,valid_to,active,version FROM growth_rate_rules ORDER BY plan_id,priority,id");$data['rateOverrides']=$fetchAll($pdo,"SELECT id,plan_id,stay_date,room_type,rate,min_stay,stop_sell,closed_to_arrival,closed_to_departure,note,version FROM growth_rate_overrides WHERE stay_date>=DATE_SUB(CURDATE(),INTERVAL 31 DAY) ORDER BY stay_date DESC,plan_id LIMIT 1000");}
                 if(tamasyaGrowthModuleEnabled('group')&&$canGroupRead){$data['companies']=$fetchAll($pdo,"SELECT id,code,name,status FROM growth_companies ORDER BY status,name LIMIT 1000");$data['groups']=$fetchAll($pdo,"SELECT g.id,g.group_code,g.company_id,g.name,g.arrival_date,g.departure_date,g.room_block_qty,g.status,g.billing_mode,g.version,c.name AS company_name,(SELECT COUNT(*) FROM growth_group_booking_links l WHERE l.group_id=g.id) AS booking_count FROM growth_group_reservations g LEFT JOIN growth_companies c ON c.id=g.company_id ORDER BY g.arrival_date DESC,g.id DESC LIMIT 1000");}
