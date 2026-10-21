@@ -179,7 +179,17 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   await installAuth(page,request);
   await page.goto('/index.html');
   await waitLoaded(page);
-  await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'staff'}})));
+  // Navigasi lewat menu domain, sama seperti jalur yang dipakai uji lama.
+  const hr=page.locator('#domain-hr');
+  if(await hr.count()){
+    await hr.scrollIntoViewIfNeeded();
+    if((await hr.getAttribute('aria-expanded'))!=='true')await hr.click();
+    const staffItem=page.locator('[role="menu"] [data-route="staff"]');
+    await expect(staffItem).toBeVisible({timeout:15000});
+    await staffItem.click();
+  }else{
+    await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'staff'}})));
+  }
   await page.waitForTimeout(3000);
   // Panel audit tertutup sampai operator membukanya; tab-tabnya muncul setelah itu.
   // Panel audit harus berada di bagian atas tab, bukan tenggelam di bawah
