@@ -1,13 +1,13 @@
-# Deploy TAMASYA - Rilis 20261021-r15
+# Deploy TAMASYA - Rilis 20261021-r16
 
 Paket ini berisi perbaikan RBAC (audit F-01..F-11), perbaikan chunk-load yang
 sebelumnya membuat Halaman UAT gagal, dan fitur baru: penampil log audit,
 inspektur izin, dasbor kesehatan sistem, dukungan multi-mata uang, ulasan
 tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
-| Paket | `tamasya-production-20261021-r15.zip` |
+| Paket | `tamasya-production-20261021-r16.zip` |
 |---|---|
-| SHA-256 paket | `f7e2a8f2e002f8312a40b6d938024f1e28ffb55012fadbd45d9368fa37e5cbdd` |
+| SHA-256 paket | `7b852a7e187d91fe94c7294e266ebbc546af5084de0ca4f906a6147226f6afce` |
 | Isi | 377 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
@@ -47,8 +47,8 @@ yang sudah ada. Semua sudah ada (angka 1) -> tidak wajib impor, tapi aman.
 ## 4. Upload & ekstrak
 
 ```
-unzip tamasya-production-20261021-r15.zip
-cd tamasya-production-20261021-r15
+unzip tamasya-production-20261021-r16.zip
+cd tamasya-production-20261021-r16
 ```
 
 Arahkan document root web server ke folder ini.
@@ -78,9 +78,21 @@ chmod 750 uploads
 chmod 640 .env db_credentials.php
 ```
 
-## 8. Cache browser
+## 8. Cache browser (WAJIB dibaca)
 
-Rilis ini memakai token versi baru (`20261021-r15`), jadi service worker
+Rilis ini memakai token versi baru (`20261021-r16`). Server Anda masih menjalankan
+`20261021-r15`, jadi **tanpa langkah ini browser akan tetap memakai aset lama** dari
+cache service worker dan fitur baru tidak akan terlihat:
+
+1. Login sebagai Admin -> buka Tab Kamar -> tombol "Tarif kontrak" harus muncul.
+2. Bila tombol tidak muncul: logout, lalu tekan Ctrl+Shift+R (hard refresh).
+3. Masih belum? DevTools -> Application -> Service Workers -> "Unregister", lalu
+   refresh dua kali. Cache service worker memakai nama cache ber-token versi, jadi
+   setelah registrasi ulang seluruh aset diunduh ulang.
+
+## 9. Cache browser (lama)
+
+Rilis ini memakai token versi baru (`20261021-r16`), jadi service worker
 mengunduh ulang aset secara otomatis. Bila browser masih menampilkan versi
 lama: hard refresh (Ctrl+Shift+R) atau increment "Unregister service worker"
 di DevTools -> Application -> Service Workers.

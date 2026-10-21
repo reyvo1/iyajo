@@ -1,8 +1,8 @@
 # Konteks & Alur Kerja TAMASYA — handoff untuk sesi berikutnya
 
-Rilis: `20261021-r15` · commit: `0c174cd` · CI: **9/9 hijau** (run `39604075134`).
+Rilis: `20261021-r16` · commit: `0c174cd` · CI: **9/9 hijau** (run `39604075134`).
 Skema: **131 tabel** · suite lokal: **111 perintah** (harus `set -euo pipefail`).
-Paket deploy: `tamasya-production-20261021-r15.zip` (371 berkas, sha256
+Paket deploy: `tamasya-production-20261021-r16.zip` (371 berkas, sha256
 `c2b5de96086531df96b100b19bdd1d14bed820678520eaaf18ef5e5975deabb0`) +
 `deploy/DEPLOY-ID.md` + `deploy/IMPORT-RBAC-PHPMYADMIN.sql`.
 
@@ -260,7 +260,7 @@ git push origin main && gh run list --limit 1
 | Skema kanonik | `database_setup.sql` (126 tabel) |
 | Migrasi baru | `migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql`, `migrations/20261021_TRANSACTION_CURRENCY.sql` |
 | CI | `.github/workflows/tamasya-enterprise-rc1-uat.yml` (source-gate 4× PHP, mysql-comprehensive-uat, mariadb-1011, prd-deployment, load-regression) |
-| Paket deploy | `create-production-zip.sh` → `tamasya-production-20261021-r15.zip` |
+| Paket deploy | `create-production-zip.sh` → `tamasya-production-20261021-r16.zip` |
 | Impor DB opsional | `deploy/IMPORT-RBAC-PHPMYADMIN.sql` (idempoten) |
 | Panduan deploy | `deploy/DEPLOY-ID.md` |
 | Laporan audit asli | `~/Desktop/LAPORAN-AUDIT-TOTAL-RBAC-2026-10-20.md` |
