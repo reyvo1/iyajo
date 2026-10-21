@@ -85,7 +85,7 @@ Run CI yang relevan: `39604075134` (HEAD), `39598954297` (wholesale),
 - `currency` = mata uang property, `exchangeRate` = 1.
 - **`baseAmount` TIDAK boleh diisi otomatis.** NULL = tanda **"pajak belum diketahui"** (`taxSnapshotStatus=unresolved`); pembeda ini dipakai `019_canonical_financial_semantics.php:535` dan jurnal suspense `2199`. Mengisi `baseAmount` merusak laporan kanonik (UAT gagal).
 
-### 2.4 Multi-currency: fondasi sudah, display belum (lihat §4)
+### 2.4 Multi-currency: fondasi + display + mesin kurs sudah (lihat §4)
 
 ---
 
@@ -124,8 +124,8 @@ hardcoded. Sisa v2 = konversi kurs sungguhan, lihat 4.4.
 - **Review/feedback tamu** → **backend selesai** (`api/routes/087_guest_reviews.php`, tabel `guest_reviews` +
   `guest_review_invites`, migrasi `20261021_GUEST_REVIEWS.sql`, `tests/guest-reviews-regression.php` 17 cek).
   Alur: staf membuat undangan (token acak, kedaluwarsa 30 hari, sekali pakai) → tamu memberi rating 1..5 →
-  staf moderasi (tampilkan/sembunyikan/balas). **Yang belum:** tab UI di panel governance + halaman
-  publik `webpublic/review.html` (API `public-review` sudah siap, tinggal formnya).
+  staf moderasi (tampilkan/sembunyikan/balas). **UI sudah ada:** tab "Ulasan" di panel governance
+  (`assets/chunks/governance.js`) + halaman publik `webpublic/review.html`.
 - **Wholesale / contract rate (B2B)** → **server-side tuntas**:
   - Skema: `wholesale_rate_plans` / `_nights` / `_bookings` (migrasi `20261021_WHOLESALE_RATES.sql`
     + `20261021_WHOLESALE_RATE_LOCK.sql`), 131 tabel kanonik.
