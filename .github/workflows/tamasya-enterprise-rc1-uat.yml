@@ -105,6 +105,7 @@ jobs:
           php tests/rbac-e2e-regression.php
           php tests/owner-read-contract-regression.php
           php tests/audit-log-viewer-regression.php
+          php tests/permission-inspector-regression.php
           php tests/smtp-diagnostics-regression.php
           php tests/negotiation-settlement-characterisation.php
           php tests/r164-custody-cleanup-regression.php

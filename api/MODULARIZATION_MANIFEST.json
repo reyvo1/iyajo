@@ -46,6 +46,7 @@
   "routeModules": [
     "010_cluster_status.php",
     "013_audit_logs.php",
+    "014_permission_inspector.php",
     "015_public_website.php",
     "016_public_site_admin.php",
     "017_public_support_inbox.php",

@@ -9,6 +9,8 @@ try {
     if ($routeHandled) { return; }
     require __DIR__ . '/routes/013_audit_logs.php';
     if ($routeHandled) { return; }
+    require __DIR__ . '/routes/014_permission_inspector.php';
+    if ($routeHandled) { return; }
     require __DIR__ . '/routes/015_public_website.php';
     if ($routeHandled) { return; }
     require __DIR__ . '/routes/016_public_site_admin.php';
