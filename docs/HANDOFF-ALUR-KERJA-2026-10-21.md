@@ -88,6 +88,7 @@ Implementasi **nol byte eager** (budget tetap 969.937/970.000):
   `tamasyaMoneyLabel` yang membaca global itu; `yr` di `feature-shared.js` (juga lazy) ikut aware.
 - Semua **72 literal "Rp "** di asset hilang; 2 dobel-simbol di `operations.js` ikut dibersihkan.
 
+Locale **tetap `id-ID`** (sesuai aplikasi sekarang; locale per property = v2, perlu ±20 byte eager).
 Sisa 1 permukaan: **antrean offline** di app-shell masih menampilkan "Rp" (hanya 2 baris, disengaja
 supaya tampilan IDR tidak berubah → tidak ada regresi untuk hotel IDR). Jika hotel non-IDR butuh
 antrean offline juga currency-aware, pakai `window.TAMASYA_CURRENCY` + `Intl` di sana (butuh ±90 byte
