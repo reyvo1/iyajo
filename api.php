@@ -1371,6 +1371,7 @@ if ($loggedInStaff) {
         'permission-inspector'=>['staff'],
         'system-health'=>['staff','config','db_config'],
         'guest-reviews'=>['staff','operations'],
+        'wholesale-rates'=>['operations','report','rooms'],
     ];
     $requiredDesktopTabs = $actionDesktopTabs[(string)$action] ?? [];
     if ($requiredDesktopTabs) {

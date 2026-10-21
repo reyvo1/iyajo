@@ -51,6 +51,8 @@ try {
     if ($routeHandled) { return; }
     require __DIR__ . '/routes/087_guest_reviews.php';
     if ($routeHandled) { return; }
+    require __DIR__ . '/routes/088_wholesale_rates.php';
+    if ($routeHandled) { return; }
     require __DIR__ . '/routes/090_operations_communications.php';
     if ($routeHandled) { return; }
     require __DIR__ . '/routes/091_receipt_storage_health.php';

@@ -67,6 +67,7 @@
     "080_telegram_webhook.php",
     "086_system_health.php",
     "087_guest_reviews.php",
+    "088_wholesale_rates.php",
     "090_operations_communications.php",
     "091_receipt_storage_health.php",
     "095_canonical_reports.php",

@@ -111,6 +111,7 @@ jobs:
           php tests/system-health-regression.php
           php tests/guest-reviews-regression.php
           php tests/hq-role-presets-regression.php
+          php tests/wholesale-rates-regression.php
           php tests/smtp-diagnostics-regression.php
           php tests/negotiation-settlement-characterisation.php
           php tests/r164-custody-cleanup-regression.php
@@ -1050,6 +1051,7 @@ jobs:
             "${cmd[@]}" tamasya_owner_uat < migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql
             "${cmd[@]}" tamasya_owner_uat < migrations/20261021_TRANSACTION_CURRENCY.sql
             "${cmd[@]}" tamasya_owner_uat < migrations/20261021_GUEST_REVIEWS.sql
+            "${cmd[@]}" tamasya_owner_uat < migrations/20261021_WHOLESALE_RATES.sql
       - name: Owner read contract against MariaDB
         env:
           TAMASYA_CATALOG_UAT_DSN: mysql:host=127.0.0.1;dbname=tamasya_owner_uat;charset=utf8mb4

@@ -101,8 +101,13 @@ eager → **tanya dulu**).
   Alur: staf membuat undangan (token acak, kedaluwarsa 30 hari, sekali pakai) → tamu memberi rating 1..5 →
   staf moderasi (tampilkan/sembunyikan/balas). **Yang belum:** tab UI di panel governance + halaman
   publik `webpublic/review.html` (API `public-review` sudah siap, tinggal formnya).
-- **Wholesale / contract rate (B2B)**: belum ada sama sekali (0 file). Perlu tabel rate kontrak + integrasi
-  ke alur reservasi + UI growth suite. **Ini item terbesar yang tersisa.**
+- **Wholesale / contract rate (B2B)** → **backend + skema selesai** (`api/routes/088_wholesale_rates.php`,
+  3 tabel: `wholesale_rate_plans` / `_nights` / `_bookings`, migrasi `20261021_WHOLESALE_RATES.sql`,
+  `tests/wholesale-rates-regression.php` 20 cek). Paket tarif per tanggal untuk satu perusahaan/channel,
+  dikunci saat reservasi dibuat (`wholesale_rate_bookings`).
+  **Yang belum:** (a) integrasi ke alur pemesanan (pemanggilan tarif paket saat reservasi dibuat),
+  (b) UI di growth suite (tab rate) — keduanya butuh penyuntingan bundle minified, jadiDESC.
+  (c) Endpoint lookup tarif untuk kasir belum ada (baru daftar paket).
 
 ### 4.3 P1-4 — RBAC terpusat di HQ → **backend + UI selesai**
 
