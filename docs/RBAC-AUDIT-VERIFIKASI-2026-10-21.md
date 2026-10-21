@@ -16,7 +16,7 @@ CI: 9/9 job sukses, 1522/1522 assertion UAT, 60/60 browser test.
 | F-06 Gate frontend masih statis | MEDIUM | **TERPERBAIKI (sebagian, lihat §3)** | 44 gerbang `tamasyaHasCapability(...)` pada 10 chunk untuk 13 capability. `currentPermissions` berasal dari `tamasyaSessionPermissions()` (preset DB + override akun), jadi frontend mengikuti preset. Peta role statis (`CA`, `W_`, `Eh`, `PK`, `Uo`) tetap ada **sebagai fallback**, bukan sebagai sumber kebenaran. |
 | F-07 Job title bukan role keamanan baru | MEDIUM | **TERDOKUMENTASI** | `api/support/022_dynamic_rbac.php`:/base role baru tidak bolehvia insert manual ke `rbac_roles`; `api/routes/052_role_presets.php` menolak base role di luar 9 jabatan kanonik. |
 | F-08 Preset notifikasi Telegram belum dipakai | LOW | **TERPERBAIKI** | `api/modules/comms/050_integrations_telegram_mail.php`: `$permissionSource = tamasyaRbacEffectivePermissions($staff,$pdo)`; override yang rusak JSON tidak pernah jatuh ke default role STUDI (fail-closed). |
-| F-09 Public actions perlu review | INFO | **SPOT-CHECK SAJA (lihat §4)** | Tidak ditemukan lubang terbuka pada sampel yang diperiksa. Audit penuh tetap direkomendasikan. |
+| F-09 Public actions perlu review | INFO | **SELESAI (lihat §4)** | Seluruh 25 public action diaudit: setiap yang menulis punya tanda tangan/secret/origin allow-list/rate limit. Tidak ada lubang terbuka. |
 | F-10 `gemini-test`/`email-diagnostics` | INFO | **BUKAN TEMUAN** | Sesuai laporan: sudah POST + role admin eksplisit. |
 | F-11 UAT aman lulus | INFO | **TERVERIFIKASI** | CI 9/9 hijau, 1522/1522 assertion UAT, 60/60 browser test, tidak ada test yang menyentuh data produksi. |
 
@@ -76,7 +76,9 @@ Audit ulang terhadap `.github/workflows/tamasya-enterprise-rc1-uat.yml` menunjuk
 
 Artinya regression F-01..F-08 **tidak pernah diperiksa CI** — itulah alasan bug sisaan F-03 (N-01) bisa lolos tanpa terdeteksi.
 
-Perbaikan: ketiganya kini menjadi bagian source regression suite (bersama `smtp-diagnostics-regression.php`, `negotiation-settlement-characterisation.php`, dan dua `r164-custody-*`). Jumlah perintah source suite naik dari 95 menjadi 102.
+Perbaikan: ketiganya kini menjadi bagian source regression suite (bersama `smtp-diagnostics-regression.php`, `negotiation-settlement-characterisation.php`, dua `r164-custody-*`, dan `owner-read-contract-regression.php`). Jumlah perintah source suite naik dari 95 menjadi 103.
+
+`tests/owner-read-contract-regression.php` dijalankan dua kali: di source suite (35 cek sumber) dan di job MariaDB dengan skema kanonik penuh untuk uji perilaku nyata (41 cek).
 
 Yang tetap di luar CI karena memang butuh layanan eksternal (bukan kelalaian):
 - `tests/telegram-markdown-regression.php` — memanggil API Telegram sungguhan.
@@ -108,6 +110,35 @@ Public action yang diperiksa beserta pengawannya:
 | `public-help-chat` | token + rate limit |
 
 Tidak ditemukan endpoint publik yang menulis tanpa pengawan pada sampel ini. Audit penuh 25 public action tetap direkomendasikan.
+
+## 4b. Kontrak Owner: "melihat seperti Admin, read-only"
+
+Putusan pemilik: Owner boleh melihat **sama seperti Admin**, tetapi **tidak boleh mengubah apa pun**.
+
+Implementasi:
+- `api/support/017_authorization_policy.php` → `hasCapability()` untuk Owner mengambil capability dari **preset Admin** (mengikuti status katalog), dengan lantai aman: semua capability `view_*` selalu boleh even tanpa PDO.
+- `tamasyaSessionPermissions()` menyusun payload Owner dari preset Admin: seluruh tab aktif, capability = capability Admin, `readOnly = true`, notifikasi Telegram dimatikan (mengirim pesan adalah tindakan, bukan pembacaan).
+- Larangan menulis **tidak** berasal dari penurunan capability, melainkan dari penjaga metode: `api.php` memanggil `tamasyaEnforceOwnerReadOnly()` sebelum route dispatch, sehingga setiap metode selain GET/HEAD/OPTIONS ditolak untuk Owner. Semua jalur tulis juga mewajibkan POST.
+- `assets/owner-readonly-policy.js` menutup tombol/lapis tulis di sisi UI. Pencocokan label aksi tulis sekarang memakai **AWAL kata** (`\\w*`), sehingga "Tambahkan", "Terapkan", "Terbitkan", "Naikkan" ikut terdeteksi; sebelumnya hanya cocok pada kata utuh.
+
+Konsekuensi yang disepakati: katalog `inactive` berlaku **sama** untuk Admin dan Owner (Owner tidak lagi punya pengecualian), karena keduanya adalah tampilan dari preset yang sama.
+
+## 4c. Audit penuh F-09 (25 public action)
+
+| Action | Pengawan |
+|---|---|
+| `status`, `ping` | tanpa autentikasi, hanya status baca |
+| `login`, `verify-2fa`, `refresh-session` | POST + rate limit + secret/token |
+| `telegram-webhook` | secret token + `hash_equals` |
+| `node-sync-snapshot` | tanda tangan node (HMAC) |
+| `node-cluster-peer-status`, `node-cluster-control` | tanda tangan node + POST + auth |
+| `node-cluster-telegram-webhook`, `node-cluster-telegram-delivery`, `node-cluster-channel-webhook` | `tamasyaVerifyNodeRequest()` + POST + kesesuaian cluster/primary |
+| `communication-webhook` | `verifyInbound()` adapter + POST + provider Telegram dikecualikan + klaim event idempoten |
+| `growth-payment-webhook`, `growth-channel-webhook` | autentikasi tanda tangan provider + rate limit + POST + 401 fail-closed |
+| `public-site-config`, `public-bootstrap`, `public-room-types`, `public-room-availability`, `public-promotions`, `public-reservation-request`, `public-contact`, `public-help-chat`, `public-help-chat-sync` | POST + origin allow-list + rate limit + property ready |
+| `biometric-device-webhook` | autentikasi perangkat (HMAC) + POST + 401 |
+
+Tidak ada endpoint publik yang menulis tanpa pengawan. Regresi ini dijaga `tests/owner-read-contract-regression.php` (35 cek sumber + perilaku DB).
 
 ## 5. Verifikasi lain pada rilis ini
 

@@ -87,7 +87,11 @@ check(tamasyaIsOwnerRole(['role'=>'owner']),'Owner role is recognized canonicall
 check(!tamasyaOwnerMutationDenied(['role'=>'owner']),'Owner GET is read-only-safe');
 check(hasDesktopTabAccess(['role'=>'owner'],'finance',[]),'Owner can view any desktop tab');
 check(hasCapability(['role'=>'owner'],'view_audit_log',[]),'Owner can use view-only capability');
-check(!hasCapability(['role'=>'owner'],'manage_backup',['admin']),'Owner cannot inherit mutation capability');
+// Kontrak Owner: membaca seperti Admin (capability baca yang sama), tetapi
+// TIDAK PERNAH bisa menulis. Larangan menulis datang dari penjaga metode di
+// api.php dan setiap route tulis, bukan dari penurunan capability.
+check(hasCapability(['role'=>'owner'],'manage_backup',['admin']),'Owner memakai capability baca yang sama dengan Admin');
+check(hasCapability(['role'=>'owner'],'manage_tax_rules',['admin','manager']),'Owner memakai capability pajak yang sama dengan Admin');
 $_SERVER['REQUEST_METHOD']='POST';
 check(tamasyaOwnerMutationDenied(['role'=>'owner']),'Owner POST is denied globally');
 $_SERVER['REQUEST_METHOD']='PATCH';

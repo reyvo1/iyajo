@@ -86,9 +86,19 @@ function tamasyaSessionPermissions(array $user, ?PDO $pdo = null) {
         return is_array($permissions)?$permissions:null;
     }
     $tabs=['dashboard','rooms','finance','savings','report','operations','website','support','telegram','staff','config','db_config','inventory','leaves','attendance','pos','local_connect'];
-    $capabilities=is_array($permissions['capabilities']??null)?$permissions['capabilities']:[];
-    foreach(['approve_sensitive_actions','manage_sessions','resolve_sync_conflict','manage_tax_rules','manage_backup','reconcile_payments','correct_booking_audit','manage_room_access','perform_night_audit','perform_housekeeping','resolve_night_audit','manage_operational_settings','override_key_checkout','manage_public_website','sell_room_access','manage_stay_access','receive_payment_access','view_audit_log','view_guest_identity','view_reports','view_support_inbox','manage_facilities','daily_summary'] as $key)$capabilities[$key]=str_starts_with($key,'view_');
-    foreach($capabilities as $key=>&$value)$value=str_starts_with((string)$key,'view_');unset($value);
+    $capabilityKeys=['approve_sensitive_actions','manage_sessions','resolve_sync_conflict','manage_tax_rules','manage_backup','reconcile_payments','correct_booking_audit','manage_room_access','perform_night_audit','perform_housekeeping','resolve_night_audit','manage_operational_settings','override_key_checkout','manage_public_website','sell_room_access','manage_stay_access','receive_payment_access','view_audit_log','view_guest_identity','view_reports','view_support_inbox','manage_facilities','daily_summary'];
+    $capabilities=[];
+    // Owner memakai capability Admin (preset Admin + status katalog) supaya
+    // Owner benar-benar bisa melihat segalanya seperti Admin, hanya saja tidak
+    // boleh mengubah apa pun. Notifikasi Telegram tetap dimatikan untuk Owner
+    // karena mengirim pesan adalah tindakan, bukan pembacaan.
+    $adminPreset=(function_exists('tamasyaRbacRolePreset')&&$pdo)?tamasyaRbacRolePreset('admin',$pdo):null;
+    $adminMap=(is_array($adminPreset)&&isset($adminPreset['capabilities'])&&is_array($adminPreset['capabilities']))?$adminPreset['capabilities']:[];
+    foreach($capabilityKeys as $key){
+        if(array_key_exists($key,$adminMap))$capabilities[$key]=((bool)$adminMap[$key]);
+        elseif(function_exists('tamasyaRbacRolePermission'))$capabilities[$key]=(bool)tamasyaRbacRolePermission('admin','capabilities',(string)$key,$pdo);
+        else $capabilities[$key]=str_starts_with($key,'view_');
+    }
     return ['desktopTabs'=>array_fill_keys($tabs,true),'telegramNotifications'=>array_fill_keys(['bookings','finance','inventory','operations','hr','system'],false),'capabilities'=>$capabilities,'readOnly'=>true];
 }
 
@@ -146,8 +156,20 @@ function tamasyaPermissionOverride($permissions, string $group, string $key): ?b
 function hasCapability($user, $capability, $fallbackRoles = []) {
     if (!$user) return false;
     if (tamasyaIsOwnerRole($user)) {
+        // Owner membaca persis seperti Admin: capability diambil dari preset Admin
+        // (dan mengikuti status katalog), sehingga tampilan dan API selalu sama.
+        // Owner tetap tidak dapat mengubah apa pun karena SETIAP jalur tulis
+        // mewajibkan metode selain GET/HEAD/OPTIONS, dan api.php memblokir Owner
+        // pada setiap metode tersebut sebelum route dijalankan.
         $capability = (string)$capability;
-        return str_starts_with($capability, 'view_');
+        // Semua capability view_* selalu boleh untuk Owner, walau katalog atau
+        // preset belum tersedia (instalasi tanpa PDO / instalasi lama).
+        if (str_starts_with($capability, 'view_')) return true;
+        if (function_exists('tamasyaRbacRolePermission')) {
+            $adminValue = tamasyaRbacRolePermission('admin', 'capabilities', $capability);
+            if ($adminValue !== null) return (bool)$adminValue;
+        }
+        return in_array('admin', (array)$fallbackRoles, true);
     }
     if (function_exists('tamasyaRbacCatalogKeyState') && tamasyaRbacCatalogKeyState('capabilities',(string)$capability) === 'inactive') return false;
     $override=tamasyaPermissionOverride($user['permissions']??null,'capabilities',(string)$capability);

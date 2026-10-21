@@ -103,6 +103,7 @@ jobs:
           php tests/dynamic-rbac-regression.php
           php tests/role-preset-regression.php
           php tests/rbac-e2e-regression.php
+          php tests/owner-read-contract-regression.php
           php tests/smtp-diagnostics-regression.php
           php tests/negotiation-settlement-characterisation.php
           php tests/r164-custody-cleanup-regression.php
@@ -1026,6 +1027,28 @@ jobs:
             "${cmd[@]}" "$db" < migrations/R16_4_NIGHT_AUDIT_MODE.sql
             "${cmd[@]}" "$db" < migrations/R16_4_NIGHT_AUDIT_MODE.sql
           done
+      - name: Prepare disposable canonical schema for the owner read contract
+        env:
+          MYSQL_PWD: tamasya_disposable_ci_only
+        run: |
+          set -euo pipefail
+          cmd=(mariadb -h127.0.0.1 -P3306 -uroot --protocol=TCP)
+          "${cmd[@]}" -e "CREATE DATABASE tamasya_owner_uat CHARACTER SET utf8mb4 COLLATE utf8mb4_general_ci"
+          "${cmd[@]}" tamasya_owner_uat < database_setup.sql
+          "${cmd[@]}" tamasya_owner_uat < migrations/20261019_STAFF_JOB_TITLES.sql
+          "${cmd[@]}" tamasya_owner_uat < migrations/20261019_ROLE_CAPABILITY_PRESETS.sql
+          "${cmd[@]}" tamasya_owner_uat < migrations/20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql
+          "${cmd[@]}" tamasya_owner_uat < migrations/20261020_DAILY_SUMMARY_CAPABILITY.sql
+          "${cmd[@]}" tamasya_owner_uat < migrations/20261021_DYNAMIC_RBAC.sql
+      - name: Owner read contract against MariaDB
+        env:
+          TAMASYA_CATALOG_UAT_DSN: mysql:host=127.0.0.1;dbname=tamasya_owner_uat;charset=utf8mb4
+          TAMASYA_CATALOG_UAT_USER: root
+          TAMASYA_CATALOG_UAT_PASS: tamasya_disposable_ci_only
+        run: |
+          set -euo pipefail
+          php tests/owner-read-contract-regression.php
+
       - name: MariaDB 10.11 relational, transaction, and per-property UAT
         env:
           TAMASYA_CATALOG_UAT_DSN: mysql:host=127.0.0.1;dbname=tamasya_catalog_uat;charset=utf8mb4
