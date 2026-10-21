@@ -2,7 +2,7 @@ const tamasyaMoney=window.TamasyaCurrencyDisplay.formatNumber;
 import {TamasyaGrowthRateSuggestion,TamasyaGrowthBookingLinks} from "./growth-widgets.js?v=20261021-rbac-r1";
 import {TamasyaViewportLayer} from "./viewport-layer.js?v=20261021-rbac-r1";
 /*! TAMASYA split2 chunk: original FIX28R5 function body with safe mutable-cache reset bridge for Ole. */
-import {Ile,Ji,Kv,NE,f,t,ub,un,x8} from "../app-core.js?v=20261021-rbac-r1";
+import {Ile,Ji,Kv,NE,f,t,ub,un,x8} from "../app-core.js?v=20261021-rbac-core1";
 import {AK,Ec,Fx,G1,Ii,Lu,Md,Mh,NK,Q1,SK,TK,U0,Ue,Un,V1,Vi,a$,aj,fh,h6,la,ls,qv,sj,tamasyaReservationInventoryOpen,tamasyaReservationWindowHasConflict,tamasyaRoomNumberCompare,tp,vr,wK,yi} from "./app-shared.js?v=20261021-rbac-r1";
 import {Ax,Cpe,Dle,Gx,HR,Iz,J$,Kc,Ku,Lr,N6,Oi,Pz,Sc,Sd,Ur,X6,Y$,Ym,ZK,Zz,az,b$,b6,bi,bo,cz,g$,i$,is,lj,ox,pE,tz,y$,yr} from "./feature-shared.js?v=20261021-rbac-r1";
 const pr=(p,n,r)=>Math.round(p*(1+r/100))*n;

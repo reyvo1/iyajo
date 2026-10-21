@@ -42,8 +42,12 @@ await test('compiled app-shared retains operation ID for retryable responses',()
  assert.match(source,/status===202\|\|tamasyaResponse\.status===408\|\|tamasyaResponse\.status===425\|\|tamasyaResponse\.status===429\|\|tamasyaResponse\.status>=500/);
 });
 await test('Enterprise RC1 build ID matches API, SW cache, registration and asset URLs',()=>{
- const build='20261021-rbac-r1';
  const release=fs.readFileSync(path.join(root,'release_contract.php'),'utf8');
+ // The build token is owned by release_contract.php; every other release surface
+ // must carry the same token. Deriving it here keeps the cross-file check while
+ // removing a hardcoded value that a release bump would silently break.
+ const build=release.match(/define\('TAMASYA_BUILD_ID', '([^']+)'/)?.[1];
+ assert.ok(build,'release_contract.php must define TAMASYA_BUILD_ID');
  const guard=fs.readFileSync(path.join(root,'consistency_guard_support.php'),'utf8');
  const sw=fs.readFileSync(path.join(root,'sw.js'),'utf8');
  const index=fs.readFileSync(path.join(root,'index.html'),'utf8');

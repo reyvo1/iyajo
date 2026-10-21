@@ -1,5 +1,5 @@
 /*! TAMASYA split2 chunk: original FIX28R5 function body with safe mutable-cache reset bridge for _pe. */
-import {Kv,Mz,f,ml,qi,t,un,yo,zr} from "../app-core.js?v=20261021-rbac-r1";
+import {Kv,Mz,f,ml,qi,t,un,yo,zr} from "../app-core.js?v=20261021-rbac-core1";
 import {C6,Di,Jh,NL,N_,P$,R_,Vi,X1,as,cE,cpe,dpe,ko,ls,ope,ql,u$,upe,x$,xz,yi} from "./app-shared.js?v=20261021-rbac-r1";
 import {$$,BK,Cpe,Cr,Cx,D6,Gz,Ku,LK,Lc,Lr,MA,OL,Od,Oi,P6,Pz,Qm,R6,R8OG,Rm,Sd,Sn,T$,Tpe,Uh,Ve,Vs,W1,W6,Wk,Xl,Xs,Xz,Y1,Yk,Yx,Z6,ZK,Zz,ap,bi,bz,cj,h$,hE,is,kr,mz,n6,nz,oj,oz,pj,pr,rj,sE,sz,tz,uE,uz,vz,yr,zn} from "./feature-shared.js?v=20261021-rbac-r1";
 // R14.1: batas slot shift mengikuti pengaturan properti; default 07:00/15:00/23:00

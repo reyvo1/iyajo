@@ -1,4 +1,4 @@
-import {f,t} from '../app-core.js?v=20261021-rbac-r1';
+import {f,t} from '../app-core.js?v=20261021-rbac-core1';
 import {Oc} from './app-shared.js?v=20261021-rbac-r1';
 const money=value=>window.TamasyaCurrencyDisplay.formatNumber(value);
 // The entered figure is what the guest hands over now; cash received earlier stays
