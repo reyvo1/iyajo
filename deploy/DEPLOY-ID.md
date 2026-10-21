@@ -7,7 +7,7 @@ tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
 | Paket | `tamasya-production-20261021-r18.zip` |
 |---|---|
-| SHA-256 paket | `e9e8b7f3a37efda7d9f50e6d0ce0128899b4d4d17070a2ce9c680e4b457bad70` |
+| SHA-256 paket | `cacc8322ec4fbc692a11a88186b5db5bf2ae4fc131d2393251d3eb811d37d140` |
 | Isi | 356 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
@@ -100,9 +100,9 @@ di DevTools -> Application -> Service Workers.
 
 ## 10. Verifikasi manual setelah deploy
 
-1. Login sebagai Admin -> menu "Kelola Jabatan" harus tampil.
-2. Buka Tab Kamar, Finance, Operations, Staff -> tidak boleh error console.
-3. Login sebagai Finance -> Tab Staff dan Config harus tertutup.
+1. Login sebagai Admin -> tab **Karyawan** (grup SDM) -> panel "Kelola Jabatan (Paket Izin)" harus tampil, dan di bawahnya panel "Audit & Kendali" (Log Audit / Inspektur Izin / Ulasan / Kesehatan).
+2. Buka tab Kamar, Finance, Operasional, Karyawan -> tidak boleh error console.
+3. Login sebagai Finance -> tab Karyawan (SDM) dan tab Sistem/Config harus tertutup.
 4. Login sebagai Owner -> semua tombol tulis harus nonaktif.
 5. Jalankan regression server (opsional, butuh PHP CLI):
    `php tests/regression.php` bila Anda ikut menyalin folder `tests/`.

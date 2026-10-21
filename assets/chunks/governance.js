@@ -260,6 +260,10 @@ function TamasyaGovernancePanel(props){
   const [tab,setTab]=f.useState("audit");
   const [open,setOpen]=f.useState(false);
   return t.jsxs("div",{className:"space-y-3"},
+    t.jsx("section",{className:"glass-card p-4 sm:p-5 rounded-2xl border border-white/10 shadow-xl shadow-slate-950/20"},
+      t.jsx("header",{className:"space-y-1"},
+        t.jsx("h3",{className:"text-sm font-semibold text-slate-100",children:"Audit & Kendali"}),
+        t.jsx("p",{className:"text-[11px] text-slate-400",children:"Jejak audit, pemeriksaan hak akses, ulasan tamu, dan kesehatan sistem. Semuanya hanya dibaca."}))),
     t.jsx("div",{className:"flex flex-wrap items-center gap-2"},
       t.jsx("button",{onClick:()=>setOpen(v=>!v),className:"rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-white/25",children:open?"Tutup Audit & Izin":"Buka Audit & Izin"}),
       open?t.jsxs("div",{className:"flex gap-1"},

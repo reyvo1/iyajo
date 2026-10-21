@@ -33,7 +33,7 @@ Run CI yang relevan: `39604075134` (HEAD), `39598954297` (wholesale),
 | `api/routes/013_audit_logs.php` | Viewer log audit (read-only, capability `view_audit_log`, scope property, redaksi, facet, paginasi) | ✅ teruji |
 | `api/routes/014_permission_inspector.php` | Inspector hak akses (verdict dari `hasCapability()` produksi + lapisan penentu) | ✅ teruji |
 | `api/routes/086_system_health.php` | Kesehatan sistem terpadu (6 bagian, masing-masing tahan gagal sendiri) | ✅ teruji |
-| `assets/chunks/governance.js` | Panel UI: 4 tab (Log Audit / Inspector Izin / Ulasan / Kesehatan) di tab Staff | ✅ teruji |
+| `assets/chunks/governance.js` | Panel "Audit & Kendali": 4 tab (Log Audit / Inspektur Izin / Ulasan / Kesehatan) di bawah tab **Karyawan** (grup SDM) | ✅ teruji |
 | `migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql` | 3 daftar role statis → access group (+ grup `all_staff_no_finance`) | ✅ teruji |
 | `migrations/20261021_TRANSACTION_CURRENCY.sql` | `transactions.currency` + `exchangeRate`, tabel `exchange_rates`, backfill | ✅ teruji |
 | `api/support/012_domain_primitives.php` | Helper `tamasyaPropertyCurrency/Locale/TransactionCurrencies/TransactionCurrencyGuard` | ✅ teruji |
@@ -256,7 +256,7 @@ git push origin main && gh run list --limit 1
 | Otoritas posting uang | `api/modules/finance/025_financial_posting_authority.php` |
 | Semantik pajak kanonik | `api/modules/finance/019_canonical_financial_semantics.php` |
 | Proyeksi data utama | `api/support/070_data_projection_scope.php` |
-| Panel UI governance | `assets/chunks/governance.js` (mount di `assets/chunks/staff.js` → `QleBridge`) |
+| Panel UI governance | `assets/chunks/governance.js` (mount di `assets/chunks/staff.js` → `QleBridge`, di dalam tab Karyawan (grup SDM)) |
 | Format uang (display) | `assets/currency-display.js` |
 | Skema kanonik | `database_setup.sql` (131 tabel) |
 | Migrasi baru | `migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql`, `migrations/20261021_TRANSACTION_CURRENCY.sql` |
