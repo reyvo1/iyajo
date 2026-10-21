@@ -29,6 +29,14 @@ $currencyCheck(str_contains($migration, 'CREATE TABLE IF NOT EXISTS `exchange_ra
 $currencyCheck(str_contains($migration, 'INSERT IGNORE') || !preg_match('/\bDROP\b|\bTRUNCATE\b|\bDELETE FROM\b/i', $migration), 'Migrasi tidak menghapus data (idempoten)');
 $currencyCheck(str_contains($migration, 'SET t.`currency` = COALESCE') && str_contains($migration, '`baseAmount` = `amount`'), 'Migrasi mengisi baris lama dengan mata uang property dan kurs 1');
 
+/* 1b. Skema kanonik harus punya kolom yang sama, jika tidak posting gagal
+ *     dengan "struktur database belum lengkap". */
+$canonical = $read('database_setup.sql');
+$currencyCheck(str_contains($canonical, "`currency` varchar(10) NOT NULL DEFAULT 'IDR'"), 'Skema kanonik punya kolom currency pada transaksi');
+$currencyCheck(str_contains($canonical, "`exchangeRate` decimal(18,8) NOT NULL DEFAULT 1.00000000"), 'Skema kanonik punya kolom exchangeRate pada transaksi');
+$currencyCheck(str_contains($canonical, 'CREATE TABLE `exchange_rates`'), 'Skema kanonik punya tabel exchange_rates');
+$currencyCheck(substr_count($canonical, "`currency` varchar(10) NOT NULL DEFAULT 'IDR'") >= 1 && str_contains($canonical, 'CREATE TABLE `exchange_rates`'), 'Skema kanonik dan migrasi memakai definisi kolom yang sama');
+
 /* 2. Helper konteks mata uang. */
 $primitives = $read('api/support/012_domain_primitives.php');
 foreach (['tamasyaPropertyCurrency', 'tamasyaPropertyLocale', 'tamasyaTransactionCurrencies', 'tamasyaTransactionCurrencyGuard'] as $helper) {

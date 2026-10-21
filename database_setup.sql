@@ -2841,6 +2841,20 @@ CREATE TABLE `test_data_purge_logs` (
 
 
 -- TABLE: transaction_allocations
+CREATE TABLE `exchange_rates` (
+  `id` varchar(64) NOT NULL,
+  `base_currency` varchar(10) NOT NULL,
+  `quote_currency` varchar(10) NOT NULL,
+  `rate` decimal(18,8) NOT NULL,
+  `rate_date` date NOT NULL,
+  `source` varchar(50) NOT NULL DEFAULT 'manual',
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_exchange_rate_day` (`base_currency`,`quote_currency`,`rate_date`),
+  KEY `idx_exchange_rate_pair` (`base_currency`,`quote_currency`,`rate_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
 CREATE TABLE `transaction_allocations` (
   `id` varchar(80) NOT NULL,
   `operation_id` varchar(100) NOT NULL,
@@ -2896,6 +2910,8 @@ CREATE TABLE `transactions` (
   `categoryId` varchar(50) DEFAULT NULL,
   `categorySystemKey` varchar(80) DEFAULT NULL,
   `amount` decimal(15,2) NOT NULL,
+  `currency` varchar(10) NOT NULL DEFAULT 'IDR',
+  `exchangeRate` decimal(18,8) NOT NULL DEFAULT 1.00000000,
   `date` date NOT NULL,
   `description` varchar(255) NOT NULL,
   `createdBy` varchar(50) DEFAULT 'staff',
