@@ -63,5 +63,5 @@ memakai penomoran P2 untuk fitur baru. Yang sama refers ke:
 
 | Handoff | Roadmap | Status |
 |---|---|---|
-| P2-5 tarif kontrak B2B | P2-7 (rencana) | selesai di `20261021-r20` |
-| P2-6 ulasan tamu | P2-8 (rencana) | selesai di `20261021-r20` |
+| P2-5 tarif kontrak B2B | P2-7 (rencana) | selesai di `20261021-r21` |
+| P2-6 ulasan tamu | P2-8 (rencana) | selesai di `20261021-r21` |

@@ -13,7 +13,7 @@ paket RBAC terpusat HQ dan tarif kontrak B2B sudah aktif di domain ini.
 Dibuat: 2026-08-22 (clean-slate audit offline-ops-1)
 
 
-## Route baru (rilis 20261021-r20)
+## Route baru (rilis 20261021-r21)
 
 | Route | Domain | Isi |
 |---|---|---|

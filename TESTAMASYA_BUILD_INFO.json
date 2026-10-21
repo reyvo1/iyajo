@@ -1,5 +1,5 @@
 {
-  "base_release": "20261021-r20",
+  "base_release": "20261021-r21",
   "base_codex_commit": "19b9dbe",
   "destination": "reyvo1/testamasya ONLY",
   "package_kind": "production hosting release",

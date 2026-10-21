@@ -48,7 +48,7 @@ respons HTTP nyata, atau uji fungsional terhadap MariaDB).
 | Suite statis (116 perintah) | `bash /tmp/suite_full.sh` | ✅ hijau |
 | Uji helper uang (Node VM) | `node tests/uat_local/ui_money_helper_regression.mjs` | ✅ 9/9 |
 | Uji fungsional MariaDB (tarif kontrak, kurs) | `TAMASYA_CATALOG_UAT_DSN=… php tests/wholesale-contract-rate-mysql-uat.php` | ✅ 41 + 20 |
-| Rehearsal paket rilis | `bash tests/uat_prd/verify_deploy_bundle.sh tamasya-production-20261021-r20.zip` | ✅ |
+| Rehearsal paket rilis | `bash tests/uat_prd/verify_deploy_bundle.sh tamasya-production-20261021-r21.zip` | ✅ |
 | Uji browser (klik nyata) | `npm run test:browser` | CI (butuh server UAT) |
 | Audit dokumen vs kode | bandingkan klaim dokumen dengan `file:line` kode | ✅ (dipakai ulang, bukan dianggap final) |
 

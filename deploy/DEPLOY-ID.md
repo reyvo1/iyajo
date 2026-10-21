@@ -1,13 +1,13 @@
-# Deploy TAMASYA - Rilis 20261021-r20
+# Deploy TAMASYA - Rilis 20261021-r21
 
 Paket ini berisi perbaikan RBAC (audit F-01..F-11), perbaikan chunk-load yang
 sebelumnya membuat Halaman UAT gagal, dan fitur baru: penampil log audit,
 inspektur izin, dasbor kesehatan sistem, dukungan multi-mata uang, ulasan
 tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
-| Paket | `tamasya-production-20261021-r20.zip` |
+| Paket | `tamasya-production-20261021-r21.zip` |
 |---|---|
-| SHA-256 paket | `e6cfec3d8b6d8dd5ebc724fd86b5cce712f41d7df0e86ba097b7792ad5f139e8` |
+| SHA-256 paket | `ea4d9051da0865410f763cd122dfe2a0c9d195e74e798e3a2292e79195fb8196` |
 | Isi | 356 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
@@ -47,8 +47,8 @@ yang sudah ada. Semua sudah ada (angka 1) -> tidak wajib impor, tapi aman.
 ## 4. Upload & ekstrak
 
 ```
-unzip tamasya-production-20261021-r20.zip
-cd tamasya-production-20261021-r20
+unzip tamasya-production-20261021-r21.zip
+cd tamasya-production-20261021-r21
 ```
 
 Arahkan document root web server ke folder ini.
@@ -81,8 +81,8 @@ chmod 640 .env db_credentials.php
 
 ## 8. Cache browser (WAJIB dibaca)
 
-Rilis ini memakai token versi baru (`20261021-r20`). Server Anda masih menjalankan
-versi sebelum `20261021-r20`, jadi **tanpa langkah ini browser akan tetap memakai aset lama** dari
+Rilis ini memakai token versi baru (`20261021-r21`). Server Anda masih menjalankan
+versi sebelum `20261021-r21`, jadi **tanpa langkah ini browser akan tetap memakai aset lama** dari
 cache service worker dan fitur baru tidak akan terlihat:
 
 1. Login sebagai Admin -> buka Tab Kamar -> tombol "Tarif kontrak" harus muncul.
@@ -93,7 +93,7 @@ cache service worker dan fitur baru tidak akan terlihat:
 
 ## 9. Cache browser (lama)
 
-Rilis ini memakai token versi baru (`20261021-r20`), jadi service worker
+Rilis ini memakai token versi baru (`20261021-r21`), jadi service worker
 mengunduh ulang aset secara otomatis. Bila browser masih menampilkan versi
 lama: hard refresh (Ctrl+Shift+R) atau increment "Unregister service worker"
 di DevTools -> Application -> Service Workers.
@@ -122,7 +122,7 @@ di DevTools -> Application -> Service Workers.
 Jalankan dari repositori (paket rilis tidak menyertakan folder `tests/`):
 
 ```
-bash tests/uat_prd/verify_deploy_bundle.sh tamasya-production-20261021-r20.zip
+bash tests/uat_prd/verify_deploy_bundle.sh tamasya-production-20261021-r21.zip
 ```
 Memeriksa ZIP yang akan dikirim: manifest checksum cocok, berkas wajib ada, tidak ada rahasia,
 dan seluruh PHP/JS valid.
