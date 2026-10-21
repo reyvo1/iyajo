@@ -206,7 +206,7 @@ function tamasyaAssertManualTransactionReplayMatches(array $existing,array $inco
 function tamasyaCanonicalTransactionColumns(): array {
     return [
         'id','type','category','categoryId','categorySystemKey','amount','date','description','createdBy','createdAt',
-        'subcategory','subcategoryId','subcategorySystemKey','roomNumber','proofUrl','bankAccountId','bookingId','baseAmount','taxAmount','taxRate',
+        'subcategory','subcategoryId','subcategorySystemKey','roomNumber','proofUrl','bankAccountId','bookingId','baseAmount','currency','exchangeRate','taxAmount','taxRate',
         'bookingSource','version','updatedAt','updatedBy','updatedSource','transactionKind','sourceEntity','sourceEntityId','isSystemGenerated','operationId',
         'shiftSessionId','lockedAt','reconciliationStatus','reconciliationReference','documentNumber','importBatchId','recordOrigin','shiftExempt','shiftExemptionReason',
         'taxNote','taxRuleId','taxSnapshotStatus','taxSource','serviceDate','historicalSourceType','historicalSourceReference','sourceReportedBy','reportingPeriod',
@@ -386,6 +386,22 @@ function tamasyaPostFinancialTransaction(PDO $pdo,array $tx,array $actor,string 
     }
 
     tamasyaAssertOpenShiftCashCanCoverExpense($pdo,$tx);
+
+    // Setiap transaksi yang diposting melalui otoritas ini memakai mata uang
+    // property dan kurs 1 terhadap mata uang dasar. Dengan begitu satu database
+    // tidak pernah punya transaksi dengan nominal mata uang berbeda, sehingga
+    // penjumlahan di laporan tetap benar. Konversi antar mata uang belum
+    // dilakukan: bila suatu saat dibutuhkan, kurs disimpan di exchange_rates
+    // dan baseAmount menjadi jumlah dalam mata uang property.
+    if (!array_key_exists('currency',$tx) || trim((string)($tx['currency']??''))==='') {
+        $tx['currency']=function_exists('tamasyaPropertyCurrency')?tamasyaPropertyCurrency($pdo):'IDR';
+    }
+    if (!array_key_exists('exchangeRate',$tx) || !is_numeric($tx['exchangeRate']??null)) {
+        $tx['exchangeRate']=1;
+    }
+    if (!array_key_exists('baseAmount',$tx) || !is_numeric($tx['baseAmount']??null)) {
+        $tx['baseAmount']=$tx['amount']??null;
+    }
 
     $allowed=array_flip(tamasyaCanonicalTransactionColumns());
     $columns=[];$values=[];

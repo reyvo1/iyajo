@@ -885,13 +885,23 @@ function getRoleScopedHotelData($pdo, $user) {
         return tamasyaNotificationTypeVisibleToUser($user,(string)($notification['type']??'system'));
     }));
     $data['businessPolicy'] = tamasyaBusinessPolicyProjection();
+    // Konteks mata uang + peringatan pencampuran. Laporan yang menjumlahkan
+    // nominal wajib memeriksa mixedCurrencies; aplikasi tidak pernah
+    // menjumlahkan mata uang berbeda tanpa tanda.
+    if (function_exists('tamasyaTransactionCurrencyGuard')) {
+        $data['currencyContext'] = tamasyaTransactionCurrencyGuard($pdo);
+    }
     $data['currentUser'] = [
         'id' => $staffId,
         'name' => (string)($user['name'] ?? ''),
         'username' => (string)($user['username'] ?? ''),
         'role' => $role,
         'permissions' => tamasyaSessionPermissions($user,$pdo),
-        'hotelScopeId' => tamasyaHotelScopeId()
+        'hotelScopeId' => tamasyaHotelScopeId(),
+        // Mata uang dan locale property: frontend memakai ini untuk format
+        // nominal, sehingga tampilan mengikuti hotel dan bukan asumsi IDR.
+        'currency' => function_exists('tamasyaPropertyCurrency') ? tamasyaPropertyCurrency($pdo) : 'IDR',
+        'locale' => function_exists('tamasyaPropertyLocale') ? tamasyaPropertyLocale($pdo) : 'id-ID'
     ];
 
     // Status baca notifikasi bersifat per-user agar satu staf tidak menandai
