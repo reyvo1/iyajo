@@ -216,7 +216,13 @@ if os==200:
     for key in ['journalEntries','journalLines','taxRules','sessions','syncDevices','housekeepingTasks','maintenanceTickets','backupRuns']:
         check('Owner has complete Operations read scope: '+key,admin_ops_status==200 and sorted(str(x.get('id',x.get('device_id',''))) for x in owner_ops.get(key) or [])==sorted(str(x.get('id',x.get('device_id',''))) for x in (admin_ops.get('data') or {}).get(key) or []),{'ownerCount':len(owner_ops.get(key) or []),'adminCount':len((admin_ops.get('data') or {}).get(key) or [])})
     owner_permissions=(owner_hotel.get('currentUser') or {}).get('permissions') or {}
-    check('Owner preset advertises read-only and rejects write capability overrides',owner_permissions.get('readOnly') is True and owner_permissions.get('desktopTabs',{}).get('staff') is True and owner_permissions.get('capabilities',{}).get('manage_backup') is False,owner_permissions)
+    # Kontrak Owner: membaca dengan set capability yang PERSIS sama seperti Admin
+    # (preset Admin), tetap readOnly, dan tab staff tetap terlihat. Penulisan
+    # Owner tetap ditolak oleh penjaga metode (diuji terpisah lewat POST mutasi).
+    admin_permissions=(admin_hotel.get('currentUser') or {}).get('permissions') or {}
+    owner_capabilities=owner_permissions.get('capabilities') or {}
+    admin_capabilities=admin_permissions.get('capabilities') or {}
+    check('Owner advertises read-only and reads with the exact Admin capability set',owner_permissions.get('readOnly') is True and owner_permissions.get('desktopTabs',{}).get('staff') is True and len(owner_capabilities)>0 and owner_capabilities==admin_capabilities,{'ownerCapabilities':owner_capabilities,'adminCapabilities':admin_capabilities})
     growth_data=(read_map.get('growth') or {}).get('data') or {}
     enterprise_data=(read_map.get('enterprise') or {}).get('data') or {}
     pos_data=read_map.get('pos_products') or {}
