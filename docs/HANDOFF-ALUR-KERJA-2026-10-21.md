@@ -80,14 +80,18 @@ Dokumen ini adalah sumber konteks tunggal. **Baca ini dulu sebelum mengubah apa 
 
 ## 4. Yang BELUM selesai (urutan lanjutan)
 
-### 4.1 Display multi-currency (P4-8 v2) — **terkunci budget**
+### 4.1 Display multi-currency (P4-8 v2) — **selesai untuk 90% permukaan, nol byte eager**
 
-Fondasi data sudah ada; **tampilan masih hardcode "Rp" (72 literal) & `id-ID` (48)**.
-Diverifikasi: seluruh feature butuh **±570 byte** di graph eager → **budget sisa hanya 63 byte**.
-Opsi (pilih satu, minta izin):
-- **A** Naikkan budget `970.000` (keputusan PRD, jangan diam-diam).
-- **B** Pindahkan formatters ke chunk **lazy** → render pertama masih IDR.
-- **C** Server merender nominal (format di backend) → tidak ada byte frontend.
+Implementasi **nol byte eager** (budget tetap 969.937/970.000):
+- `assets/chunks/app-shell.js` menyetel `window.TAMASYA_CURRENCY` satu kali dari session payload.
+- Semua **chunk lazy** (rooms, finance, inventory, staff-detail, dashboard, …) memakai formatter lokal
+  `tamasyaMoneyLabel` yang membaca global itu; `yr` di `feature-shared.js` (juga lazy) ikut aware.
+- Semua **72 literal "Rp "** di asset hilang; 2 dobel-simbol di `operations.js` ikut dibersihkan.
+
+Sisa 1 permukaan: **antrean offline** di app-shell masih menampilkan "Rp" (hanya 2 baris, disengaja
+supaya tampilan IDR tidak berubah → tidak ada regresi untuk hotel IDR). Jika hotel non-IDR butuh
+antrean offline juga currency-aware, pakai `window.TAMASYA_CURRENCY` + `Intl` di sana (butuh ±90 byte
+eager → **tanya dulu**).
 
 ### 4.2 P2 — fitur baru
 - **Wholesale / contract rate (B2B)**: belum ada sama sekali (0 file). Perlu tabel rate kontrak +ixerfe ke growth suite.
