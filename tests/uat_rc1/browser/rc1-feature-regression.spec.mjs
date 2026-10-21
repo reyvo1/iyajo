@@ -122,15 +122,26 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   const triggerBox=await trigger.boundingBox();
   expect(triggerBox).not.toBeNull();
 
-  // Tidak boleh menutupi tombol laporan yang sudah ada.
-  const reportButton=page.locator('#tamasya-report-center-btn');
-  if(await reportButton.count()&&await reportButton.isVisible()){
-    const reportBox=await reportButton.boundingBox();
-    const separated=triggerBox.y+triggerBox.height<=reportBox.y
-      ||reportBox.y+reportBox.height<=triggerBox.y
-      ||triggerBox.x+triggerBox.width<=reportBox.x
-      ||reportBox.x+reportBox.width<=triggerBox.x;
-    expect(separated,'contract rate trigger overlaps the report button').toBe(true);
+  // Tidak boleh menutupi kontrol mengambang milik aplikasi mana pun. Dulu
+  // tombol ini menutupi tombol Reset pada halaman karyawan.
+  const appFixed=await page.evaluate(()=>{
+    const out=[];
+    for(const el of document.querySelectorAll('body *')){
+      const style=getComputedStyle(el);
+      if(style.position!=='fixed')continue;
+      const rect=el.getBoundingClientRect();
+      if(rect.width===0||rect.height===0)continue;
+      if(el.id==='tamasya-wholesale-button'||el.id==='tamasya-wholesale-selection')continue;
+      out.push({id:el.id||String(el.className||el.tagName).slice(0,40),x:rect.x,y:rect.y,w:rect.width,h:rect.height});
+    }
+    return out;
+  });
+  for(const box of appFixed){
+    const separated=triggerBox.y+triggerBox.height<=box.y
+      ||box.y+box.h<=triggerBox.y
+      ||triggerBox.x+triggerBox.width<=box.x
+      ||box.x+box.w<=triggerBox.x;
+    expect(separated,`contract rate trigger overlaps ${box.id}`).toBe(true);
   }
 
   await trigger.click();
@@ -171,8 +182,13 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'staff'}})));
   await page.waitForTimeout(3000);
   // Panel audit tertutup sampai operator membukanya; tab-tabnya muncul setelah itu.
+  // Panel audit harus berada di bagian atas tab, bukan tenggelam di bawah
+  // panel jabatan yang panjang.
   const openButton=page.getByRole('button',{name:/Buka Audit & Kendali/});
-  if(await openButton.count())await openButton.first().click();
+  await expect(openButton).toBeVisible({timeout:20000});
+  const openBox=await openButton.first().boundingBox();
+  expect(openBox.y,'the audit panel is buried far below the fold').toBeLessThan(900);
+  await openButton.first().click();
   await page.waitForTimeout(1500);
 
   for(const action of ['audit-logs','permission-inspector','guest-reviews']){
