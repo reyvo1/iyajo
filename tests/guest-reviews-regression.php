@@ -50,4 +50,18 @@ $reviewCheck(str_contains($route, "scope property aktif"), 'Ulasan di luar scope
 $reviewCheck(!preg_match('/(INSERT INTO|UPDATE|DELETE FROM)\s+`?(transactions|bookings|staff)`?/i', $route), 'Route tidak pernah menulis ke tabel transaksi, reservasi, atau staf');
 $reviewCheck(str_contains($route, "'review-publish'") && str_contains($route, "'review-hide'") && str_contains($route, "'review-reply'"), 'Moderasi: tampilkan, sembunyikan, dan balas tersedia');
 
+/* UI: tab ulasan di panel governance + halaman publik */
+$governance = $read('assets/chunks/governance.js');
+$reviewCheck(str_contains($governance, 'function GuestReviewsPanel'), 'Panel UI punya bagian ulasan');
+$reviewCheck(str_contains($governance, 'action=guest-reviews'), 'Panel UI memanggil endpoint ulasan');
+$reviewCheck(str_contains($governance, 'review-publish') && str_contains($governance, 'review-hide') && str_contains($governance, 'review-reply'), 'Panel UI menyediakan moderasi: tampilkan, sembunyikan, balas');
+$reviewCheck(str_contains($governance, 'review-invite'), 'Panel UI bisa membuat undangan ulasan');
+$publicPage = $read('webpublic/review.html');
+$publicJs = $read('webpublic/assets/review.js');
+$reviewCheck(str_contains($publicPage, 'assets/review.js'), 'Halaman publik memuat JS eksternal (CSP script-src self)');
+$reviewCheck(str_contains($publicPage, 'runtime-config.js'), 'Halaman publik memuat runtime config untuk URL API');
+$reviewCheck(str_contains($publicJs, 'TAMASYA_PUBLIC_API_URL'), 'Halaman publik memakai URL API absolut');
+$reviewCheck(str_contains($publicJs, 'action=public-review'), 'Halaman publik mengirim penilaian ke action public-review');
+$reviewCheck(str_contains($publicPage, 'maxlength="2000"'), 'Halaman publik membatasi panjang komentar');
+
 echo 'Guest reviews: ' . $checks . " passed; 0 failed.\n";

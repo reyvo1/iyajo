@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Ulasan Hotel</title>
+<meta name="description" content="Berikan ulasan untuk pengalaman menginap Anda."/>
+<style>
+ :root{color-scheme:light dark}
+ *{box-sizing:border-box}
+ body{margin:0;font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#0f172a;color:#e2e8f0;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+ main{width:100%;max-width:520px;background:#111c33;border:1px solid rgba(148,163,184,.22);border-radius:20px;padding:28px;box-shadow:0 24px 60px rgba(2,6,23,.45)}
+ h1{margin:0 0 6px;font-size:20px}
+ p.sub{margin:0 0 18px;color:#94a3b8;font-size:13px;line-height:1.5}
+ .room{display:inline-block;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:#7dd3fc;border-radius:999px;padding:3px 10px;font-size:11px;font-weight:700;margin-bottom:14px}
+ label{display:block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;color:#94a3b8;margin:14px 0 6px}
+ .stars{display:flex;gap:6px}
+ .stars button{width:44px;height:44px;font-size:20px;border-radius:12px;border:1px solid rgba(148,163,184,.28);background:rgba(148,163,184,.08);color:#cbd5e1;cursor:pointer}
+ .stars button[aria-pressed="true"]{background:rgba(250,204,21,.18);border-color:rgba(250,204,21,.5);color:#facc15}
+ textarea{width:100%;min-height:110px;padding:11px;border-radius:12px;border:1px solid rgba(148,163,184,.25);background:#0b1426;color:#e2e8f0;font:inherit;font-size:13px;resize:vertical}
+ button.submit{width:100%;margin-top:18px;padding:12px;border-radius:12px;border:0;background:linear-gradient(90deg,#22c55e,#10b981);color:#052e16;font-weight:800;font-size:14px;cursor:pointer}
+ button.submit:disabled{opacity:.55;cursor:not-allowed}
+ .msg{margin-top:14px;font-size:13px;line-height:1.5}
+ .msg.ok{color:#4ade80}.msg.err{color:#fb7185}
+ .done{text-align:center}
+ .done h1{color:#4ade80}
+ @media (prefers-color-scheme:light){body{background:#f8fafc;color:#0f172a}main{background:#fff;box-shadow:0 18px 40px rgba(15,23,42,.12)}p.sub,label{color:#475569}textarea{background:#f8fafc;color:#0f172a}}
+</style>
+</head>
+<body>
+<main>
+<div id="form">
+  <h1>Bagaimana pengalaman Anda?</h1>
+  <p class="sub">Ulasan Anda membantu tim hotel meningkatkan pelayanan. Rating dan komentar dikirim langsung ke property ini.</p>
+  <div class="room" id="room">Kamar</div>
+  <label>Rating</label>
+  <div class="stars" id="stars" role="group" aria-label="Rating 1 sampai 5"></div>
+  <label for="comment">Komentar (opsional)</label>
+  <textarea id="comment" maxlength="2000" placeholder="Ceritakan hal yang baik atau yang perlu diperbaiki."></textarea>
+  <button class="submit" id="send" disabled>Kirim Ulasan</button>
+  <p class="msg" id="msg" role="status"></p>
+</div>
+<div id="done" class="done" hidden>
+  <h1>Terima kasih!</h1>
+  <p class="sub">Ulasan Anda sudah kami terima. Tim property akan membacanya dan membalas bila perlu.</p>
+</div>
+</main>
+<script src="./runtime-config.js"></script>
+<script src="./assets/review.js"></script>
+</body>
+</html>

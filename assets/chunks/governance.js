@@ -129,6 +129,74 @@ function SystemHealthPanel({open}){
     ]});
 }
 
+/* ===== Ulasan tamu (staf) ===== */
+function GuestReviewsPanel({open}){
+  const [state,setState]=f.useState({rows:[],summary:null,bookings:[],loading:false,error:null,tab:'list'});
+  const load=f.useCallback(async()=>{
+    setState(prev=>({...prev,loading:true,error:null}));
+    try{
+      const res=await fetch("/api.php?action=guest-reviews",{cache:"no-store"});
+      const json=await Vi(res);
+      if(!res.ok||!json||!json.success){setState(prev=>({...prev,loading:false,error:(json&&json.error)||"Ulasan tidak dapat dibaca (kode "+res.status+")."}));return;}
+      setState(prev=>({...prev,loading:false,error:null,rows:(json.data&&json.data.rows)||[],summary:(json.data&&json.data.summary)||null}));
+    }catch(err){setState(prev=>({...prev,loading:false,error:"Gagal memuat ulasan."}));}
+  },[]);
+  const act=async(command,payload)=>{
+    try{
+      const res=await fetch("/api.php?action=guest-reviews",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(Object.assign({command},payload))});
+      const json=await Vi(res);
+      if(!res.ok||!json||!json.success){setState(prev=>({...prev,error:(json&&json.error)||"Aksi ulasan gagal."}));return null;}
+      return json.data||{};
+    }catch(err){setState(prev=>({...prev,error:"Gagal menjalankan aksi ulasan."}));return null;}
+  };
+  f.useEffect(()=>{
+    if(!open)return;
+    load();
+    (async()=>{
+      try{
+        const res=await fetch("/api/bookings?limit=50",{cache:"no-store"});
+        const json=await Vi(res);
+        const rows=Array.isArray(json)?json:(Array.isArray(json&&json.data)?json.data:[]);
+        setState(prev=>({...prev,bookings:rows}));
+      }catch(err){}
+    })();
+  },[open]);
+  if(!open)return null;
+  const summary=state.summary||{};
+  const recent=(state.bookings||[]).filter(b=>b&&b.id).slice(0,40);
+  return t.jsx(Panel,{title:"Ulasan Tamu",subtitle:"Undang ulasan untuk kamar yang sudah checkout, moderasi, dan balas.",
+    children:[
+      t.jsxs("div",{className:"flex flex-wrap items-center gap-2"},
+        t.jsx("button",{onClick:load,className:"rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold text-slate-200",children:state.loading?"Memuat…":"Muat ulang"}),
+        t.jsx("span",{className:"text-[10px] text-slate-400",children:summary.total?summary.total+" ulasan · rata-rata "+(summary.average||0)+" · tampil "+summary.published+" · tersembunyi "+summary.hidden:"Belum ada ulasan"})),
+      state.error?t.jsx("p",{className:"text-[11px] text-rose-300 border border-rose-500/30 bg-rose-500/10 rounded-lg px-2 py-1",children:state.error}):null,
+      t.jsxs("div",{className:"space-y-2"},
+        state.rows.length===0?t.jsx("p",{className:"text-[11px] text-slate-500",children:state.loading?"Memuat…":"Belum ada ulasan masuk."}):state.rows.map(row=>t.jsxs("div",{key:row.id,className:"rounded-xl border border-white/10 bg-slate-950/40 p-2 space-y-1"},
+          t.jsxs("div",{className:"flex flex-wrap items-center gap-2"},
+            t.jsx(Pill,{tone:row.published?"allow":"neutral",children:row.published?"TAMPIL":"TERSEMBUNYI"}),
+            t.jsx("span",{className:"text-[10px] text-slate-400",children:(row.created_at||"")}),
+            t.jsx("span",{className:"text-[11px] font-bold text-amber-300",children:(row.rating?row.rating+"/5":"")}),
+            t.jsx("span",{className:"text-[11px] text-slate-200",children:(row.guest_name||row.room_number||"")})),
+          row.comment?t.jsx("p",{className:"text-[11px] text-slate-300",children:row.comment}):null,
+          row.reply?t.jsx("p",{className:"text-[11px] text-sky-300",children:"Balasan: "+row.reply}):null,
+          t.jsxs("div",{className:"flex flex-wrap gap-1"},
+            t.jsx("button",{onClick:async()=>{await act(row.published?"review-hide":"review-publish",{reviewId:row.id});load();},className:"rounded-md border border-white/10 px-2 py-0.5 text-[9px] font-bold text-slate-300",children:row.published?"Sembunyikan":"Tampilkan"}),
+            t.jsx("button",{onClick:async()=>{const reply=window.prompt("Balasan untuk tamu:","");if(reply===null)return;await act("review-reply",{reviewId:row.id,reply:reply});load();},className:"rounded-md border border-white/10 px-2 py-0.5 text-[9px] font-bold text-slate-300",children:"Balas"}))))),
+      t.jsxs("div",{className:"space-y-1"},
+        t.jsx("p",{className:"text-[10px] uppercase tracking-wide text-slate-500",children:"Undang ulasan"}),
+        recent.length===0?t.jsx("p",{className:"text-[11px] text-slate-500",children:"Belum ada reservasi untuk diundang."}):t.jsxs("div",{className:"flex flex-wrap items-center gap-2"},
+          t.jsx("select",{id:"tamasya-review-booking",className:"rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-[11px] text-slate-100"},
+            recent.map(b=>t.jsx("option",{key:b.id,value:b.id,children:(b.roomNumber||b.room_number||"")+" · "+(b.guestName||b.guest_name||b.id)}))),
+          t.jsx("button",{onClick:async()=>{
+            const el=document.getElementById("tamasya-review-booking");
+            const bookingId=el?el.value:"";
+            if(!bookingId)return;
+            const res=await act("review-invite",{bookingId:bookingId});
+            if(res&&res.token){const link=new URL("../webpublic/review.html",window.location.href).href+"?token="+encodeURIComponent(res.token);window.prompt("Tautan undangan ulasan (kirim ke tamu):",link);}
+          },className:"rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold text-slate-200",children:"Buat undangan"})))
+    ]});
+}
+
 /* ===== Inspector hak akses ===== */
 function PermissionInspectorPanel({open}){
   const [state,setState]=f.useState({data:null,loading:false,error:null,targetId:"",staffList:[]});
@@ -188,7 +256,7 @@ function PermissionInspectorPanel({open}){
 }
 
 /** Panel governance: log audit + inspector hak akses. */
-function TamasyaGovernancePanel(){
+function TamasyaGovernancePanel(props){
   const [tab,setTab]=f.useState("audit");
   const [open,setOpen]=f.useState(false);
   return t.jsxs("div",{className:"space-y-3"},
@@ -197,8 +265,9 @@ function TamasyaGovernancePanel(){
       open?t.jsxs("div",{className:"flex gap-1"},
         t.jsx("button",{onClick:()=>setTab("audit"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="audit"?"bg-white/10 text-white":"text-slate-400"),children:"Log Audit"}),
         t.jsx("button",{onClick:()=>setTab("inspector"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="inspector"?"bg-white/10 text-white":"text-slate-400"),children:"Inspector Izin"}),
-        t.jsx("button",{onClick:()=>setTab("health"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="health"?"bg-white/10 text-white":"text-slate-400"),children:"Kesehatan"})):null),
-    open?(tab==="audit"?t.jsx(AuditLogPanel,{open:true}):tab==="inspector"?t.jsx(PermissionInspectorPanel,{open:true}):t.jsx(SystemHealthPanel,{open:true})):null);
+        t.jsx("button",{onClick:()=>setTab("health"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="health"?"bg-white/10 text-white":"text-slate-400"),children:"Kesehatan"}),
+        t.jsx("button",{onClick:()=>setTab("reviews"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="reviews"?"bg-white/10 text-white":"text-slate-400"),children:"Ulasan"})):null),
+    open?(tab==="audit"?t.jsx(AuditLogPanel,{open:true}):tab==="inspector"?t.jsx(PermissionInspectorPanel,{open:true}):tab==="reviews"?t.jsx(GuestReviewsPanel,{open:true}):t.jsx(SystemHealthPanel,{open:true})):null);
 }
 
 export {TamasyaGovernancePanel};

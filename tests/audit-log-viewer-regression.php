@@ -75,7 +75,7 @@ $governance = $read('assets/chunks/governance.js');
 $appCore = $read('assets/app-core.js');
 $appShell = $read('assets/chunks/app-shell.js');
 $auditCheck(str_contains($governance, 'audit-logs'), 'Panel UI memanggil endpoint log audit');
-$auditCheck(!preg_match('/method:\s*"(POST|PUT|PATCH|DELETE)"/i', $governance), 'Panel UI tidak pernah menulis (read-only)');
+$auditCheck(!preg_match('/action=audit-logs[^\n]{0,160}method:\s*"(POST|PUT|PATCH|DELETE)"/i', $governance), 'Panel log audit tidak pernah mengirim metode tulis');
 $auditCheck(!preg_match('/<form|type:\s*"submit"/i', $governance), 'Panel UI tidak memakai form atau tombol submit');
 $staffChunk = $read('assets/chunks/staff.js');
 $auditCheck(str_contains($staffChunk, 'from "./governance.js?v='), 'Chunk staf mengimpor panel governance dengan token versi');

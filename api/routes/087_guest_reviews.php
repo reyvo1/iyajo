@@ -61,6 +61,16 @@ try {
             echo tamasyaJsonEncode(['success' => false, 'error' => 'Ulasan untuk-tautan ini sudah terkirim.']);
             return;
         }
+        // Rate limit per token: token sekali pakai sudah membatasi, tapi
+        // percobaan berulang dari satu token tidak boleh membanjiri.
+        if (function_exists('enforceRateLimit')) {
+            $rateKey = 'guest-review:' . substr(hash('sha256', $token), 0, 32);
+            if (!enforceRateLimit($pdo, $rateKey, 10, 600, 900)) {
+                http_response_code(429);
+                echo tamasyaJsonEncode(['success' => false, 'error' => 'Terlalu banyak percobaan. Coba lagi beberapa menit lagi.']);
+                return;
+            }
+        }
         $rating = (int)($input['rating'] ?? 0);
         if ($rating < 1 || $rating > 5) {
             http_response_code(422);
