@@ -70,4 +70,17 @@ foreach ([
 }
 $auditCheck(str_contains($route, "'facets'"), 'Route menyediakan facet untuk filter UI');
 
+/* ===== UI: panel governance (log audit + inspector) ===== */
+$governance = $read('assets/chunks/governance.js');
+$appCore = $read('assets/app-core.js');
+$appShell = $read('assets/chunks/app-shell.js');
+$auditCheck(str_contains($governance, 'audit-logs'), 'Panel UI memanggil endpoint log audit');
+$auditCheck(!preg_match('/method:\s*"(POST|PUT|PATCH|DELETE)"/i', $governance), 'Panel UI tidak pernah menulis (read-only)');
+$auditCheck(!preg_match('/<form|type:\s*"submit"/i', $governance), 'Panel UI tidak memakai form atau tombol submit');
+$staffChunk = $read('assets/chunks/staff.js');
+$auditCheck(str_contains($staffChunk, 'from "./governance.js?v='), 'Chunk staf mengimpor panel governance dengan token versi');
+$auditCheck(str_contains($staffChunk, 't.jsx(TamasyaGovernancePanel,{})'), 'Panel governance dirender di tab staf');
+$auditCheck(!str_contains($appCore, 'governance.js'), 'Panel governance tidak masuk graph eager (tetap lazy)');
+$auditCheck(!str_contains($appShell, 'TamasyaGovernancePanel'), 'App-shell tidak perlu perubahan: panel terpasang di chunk staf');
+
 echo 'Audit log viewer: ' . $checks . " passed; 0 failed.\n";

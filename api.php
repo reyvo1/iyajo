@@ -1364,6 +1364,11 @@ if ($loggedInStaff) {
         'node-sync-conflict-resolve'=>['config','operations'],
         'node-sync-status'=>['config','operations'],
         'runtime-scope-diagnostics'=>['config','db_config'],
+        // Jejak audit dan inspector hak akses mengikuti tab staf, sama seperti
+        // tool governance lainnya: kalau menu staf dimatikan untuk property ini,
+        // keduanya ikut tertutup.
+        'audit-logs'=>['staff'],
+        'permission-inspector'=>['staff'],
     ];
     $requiredDesktopTabs = $actionDesktopTabs[(string)$action] ?? [];
     if ($requiredDesktopTabs) {

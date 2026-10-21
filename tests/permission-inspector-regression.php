@@ -60,4 +60,17 @@ $inspectorCheck(str_contains($route, "tamasyaRbacEffectivePermissions(\$target")
 $inspectorCheck(str_contains($route, "ACCOUNT_NOT_FOUND"), 'Akun yang tidak ada ditolak 404');
 $inspectorCheck(str_contains($route, "TARGET_REQUIRED"), 'Permintaan tanpa target ditolak');
 
+/* ===== UI: panel governance (log audit + inspector) ===== */
+$governance = $read('assets/chunks/governance.js');
+$appCore = $read('assets/app-core.js');
+$appShell = $read('assets/chunks/app-shell.js');
+$inspectorCheck(str_contains($governance, 'permission-inspector'), 'Panel UI memanggil endpoint inspector');
+$inspectorCheck(!preg_match('/method:\s*"(POST|PUT|PATCH|DELETE)"/i', $governance), 'Panel UI tidak pernah menulis (read-only)');
+$inspectorCheck(!preg_match('/<form|type:\s*"submit"/i', $governance), 'Panel UI tidak memakai form atau tombol submit');
+$staffChunk = $read('assets/chunks/staff.js');
+$inspectorCheck(str_contains($staffChunk, 'from "./governance.js?v='), 'Chunk staf mengimpor panel governance dengan token versi');
+$inspectorCheck(str_contains($staffChunk, 't.jsx(TamasyaGovernancePanel,{})'), 'Panel governance dirender di tab staf');
+$inspectorCheck(!str_contains($appCore, 'governance.js'), 'Panel governance tidak masuk graph eager (tetap lazy)');
+$inspectorCheck(!str_contains($appShell, 'TamasyaGovernancePanel'), 'App-shell tidak perlu perubahan: panel terpasang di chunk staf');
+
 echo 'Permission inspector: ' . $checks . " passed; 0 failed.\n";
