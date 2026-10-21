@@ -7,8 +7,8 @@ tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
 | Paket | `tamasya-production-20261021-r15.zip` |
 |---|---|
-| SHA-256 paket | `bbc20d4646103a2f7d500860e55c724e0a0bb6796693a1f1cf2038f57ce180a8` |
-| Isi | 374 berkas + `DEPLOY-SHA256SUMS.txt` |
+| SHA-256 paket | `572cdb52e762970bc93a722b51180cb5017abc1eb16c9a3d0119fe91ddb675ea` |
+| Isi | 378 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
 
@@ -33,7 +33,8 @@ sudah Anda simpan sendiri di UI "Kelola Jabatan".
 Migrasi fitur baru (jika database Anda sudah ada):
 `migrations/20261021_GUEST_REVIEWS.sql` (ulasan tamu),
 `migrations/20261021_WHOLESALE_RATES.sql` (paket tarif kontrak B2B), dan
-`migrations/20261021_WHOLESALE_RATE_LOCK.sql` (kunci tarif kontrak pada reservasi).
+`migrations/20261021_WHOLESALE_RATE_LOCK.sql` (kunci tarif kontrak pada reservasi), dan
+`migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql` (nilai transaksi dalam mata uang property).
 Keduanya idempoten. Tanpa migrasi, tab terkait akan memberi pesan jelas
 bahwa skema belum tersedia, bukan error fatal.
 
@@ -93,5 +94,8 @@ di DevTools -> Application -> Service Workers.
    (jalankan dari dalam folder hasil ekstraksi).
 7. HQ: buka `hq/control.html` -> tombol "Paket izin jabatan" untuk melihat
    paket kanonik, menerbitkan revisi, dan status penerapan per properti.
-8. Tarif kontrak: buka tab Kamar -> tombol "Tarif kontrak" untuk membuat paket,
-   mencari harga per inap, dan memilih paket yang dipakai saat pemesanan.
+8. Tarif kontrak: buka tab Kamar -> tombol "Tarif kontrak" atau tab Growth Suite ->
+   "Kontrak B2B" untuk membuat paket, mencari harga per inap, dan memilih paket
+   yang dipakai saat pemesanan.
+9. Kurs mata uang: tab Kontrak B2B di Growth Suite (atau API `exchange-rates`)
+   mencatat kurs harian. Transaksi dalam mata uang lain ditolak bila kurs belum ada.
