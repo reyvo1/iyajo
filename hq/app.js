@@ -41,6 +41,49 @@ import {connectRealtime} from './realtime_client.js';
     html += `</tbody></table></div><p class="hash">Checksum laporan konsolidasi<code>${esc(report.checksumSha256)}</code></p></section>`;
     $('report').innerHTML = html;
   }
+
+  // Paket izin jabatan kanonik tingkat perusahaan: dibaca dari HQ, diubah di
+  // sini, dan ditarik oleh setiap property.
+  async function showRolePresets(){
+    const current=generation;
+    $('message').textContent='Memuat paket izin jabatan…';
+    try{
+      const [presets,state]=await Promise.all([api('rbac-presets'),api('rbac-preset-state')]);
+      if(current!==generation)return;
+      const rows=Object.entries(presets.data.presets||{});
+      let html='<section class="panel"><h2>Paket izin jabatan</h2><p class="hash">Revisi kanonik: <code>'+esc(presets.data.revision||0)+'</code>. Properti menarik paket ini sendiri secara berkala.</p>';
+      if(!rows.length)html+='<p>Belum ada paket kanonik di HQ.</p>';
+      else{
+        html+='<div class="table-wrap"><table><thead><tr><th>Jabatan</th><th>Kemampuan</th><th>Tab</th><th>Notifikasi</th></tr></thead><tbody>';
+        for(const [role,pkg] of rows){
+          const caps=Object.entries(pkg.capabilities||{}).filter(([,v])=>v===true).map(([k])=>k).join(', ');
+          const tabs=Object.entries(pkg.desktopTabs||{}).filter(([,v])=>v===true).map(([k])=>k).join(', ');
+          const notes=Object.entries(pkg.telegramNotifications||{}).filter(([,v])=>v===true).map(([k])=>k).join(', ');
+          html+='<tr><td><b>'+esc(role)+'</b></td><td>'+esc(caps||'—')+'</td><td>'+esc(tabs||'—')+'</td><td>'+esc(notes||'—')+'</td></tr>';
+        }
+        html+='</tbody></table></div>';
+        html+='<div class="filters"><button id="role-presets-publish" type="button">Terbitkan revisi baru</button></div>';
+      }
+      html+='<h2>Status penerapan per properti</h2><div class="table-wrap"><table><thead><tr><th>Properti</th><th>Revisi terpasang</th><th>Diterapkan</th></tr></thead><tbody>';
+      const states=(state.data||[]);
+      if(!states.length)html+='<tr><td colspan="3">Belum ada properti yang melaporkan penerapan paket.</td></tr>';
+      for(const row of states)html+='<tr><td><code>'+esc(row.property_id)+'</code></td><td>'+esc(row.applied_revision||0)+'</td><td>'+esc(row.applied_at||'—')+'</td></tr>';
+      html+='</tbody></table></div></section>';
+      $('report').innerHTML=html;
+      $('message').textContent='';
+      const publish=$('role-presets-publish');
+      if(publish)publish.onclick=async()=>{
+        publish.disabled=true;$('message').textContent='Menerbitkan revisi baru…';
+        try{
+          const result=await api('rbac-preset-publish',{},{});
+          $('message').textContent='Revisi kanonik sekarang '+esc(result.data.revision||0)+'.';
+          await showRolePresets();
+        }catch(error){$('message').textContent=error.message;publish.disabled=false;}
+      };
+    }catch(error){if(current===generation)$('message').textContent=error.message;}
+  }
+  $('role-presets').onclick=()=>{showRolePresets();};
+
   $('login-form').onsubmit = async event => {
     event.preventDefault(); token = $('token').value.trim();companyScope=$('login-company').value.trim(); cached = null; $('message').textContent = '';
     const current = ++generation;
@@ -52,7 +95,7 @@ import {connectRealtime} from './realtime_client.js';
       $('delivery-panel').hidden=destinations.data.length===0;
       $('properties').innerHTML = user.propertyIds.map(id => `<label><input type="checkbox" value="${esc(id)}" checked>${esc(id)}</label>`).join('');
       stopRealtime?.();stopRealtime=connectRealtime({ticket:async()=>(await api('realtime-ticket')).data,changed:()=>{if(reportData&&!loading)$('report-form').requestSubmit();},status:value=>{$('realtime-status').textContent=value==='connected'?'Pembaruan langsung aktif':'Pembaruan berkala';}});
-      $('login-panel').hidden = true; $('workspace').hidden = false; $('logout').hidden = false;
+      $('login-panel').hidden = true; $('workspace').hidden = false; $('logout').hidden = false; $('role-presets').hidden = false;
     } catch (error) { if(current===generation){token = ''; $('message').textContent = error.message;} }
   };
   $('report-form').onsubmit = async event => {

@@ -55,4 +55,14 @@ $hqCheck(str_contains($route, "'role-preset-state','role-preset-apply'") || (str
 $hqCheck(str_contains($cron, 'tamasyaRolePresetPullFromHq'), 'Cron menarik paket preset HQ secara berkala');
 $hqCheck(str_contains($cron, 'tidak boleh menghentikan cron'), 'Kegagalan tarik paket tidak menghentikan cron');
 
+/* UI HQ: tombol + panel paket izin jabatan */
+$hqApp = $read('hq/app.js');
+$hqHtml = $read('hq/control.html');
+$hqCheck(str_contains($hqHtml, 'id="role-presets"'), 'Kontrol HQ punya tombol paket izin jabatan');
+$hqCheck(str_contains($hqApp, 'showRolePresets'), 'Kontrol HQ punya penampil paket izin jabatan');
+$hqCheck(str_contains($hqApp, "api('rbac-presets')"), 'Kontrol HQ memuat paket dari API HQ');
+$hqCheck(str_contains($hqApp, "api('rbac-preset-state')"), 'Kontrol HQ memuat status penerapan per properti');
+$hqCheck(str_contains($hqApp, "api('rbac-preset-publish'"), 'Kontrol HQ bisa menerbitkan revisi baru');
+$hqCheck(str_contains($hqApp, "api('rbac-preset-publish',{},{})"), 'Terbitkan memakai POST');
+
 echo 'HQ role presets: ' . $checks . " passed; 0 failed.\n";

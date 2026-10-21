@@ -102,10 +102,19 @@ eager → **tanya dulu**).
   staf moderasi (tampilkan/sembunyikan/balas). **Yang belum:** tab UI di panel governance + halaman
   publik `webpublic/review.html` (API `public-review` sudah siap, tinggal formnya).
 - **Wholesale / contract rate (B2B)**: belum ada sama sekali (0 file). Perlu tabel rate kontrak + integrasi
-  ke alur reservasi + UI growth suite. Ini item terbesar yang tersisa.
+  ke alur reservasi + UI growth suite. **Ini item terbesar yang tersisa.**
 
-### 4.3 P1-4 — RBAC terpusat di HQ
-`hq/` tidak punya kendali RBAC (0 referensi `rbac_*`) → preset hanya per-property. Butuh perintah "push preset" dari HQ.
+### 4.3 P1-4 — RBAC terpusat di HQ → **backend + UI selesai**
+
+- `hq/schema.sql`: `hq_role_presets` (paket kanonik per jabatan + revisi) + `hq_role_preset_state` (revisi terpasang per properti).
+- `hq/core.php`: `tamasyaHqRolePresets/Save/Publish/State`.
+- `hq/api.php`: aksi `rbac-presets` (baca), `rbac-preset-save`, `rbac-preset-publish` (tulis hanya `platform_admin`/`company_admin`), `rbac-preset-state`.
+- `api/support/021_role_presets.php`: `tamasyaRolePresetApplyPayload()` (upsert, hanya jabatan kanonik, nilai dinormalisasi) + `tamasyaRolePresetPullFromHq()` (pull via token HQ).
+- `api/routes/052_role_presets.php`: command `role-preset-apply` (admin) + `role-preset-state` (baca).
+- `maintenance_cron.php`: menarik paket HQ tiap siklus; kegagalan tidak menghentikan cron.
+- `hq/app.js` + `hq/control.html`: tombol "Paket izin jabatan" → daftar paket, terbitkan revisi, status penerapan per properti.
+- `tests/hq-role-presets-regression.php` (27 cek).
+- **Model = pull** (property menarik), bukan push: property tidak perlu menerima koneksi masuk dari HQ.
 
 ---
 
