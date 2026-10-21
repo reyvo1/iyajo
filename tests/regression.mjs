@@ -63,6 +63,23 @@ await test('Enterprise RC1 build ID matches API, SW cache, registration and asse
   assert.ok(sw.includes(`${rel}?v=${build}`),`SW missing build version for ${rel}`);
  }
 });
+await test('UAT booking fixtures use the server business date, never the test host date',()=>{
+  // PHP applikasi memakai APP_TIMEZONE; container CI memakai UTC. Server menolak
+  // check-in bila tanggal check-in melewati date('Y-m-d') milik PHP, jadi skenario
+  // yang melakukan check-in wajib memakai tanggal server.
+  const helper=fs.readFileSync(path.join(root,'tests/uat_rc1/server_time.py'),'utf8');
+  assert.match(helper,/APP_TIMEZONE/,'server_time helper must follow the application timezone');
+  assert.match(helper,/def server_today\(/,'server_time helper must expose the server date');
+  for(const file of ['scenario_payment_connector.py','scenario_facility_management.py','scenario_channel_connector.py']){
+    const source=fs.readFileSync(path.join(root,'tests/uat_rc1',file),'utf8');
+    assert.doesNotMatch(source,/date\.today\(\)\s*[+-]/,file+' must not derive booking dates from the test host clock');
+    assert.match(source,/from server_time import/,file+' must import the server date helper');
+  }
+  const payment=fs.readFileSync(path.join(root,'tests/uat_rc1/scenario_payment_connector.py'),'utf8');
+  assert.match(payment,/'checkIn':server_day\(0\)\.isoformat\(\)/,'payment connector check-in must land on the server business date');
+  const facility=fs.readFileSync(path.join(root,'tests/uat_rc1/scenario_facility_management.py'),'utf8');
+  assert.match(facility,/'checkIn':today\.isoformat\(\)/,'facility booking check-in must land on the server business date');
+});
 await test('modularization manifest matches every active router module',()=>{
  const manifest=JSON.parse(fs.readFileSync(path.join(root,'api/MODULARIZATION_MANIFEST.json'),'utf8'));
  const router=fs.readFileSync(path.join(root,'api/router.php'),'utf8');

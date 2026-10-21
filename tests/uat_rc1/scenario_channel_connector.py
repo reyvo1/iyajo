@@ -2,6 +2,7 @@ from client import *
 from scenario_core import db
 from scenario_fixtures import ensure_open_shift
 import datetime, json, hmac, hashlib, urllib.request, urllib.error, time
+from server_time import server_day, server_today
 
 # End-to-end coverage for the channel connector phase (R14.3).
 #
@@ -13,8 +14,8 @@ results=[]
 run='chconn_'+datetime.datetime.now().strftime('%H%M%S')+str(int(datetime.datetime.now().microsecond/1000))
 SECRET='uat-channel-secret-'+run+'-0123456789'
 CHANNEL='uat_ota'
-TOMORROW = datetime.date.today() + datetime.timedelta(days=1)
-DAY_AFTER = datetime.date.today() + datetime.timedelta(days=2)
+TOMORROW = server_day(1)
+DAY_AFTER = server_day(2)
 
 def check(name,ok,detail=None):
     results.append({'test':name,'pass':bool(ok),'details':detail})
@@ -102,7 +103,7 @@ check('a vendor retry never creates a second draft',s==200 and b.get('duplicate'
 
 # ---------------------------------------------------------------- invalid reservation payloads
 for bad,label in [({'guestName':'X','checkOut':DAY_AFTER.isoformat(),'externalRoomType':'DELUXE KING','amount':400000},'missing_checkin'),
-                  ({'guestName':'X','checkIn':TOMORROW.isoformat(),'checkOut':(datetime.date.today()-datetime.timedelta(days=1)).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},'checkout_before_checkin')]:
+                  ({'guestName':'X','checkIn':TOMORROW.isoformat(),'checkOut':server_day(-1).isoformat(),'externalRoomType':'DELUXE KING','amount':400000},'checkout_before_checkin')]:
     s,b=webhook(bad,provider=CHANNEL,external_id='cc_bad_'+label+'_'+run)
     check('invalid reservation payload is refused: '+label,s>=400 and b.get('success') is False,{'status':s,'body':str(b)[:200]})
 

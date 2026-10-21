@@ -3,6 +3,7 @@ from client import base as client_base
 from scenario_core import db
 from scenario_fixtures import ensure_open_shift
 import datetime, json, hmac, hashlib, urllib.request, urllib.error, time
+from server_time import server_day, server_today
 
 # End-to-end coverage for the payment connector phase (R14.2).
 #
@@ -53,7 +54,7 @@ free=db("SELECT r.number FROM rooms r WHERE r.status='available' AND NOT EXISTS 
 if not free:
     print('FAIL no free room for the payment connector scenario')
     raise SystemExit(1)
-s,bk=request('bookings','POST',{'guestName':'UAT Payment Connector','roomNumber':free[0]['number'],'checkIn':(datetime.date.today()+datetime.timedelta(days=1)).isoformat(),'checkOut':(datetime.date.today()+datetime.timedelta(days=2)).isoformat(),'totalAmount':500000,'paymentStatus':'unpaid','bookingSource':'Direct','lifecycleIntent':'check_in_now','broadcast':False},'pc_booking_'+run)
+s,bk=request('bookings','POST',{'guestName':'UAT Payment Connector','roomNumber':free[0]['number'],'checkIn':server_day(0).isoformat(),'checkOut':server_day(1).isoformat(),'totalAmount':500000,'paymentStatus':'unpaid','bookingSource':'Direct','lifecycleIntent':'check_in_now','broadcast':False},'pc_booking_'+run)
 booking_id=bk.get('bookingId') if s==200 else None
 check('fixture booking for the payment intent is checked in',bool(booking_id),{'status':s,'body':str(bk)[:200]})
 s,intent=request('growth-suite','POST',{'command':'payment-intent-create','bookingId':booking_id,'providerCode':'uat_gateway','amount':500000},'pc_intent_'+run)

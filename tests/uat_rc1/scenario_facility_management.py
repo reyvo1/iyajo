@@ -2,6 +2,7 @@ from client import *
 from scenario_core import db
 from scenario_fixtures import ensure_open_shift, release_rooms
 import datetime, json
+from server_time import server_day, server_today
 
 # End-to-end coverage for dynamic facility management (R15).
 #
@@ -13,9 +14,12 @@ import datetime, json
 # so a re-run cannot replay an old response.
 results=[]
 run='fac_'+datetime.datetime.now().strftime('%H%M%S')+str(int(datetime.datetime.now().microsecond/1000))
-today=datetime.date.today()
-tomorrow=today + datetime.timedelta(days=1)
-day_after=today + datetime.timedelta(days=2)
+# Tanggal SERVER, bukan tanggal mesin test: CI memakai UTC sedangkan PHP memakai
+# APP_TIMEZONE, sehingga 'besok' versi skenario bisa menjadi dua hari di depan
+# versi server dan check-in ditolak.
+today=server_today()
+tomorrow=server_day(1)
+day_after=server_day(2)
 
 def check(name,ok,detail=None):
     results.append({'test':name,'pass':bool(ok),'details':detail})
@@ -55,7 +59,7 @@ check('unit list shows the three new units',all(k in units for k in ('pool_a_'+r
 free=db("SELECT number FROM rooms r WHERE r.status='available' AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.roomNumber=r.number AND b.status IN ('reserved','active')) ORDER BY CAST(number AS UNSIGNED) LIMIT 1")
 if not free:
     print('FAIL no free room for the facility scenario'); raise SystemExit(1)
-s,bk=request('bookings','POST',{'guestName':'UAT Facility Guest','roomNumber':free[0]['number'],'checkIn':tomorrow.isoformat(),'checkOut':day_after.isoformat(),'totalAmount':300000,'paymentStatus':'unpaid','bookingSource':'Direct','lifecycleIntent':'check_in_now','broadcast':False},'fac_book_'+run)
+s,bk=request('bookings','POST',{'guestName':'UAT Facility Guest','roomNumber':free[0]['number'],'checkIn':today.isoformat(),'checkOut':day_after.isoformat(),'totalAmount':300000,'paymentStatus':'unpaid','bookingSource':'Direct','lifecycleIntent':'check_in_now','broadcast':False},'fac_book_'+run)
 booking_id=bk.get('bookingId') if s==200 else None
 check('fixture guest booking is checked in',bool(booking_id),{'status':s})
 before_total=float(db('SELECT totalAmount FROM bookings WHERE id=?',[booking_id])[0]['totalAmount']) if booking_id else -1
