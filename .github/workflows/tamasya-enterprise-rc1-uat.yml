@@ -108,6 +108,7 @@ jobs:
           php tests/permission-inspector-regression.php
           php tests/legacy-role-set-coverage.php
           php tests/currency-foundation-regression.php
+          php tests/system-health-regression.php
           php tests/smtp-diagnostics-regression.php
           php tests/negotiation-settlement-characterisation.php
           php tests/r164-custody-cleanup-regression.php

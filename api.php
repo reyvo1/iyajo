@@ -1369,6 +1369,7 @@ if ($loggedInStaff) {
         // keduanya ikut tertutup.
         'audit-logs'=>['staff'],
         'permission-inspector'=>['staff'],
+        'system-health'=>['staff','config','db_config'],
     ];
     $requiredDesktopTabs = $actionDesktopTabs[(string)$action] ?? [];
     if ($requiredDesktopTabs) {

@@ -98,6 +98,37 @@ function AuditLogPanel({open}){
     ]});
 }
 
+/* ===== Kesehatan sistem ===== */
+function SystemHealthPanel({open}){
+  const [state,setState]=f.useState({sections:{},notices:[],loading:false,error:null});
+  const load=f.useCallback(async()=>{
+    setState(prev=>({...prev,loading:true,error:null}));
+    try{
+      const res=await fetch("/api.php?action=system-health&t="+Date.now(),{cache:"no-store"});
+      const json=await Vi(res);
+      if(!res.ok||!json||!json.success){setState(prev=>({...prev,loading:false,error:(json&&json.error)||"Kesehatan sistem tidak dapat dibaca (kode "+res.status+")."}));return;}
+      setState({sections:(json.data&&json.data.sections)||{},notices:(json.data&&json.data.notices)||[],loading:false,error:null});
+    }catch(err){setState(prev=>({...prev,loading:false,error:"Gagal memuat kesehatan sistem."}));}
+  },[]);
+  f.useEffect(()=>{if(open)load();},[open]);
+  if(!open)return null;
+  const rows=Object.entries(state.sections||{});
+  return t.jsx(Panel,{title:"Kesehatan Sistem",subtitle:"Ringkasan property, RBAC, keuangan, shift, klaster, dan integrasi.",
+    children:[
+      t.jsxs("div",{className:"flex items-center gap-2"},
+        t.jsx("button",{onClick:load,className:"rounded-lg border border-white/10 bg-white/5 px-2 py-1 text-[10px] font-bold text-slate-200",children:state.loading?"Memuat…":"Muat ulang"})),
+      state.error?t.jsx("p",{className:"text-[11px] text-rose-300 border border-rose-500/30 bg-rose-500/10 rounded-lg px-2 py-1",children:state.error}):null,
+      (state.notices||[]).map((n,i)=>t.jsx("p",{key:"notice-"+i,className:"text-[11px] text-amber-300 border border-amber-500/30 bg-amber-500/10 rounded-lg px-2 py-1",children:n})),
+      t.jsx("div",{className:"grid grid-cols-1 sm:grid-cols-2 gap-2"},
+        rows.map(([key,section])=>t.jsxs("div",{key:key,className:"rounded-xl border border-white/10 bg-slate-950/40 p-2 space-y-1"},
+          t.jsxs("div",{className:"flex items-center justify-between gap-2"},
+            t.jsx("p",{className:"text-[11px] font-bold text-slate-200",children:section.label||key}),
+            t.jsx(Pill,{tone:section.status==="ok"?"allow":"neutral",children:section.status==="ok"?"OK":"TIDAK ADA"})),
+          t.jsx("div",{className:"text-[10px] text-slate-400 space-y-0.5"},
+            Object.entries(section.data||{}).map(([k,v])=>t.jsx("p",{key:k,className:"break-words",children:k+": "+(typeof v==="object"&&v!==null?JSON.stringify(v):String(v))})))))),
+    ]});
+}
+
 /* ===== Inspector hak akses ===== */
 function PermissionInspectorPanel({open}){
   const [state,setState]=f.useState({data:null,loading:false,error:null,targetId:"",staffList:[]});
@@ -165,8 +196,9 @@ function TamasyaGovernancePanel(){
       t.jsx("button",{onClick:()=>setOpen(v=>!v),className:"rounded-xl border border-white/10 bg-white/5 px-3 py-1.5 text-[11px] font-bold text-slate-200 hover:border-white/25",children:open?"Tutup Audit & Izin":"Buka Audit & Izin"}),
       open?t.jsxs("div",{className:"flex gap-1"},
         t.jsx("button",{onClick:()=>setTab("audit"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="audit"?"bg-white/10 text-white":"text-slate-400"),children:"Log Audit"}),
-        t.jsx("button",{onClick:()=>setTab("inspector"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="inspector"?"bg-white/10 text-white":"text-slate-400"),children:"Inspector Izin"})):null),
-    open?(tab==="audit"?t.jsx(AuditLogPanel,{open:true}):t.jsx(PermissionInspectorPanel,{open:true})):null);
+        t.jsx("button",{onClick:()=>setTab("inspector"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="inspector"?"bg-white/10 text-white":"text-slate-400"),children:"Inspector Izin"}),
+        t.jsx("button",{onClick:()=>setTab("health"),className:"rounded-lg px-2 py-1 text-[10px] font-bold "+(tab==="health"?"bg-white/10 text-white":"text-slate-400"),children:"Kesehatan"})):null),
+    open?(tab==="audit"?t.jsx(AuditLogPanel,{open:true}):tab==="inspector"?t.jsx(PermissionInspectorPanel,{open:true}):t.jsx(SystemHealthPanel,{open:true})):null);
 }
 
 export {TamasyaGovernancePanel};
