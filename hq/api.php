@@ -38,7 +38,23 @@ try {
             else { $render=tamasyaCanonicalReportRender(tamasyaHqCanonicalDocument($data),$format);header('Content-Type: '.$render['mime']);header('Content-Disposition: attachment; filename="'.$render['filename'].'"');echo $render['body']; }
         } elseif ($action==='realtime-ticket' && $method==='GET') echo tamasyaHybridJson(['success'=>true,'data'=>tamasyaHqRealtimeTicket($config,$viewer)]);
         elseif ($action==='event-revision' && $method==='GET') echo tamasyaHybridJson(['success'=>true,'data'=>tamasyaHqEventRevision(tamasyaHqPdo($config),$viewer)]);
-        else throw new TamasyaHqError('METHOD_NOT_ALLOWED',405,'Metode tidak sesuai.');
+        elseif ($action==='rbac-presets' && $method==='GET') {
+            echo tamasyaHybridJson(['success'=>true,'data'=>tamasyaHqRolePresets(tamasyaHqPdo($config),$viewer['companyId'])]);
+        } elseif (($action==='rbac-preset-save'||$action==='rbac-preset-publish') && $method==='POST') {
+            if(!in_array($viewer['role']??'viewer',['platform_admin','company_admin'],true)) throw new TamasyaHqError('ACCESS_DENIED',403,'Hanya admin perusahaan atau platform yang boleh mengubah paket jabatan.');
+            $raw=file_get_contents('php://input',false,null,0,262145);if(strlen($raw)>262144)throw new InvalidArgumentException('Request terlalu besar.');
+            $input=json_decode($raw,true,32,JSON_THROW_ON_ERROR);
+            if($action==='rbac-preset-publish'){
+                echo tamasyaHybridJson(['success'=>true,'data'=>tamasyaHqRolePresetPublish(tamasyaHqPdo($config),$viewer['companyId'])]);
+            }else{
+                $role=strtolower(trim((string)($input['role']??'')));
+                $permissions=$input['permissions']??null;
+                if($role===''||!is_array($permissions))throw new InvalidArgumentException('Role dan permissions wajib diisi.');
+                echo tamasyaHybridJson(['success'=>true,'data'=>tamasyaHqRolePresetSave(tamasyaHqPdo($config),$viewer['companyId'],$role,$permissions,(string)($viewer['id']??'hq'))]);
+            }
+        } elseif ($action==='rbac-preset-state' && $method==='GET') {
+            echo tamasyaHybridJson(['success'=>true,'data'=>tamasyaHqRolePresetState(tamasyaHqPdo($config),$viewer['companyId'],(array)$viewer['propertyIds'])]);
+        } else throw new TamasyaHqError('METHOD_NOT_ALLOWED',405,'Metode tidak sesuai.');
     } else if ($action==='property-snapshot' && $method==='POST') {
         $stream=fopen('php://input','rb'); $body=stream_get_contents($stream,262145); fclose($stream);
         if (strlen($body)>262144) throw new TamasyaHqError('PAYLOAD_TOO_LARGE',413,'Snapshot melebihi 256 KiB.');

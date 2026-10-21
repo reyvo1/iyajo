@@ -82,6 +82,18 @@ if (!$pdo instanceof PDO) {
 try {
     $dbSafety=tamasyaAssertDatabaseSafety($pdo,$dbConfig);
     tamasyaDatabasePropertyIdentity($pdo,true);
+    // Tarik paket preset jabatan kanonik dari HQ bila tersedia. Kegagalan
+    // tidak boleh menghentikan cron: paket lokal tetap berlaku.
+    if (function_exists('tamasyaRolePresetPullFromHq')) {
+        try {
+            $tamasyaHqPresetPull = tamasyaRolePresetPullFromHq($pdo);
+            if (!empty($tamasyaHqPresetPull['pulled'])) {
+                error_log('[cron] paket preset HQ ditarik: ' . json_encode($tamasyaHqPresetPull));
+            }
+        } catch (Throwable $tamasyaHqPresetError) {
+            error_log('[cron] tarik paket preset HQ gagal: ' . $tamasyaHqPresetError->getMessage());
+        }
+    }
     $db_name=(string)$dbSafety['actual'];
 } catch (Throwable $dbSafetyError) {
     $message='Database safety gate menolak maintenance: '.$dbSafetyError->getMessage();

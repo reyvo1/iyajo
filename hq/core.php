@@ -127,3 +127,32 @@ function tamasyaHqRead(PDO $pdo, array $viewer, array $requested, string $from, 
     foreach ($q->fetchAll() as $row) { $s=json_decode($row['body'],true,32,JSON_THROW_ON_ERROR); $snapshots[]=$s; $received[$s['propertyId']]=$row['received_at'].'Z'; }
     return ['report'=>tamasyaHybridConsolidate($snapshots,$requested,$viewer['companyId'],$from,$to),'receivedAt'=>$received];
 }
+
+/** Paket preset jabatan kanonik di tingkat perusahaan (HQ). */
+function tamasyaHqRolePresets(PDO $pdo, string $companyId): array {
+    $q=$pdo->prepare('SELECT `role`,`permissions`,`revision`,`updated_by`,`updated_at` FROM `hq_role_presets` WHERE `company_id`=? ORDER BY `role`');
+    $q->execute([$companyId]);
+    $presets=[];$revision=0;
+    foreach($q->fetchAll() as $row){
+        $decoded=json_decode((string)$row['permissions'],true);
+        $presets[(string)$row['role']]=is_array($decoded)?$decoded:[];
+        $revision=max($revision,(int)$row['revision']);
+    }
+    return ['presets'=>$presets,'revision'=>$revision];
+}
+function tamasyaHqRolePresetSave(PDO $pdo, string $companyId, string $role, array $permissions, string $actor): array {
+    $q=$pdo->prepare('INSERT INTO `hq_role_presets` (`company_id`,`role`,`permissions`,`revision`,`updated_by`) VALUES (?,?,?,1,?) ON DUPLICATE KEY UPDATE `permissions`=VALUES(`permissions`),`revision`=`revision`+1,`updated_by`=VALUES(`updated_by`),`updated_at`=CURRENT_TIMESTAMP');
+    $q->execute([$companyId,$role,json_encode($permissions,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES),$actor]);
+    return tamasyaHqRolePresets($pdo,$companyId);
+}
+function tamasyaHqRolePresetPublish(PDO $pdo, string $companyId): array {
+    $q=$pdo->prepare('UPDATE `hq_role_presets` SET `revision`=`revision`+1 WHERE `company_id`=?');
+    $q->execute([$companyId]);
+    return tamasyaHqRolePresets($pdo,$companyId);
+}
+function tamasyaHqRolePresetState(PDO $pdo, string $companyId, array $propertyIds): array {
+    $q=$pdo->prepare('SELECT `property_id`,`applied_revision`,`applied_at` FROM `hq_role_preset_state` WHERE `company_id`=? ORDER BY `property_id`');
+    $q->execute([$companyId]);
+    $rows=[];foreach($q->fetchAll() as $row){if(in_array((string)$row['property_id'],$propertyIds,true))$rows[]=$row;}
+    return $rows;
+}

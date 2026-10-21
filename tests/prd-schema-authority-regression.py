@@ -25,10 +25,10 @@ check('canonical backtick schema parses 128 tables and 5 trigger signatures',can
 
 def hq_objects():
     tables,triggers,files=mod.parse_schema_files([ROOT/'hq/schema.sql',ROOT/'hq/delivery_schema.sql'])
-    expected={'hq_property_locks','hq_snapshots','hq_heads','hq_receipts','hq_nonces','hq_reports','hq_delivery_jobs'}
+    expected={'hq_property_locks','hq_snapshots','hq_heads','hq_receipts','hq_nonces','hq_reports','hq_delivery_jobs','hq_role_presets','hq_role_preset_state'}
     assert tables==expected,(tables,expected)
     assert triggers=={}
-    assert [x['tables'] for x in files]==[6,1],files
+    assert [x['tables'] for x in files]==[8,1],files
 check('HQ unquoted and IF NOT EXISTS schema parses exact seven tables',hq_objects)
 
 def control_objects():

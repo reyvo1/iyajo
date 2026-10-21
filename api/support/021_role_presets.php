@@ -426,3 +426,69 @@ function tamasyaRolePresetRows(PDO $pdo): array {
     }
     return $ordered;
 }
+
+/**
+ * Terapkan paket preset jabatan dari HQ (atau sumber lain) ke tabel lokal.
+ *
+ * Preset HQ adalah sumber kebenaran tingkat perusahaan: paket disimpan per
+ * jabatan, nilai yang sudah disimpan pemilik di property TIDAK ditimpa
+ * tanpa perintah eksplisit. Karena itu fungsi ini dipakai hanya oleh jalur
+ * push HQ dan selalu mencatat dari mana paket itu berasal.
+ *
+ * @return array{applied:int,roles:array,skipped:array}
+ */
+function tamasyaRolePresetApplyPayload(PDO $pdo, array $presets, string $source='hq', ?string $actor=null): array {
+    if (!function_exists('tamasyaRolePresetSeed')) { throw new RuntimeException('Helper preset jabatan tidak tersedia.'); }
+    $seed = tamasyaRolePresetSeed();
+    $allowed = array_keys($seed);
+    $applied = 0; $roles = []; $skipped = [];
+    $pdo->beginTransaction();
+    try {
+        $stmt = $pdo->prepare("INSERT INTO `role_capability_presets` (`role`,`permissions`,`updated_by`) VALUES (?,?,?) ON DUPLICATE KEY UPDATE `permissions`=VALUES(`permissions`),`updated_by`=VALUES(`updated_by`)");
+        foreach ($presets as $role => $permissions) {
+            $role = strtolower(trim((string)$role));
+            if ($role === '' || !in_array($role, $allowed, true)) { $skipped[] = (string)$role; continue; }
+            $normalized = tamasyaRolePresetNormalize($permissions);
+            $stmt->execute([$role, json_encode($normalized, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), (string)($actor ?? $source)]);
+            $applied++; $roles[] = $role;
+        }
+        $pdo->commit();
+    } catch (Throwable $error) {
+        if ($pdo->inTransaction()) { $pdo->rollBack(); }
+        throw $error;
+    }
+    return ['applied' => $applied, 'roles' => $roles, 'skipped' => $skipped];
+}
+
+/**
+ * Tarik paket preset dari HQ dan terapkan bila versinya lebih baru.
+ *
+ * Alur pull, bukan push: property tidak perlu menerima koneksi masuk dari HQ,
+ * dan property yang sedang offline tidak kehilangan paketnya karena HQ
+ * menyimpan versi kanonik. Token akses HQ dibaca dari environment.
+ */
+function tamasyaRolePresetPullFromHq(PDO $pdo): array {
+    $base = trim((string)(getenv('TAMASYA_HQ_URL') ?: ''));
+    $token = trim((string)(getenv('TAMASYA_HQ_VIEWER_TOKEN') ?: ''));
+    if ($base === '' || $token === '') {
+        return ['pulled' => false, 'reason' => 'HQ tidak dikonfigurasi (TAMASYA_HQ_URL / TAMASYA_HQ_VIEWER_TOKEN).'];
+    }
+    $url = rtrim($base, '/') . '/api.php?action=rbac-presets';
+    $context = stream_context_create(['http' => [
+        'method' => 'GET',
+        'header' => "Authorization: Bearer " . $token . "\r\nAccept: application/json\r\n",
+        'timeout' => 15,
+        'ignore_errors' => true,
+    ]]);
+    $raw = @file_get_contents($url, false, $context);
+    if (!is_string($raw) || $raw === '') {
+        return ['pulled' => false, 'reason' => 'HQ tidak dapat dihubungi.'];
+    }
+    $payload = json_decode($raw, true);
+    if (!is_array($payload) || empty($payload['success']) || !isset($payload['data']['presets']) || !is_array($payload['data']['presets'])) {
+        return ['pulled' => false, 'reason' => 'Respons HQ tidak dikenali.'];
+    }
+    $revision = (int)($payload['data']['revision'] ?? 0);
+    $applied = tamasyaRolePresetApplyPayload($pdo, $payload['data']['presets'], 'hq', 'hq');
+    return ['pulled' => true, 'revision' => $revision, 'applied' => $applied];
+}

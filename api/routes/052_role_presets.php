@@ -31,6 +31,30 @@ try {
         if($role===''||!isset($jobTitles[$role]))throw new InvalidArgumentException('Jabatan tidak dikenal atau tidak dapat diubah (owner dikecualikan).');
         return $role;
     };
+    if ($command === 'role-preset-apply') {
+        // Paket preset dari HQ. Hanya admin property yang boleh menerapkan,
+        // dan hanya jabatan kanonik yang diterima.
+        $presets = $input['presets'] ?? null;
+        if (!is_array($presets) || !$presets) {
+            http_response_code(422);
+            echo tamasyaJsonEncode(['success' => false, 'error' => 'Payload preset wajib diisi.']);
+            return;
+        }
+        $result = tamasyaRolePresetApplyPayload($pdo, $presets, 'hq', (string)($loggedInStaff['id'] ?? 'hq'));
+        writeRequiredEnterpriseAudit($pdo, $loggedInStaff, 'Menerapkan paket preset jabatan dari HQ', 'role_preset', null, null, ['applied' => $result['applied'], 'roles' => $result['roles']], 'role_preset_hq');
+        echo tamasyaJsonEncode(['success' => true, 'data' => $result]);
+        return;
+    }
+    if ($command === 'role-preset-state') {
+        // Status penerapan paket HQ di property ini.
+        $rows = [];
+        try {
+            $stmt = $pdo->query("SELECT `role`,`updated_by`,`updated_at` FROM `role_capability_presets` ORDER BY `role`");
+            $rows = $stmt ? ($stmt->fetchAll(PDO::FETCH_ASSOC) ?: []) : [];
+        } catch (Throwable $error) { $rows = []; }
+        echo tamasyaJsonEncode(['success' => true, 'readOnly' => true, 'data' => ['rows' => $rows]]);
+        return;
+    }
     switch ($command) {
         case 'role-preset-list':
             $presets=[];$meta=[];
