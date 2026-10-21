@@ -430,8 +430,11 @@
     await refreshPanel();
   };
 
+  // Tombol tidak boleh hilang hanya karena sesi belum ada: halaman aplikasi
+  // selalu menampilkannya, dan API tetap menolak permintaan tanpa sesi.
+  // Halaman publik (ulasan) tidak memuat add-on ini.
   const start = () => {
-    if (!isStaff()) return;
+    if (window.TAMASYA_PUBLIC_PAGE === true) return;
     buildPanel();
     buildButton();
     renderSelection();

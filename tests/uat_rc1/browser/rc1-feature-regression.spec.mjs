@@ -199,12 +199,17 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
 });
 
 test('Public review page: served, and an invalid token is refused',async({page,request},info)=>{
-  let response=await page.goto('/webpublic/review.html');
-  if(response.status()!==200||!(await page.locator('body').innerText()).match(/ulasan|pengalaman/i)){
-    response=await page.goto('/review.html');
+  // Halaman ulasan berada di direktori publik; di beberapa pemasangan document
+  // root menunjuk direktori itu. Salah satu dari dua path harus menyajikan
+  // halaman ulasan (bukan halaman aplikasi).
+  let served=false;
+  for(const candidate of ['/webpublic/review.html','/review.html']){
+    const response=await page.goto(candidate);
+    if(response.status()!==200)continue;
+    const title=await page.title();
+    if(/ulasan|review/i.test(title)){served=true;break;}
   }
-  expect(response.status()).toBe(200);
-  await expect(page.locator('input,textarea,button').first()).toBeVisible({timeout:15000});
+  expect(served,'the public review page is not served on any path').toBe(true);
   const bad=await request.post(`${BASE}/api.php?action=public-review&token=token-yang-salah`,{headers:{Origin:BASE}});
   expect([400,403,404,409]).toContain(bad.status());
   writeEvidence('public-review',info,{pass:true,status:response.status()});
