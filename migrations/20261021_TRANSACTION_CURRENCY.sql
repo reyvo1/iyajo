@@ -66,5 +66,6 @@ LEFT JOIN (SELECT MAX(`currency`) AS `currency` FROM `property_settings`) p ON 1
 SET t.`currency` = COALESCE(p.`currency`, 'IDR')
 WHERE t.`currency` IS NULL OR t.`currency` = '';
 
--- 4) Backfill baseAmount untuk baris yang belum punya, kurs 1 (mata uang sama).
-UPDATE `transactions` SET `baseAmount` = `amount` WHERE `baseAmount` IS NULL;
+-- 4) baseAmount SENGAJA tidak diisi. Nilai NULL adalah tanda pajak belum
+--    diketahui (taxSnapshotStatus unresolved) dan pembeda itu dipakai laporan
+--    kanonik serta jurnal suspense 2199.

@@ -27,7 +27,8 @@ $currencyCheck(str_contains($migration, 'ADD COLUMN `currency`'), 'Migrasi menam
 $currencyCheck(str_contains($migration, 'ADD COLUMN `exchangeRate`'), 'Migrasi menambah kolom exchangeRate pada transaksi');
 $currencyCheck(str_contains($migration, 'CREATE TABLE IF NOT EXISTS `exchange_rates`'), 'Migrasi membuat tabel histori kurs exchange_rates');
 $currencyCheck(str_contains($migration, 'INSERT IGNORE') || !preg_match('/\bDROP\b|\bTRUNCATE\b|\bDELETE FROM\b/i', $migration), 'Migrasi tidak menghapus data (idempoten)');
-$currencyCheck(str_contains($migration, 'SET t.`currency` = COALESCE') && str_contains($migration, '`baseAmount` = `amount`'), 'Migrasi mengisi baris lama dengan mata uang property dan kurs 1');
+$currencyCheck(str_contains($migration, 'SET t.`currency` = COALESCE'), 'Migrasi mengisi baris lama dengan mata uang property');
+$currencyCheck(!str_contains($migration, 'SET `baseAmount` = `amount`'), 'Migrasi tidak mengisi baseAmount (NULL berarti pajak belum diketahui)');
 
 /* 1b. Skema kanonik harus punya kolom yang sama, jika tidak posting gagal
  *     dengan "struktur database belum lengkap". */
@@ -56,7 +57,7 @@ $posting = $read('api/modules/finance/025_financial_posting_authority.php');
 $currencyCheck(str_contains($posting, "'currency','exchangeRate'"), 'Kolom currency dan exchangeRate masuk daftar kolom kanonik');
 $currencyCheck(str_contains($posting, "\$tx['currency']=function_exists('tamasyaPropertyCurrency')"), 'Otoritas posting mengisi mata uang property');
 $currencyCheck(str_contains($posting, "\$tx['exchangeRate']=1"), 'Otoritas posting memakai kurs 1 untuk mata uang yang sama');
-$currencyCheck(str_contains($posting, "\$tx['baseAmount']=\$tx['amount']"), 'Otoritas posting mengisi baseAmount untuk mata uang yang sama');
+$currencyCheck(!str_contains($posting, "\$tx['baseAmount']="), 'Otoritas posting tidak mengisi baseAmount (NULL berarti pajak belum diketahui)');
 
 /* 5. Tidak boleh ada penjumlahan yang mengabaikan currency tanpa menaikkan. */
 $currencyCheck(!preg_match('/SELECT[^;]*SUM\(`?amount`?\)[^;]*FROM\s+`?transactions`?[^;]*(?!GROUP BY[^;]*currency)/i', $read('api/modules/finance/100_cleanup_tools.php')) || true, 'Agregasi scrutinized: guard tersedia di sisi baca');

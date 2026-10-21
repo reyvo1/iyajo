@@ -399,9 +399,10 @@ function tamasyaPostFinancialTransaction(PDO $pdo,array $tx,array $actor,string 
     if (!array_key_exists('exchangeRate',$tx) || !is_numeric($tx['exchangeRate']??null)) {
         $tx['exchangeRate']=1;
     }
-    if (!array_key_exists('baseAmount',$tx) || !is_numeric($tx['baseAmount']??null)) {
-        $tx['baseAmount']=$tx['amount']??null;
-    }
+    // baseAmount SENGAJA tidak diisi di sini: nilai NULL adalah tanda pajak belum
+    // diketahui (taxSnapshotStatus unresolved). Mengisinya otomatis akan
+    // menghilangkan pembeda antara "pajak nol" dan "pajak belum diketahui"
+    // pada laporan kanonik dan jurnal suspense.
 
     $allowed=array_flip(tamasyaCanonicalTransactionColumns());
     $columns=[];$values=[];
