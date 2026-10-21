@@ -116,6 +116,7 @@ jobs:
           php tests/wholesale-contract-addon-regression.php
           php tests/growth-contract-tab-regression.php
           php tests/exchange-rate-mysql-uat.php
+          php tests/import-sql-sync-regression.php
           php tests/smtp-diagnostics-regression.php
           php tests/negotiation-settlement-characterisation.php
           php tests/r164-custody-cleanup-regression.php
@@ -370,6 +371,12 @@ jobs:
             test -x /usr/local/bin/tamasya-storage-init
           '
 
+      - name: Build and verify the deploy bundle that ships to customers
+        run: |
+          set -euo pipefail
+          node scripts/build-import-sql.mjs
+          ./create-production-zip.sh
+          bash tests/uat_prd/verify_deploy_bundle.sh
       - name: Execute horizontal PHP-FPM/Nginx SaaS runtime smoke
         env:
           TAMASYA_IMAGE: tamasya-prd-ci:local

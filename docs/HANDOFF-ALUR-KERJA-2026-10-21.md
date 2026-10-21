@@ -185,9 +185,19 @@ system-health) harus terpasang di image produksi dan tetap berpintu tanpa sesi, 
 menolak tanpa sesi, halaman ulasan publik harus tersaji, dan token ulasan ngawur harus ditolak.
 Semua dijalankan di stack Docker sungguhan (api+api2+web+worker+MySQL) di GitHub Actions.
 
-**Tahap B (VPS sungguhan) menjadi opsional**, bukan penghalang: yang belum terbnbah adalah bukti di
-server milik pelanggan (hosting, DNS, TLS, backup, dan-priced VPS). Semua fitur sudah terbukti di
-lingkungan produksi-set up (image non-root, komposisi horizontal, migrasi, UAT penuh) di GitHub.
+**Rehearsal paket deploy** (`tests/uat_prd/verify_deploy_bundle.sh`): memverifikasi ZIP yang
+benar-benar dikirim ke server (bukan isi repo): manifest checksum cocok, berkas wajib fitur baru
+ada, tidak ada rahasia/berkas uji, 149 berkas PHP dan 73 berkas JS valid. Dijalankan lokal dan di
+CI (job PRD membangun ZIP lalu memverifikasinya).
+
+**Importer database satu berkas** (`deploy/IMPORT-RBAC-PHPMYADMIN.sql`) dibangun ulang oleh
+`scripts/build-import-sql.mjs` dari 11 migrasi, dengan LANGKAH 0 (tabel mana yang sudah ada) dan
+langkah verifikasi akhir. `tests/import-sql-sync-regression.php` menjaga agar impor tidak pernah
+ketinggalan migrasi.
+
+**Tahap B (VPS sungguhan) menjadi opsional**, bukan penghalang: yang belum terbukti adalah hosting
+milik pelanggan (DNS, TLS, backup, vendor VPS). Semua fitur sudah terbukti di lingkungan produksi
+(image non-root, komposisi horizontal, migrasi, UAT penuh, dan ZIP yang dikirim) di GitHub Actions.
 
 ---
 

@@ -1,9 +1,50 @@
 -- ---------------------------------------------------------------------------
--- LANGKAH 1-6: MIGRASI RBAC (idempoten)
+-- TAMASYA: impor database satu berkas (idempoten)
+--
+-- BERKAS INI DIBANGUN OTOMATIS oleh scripts/build-import-sql.mjs.
+-- Jangan menyunting manual: perubahan akan hilang saat berkas dibangun ulang.
+--
+-- Jalankan pada DATABASE SATU PROPERTI, bukan database HQ bersama.
+-- Backup dulu (phpMyAdmin -> Export -> SQL).
+-- Aman dijalankan berulang kali: setiap langkah memakai CREATE TABLE IF NOT
+-- EXIST, INSERT IGNORE, dan pemeriksaan information_schema.
+--
+-- LANGKAH 0: cek tabel yang sudah ada. Semua bernilai 1 -> tidak wajib impor,
+-- tapi mengimpor tetap aman. Nilai 0 -> tabel itu belum ada di database ini.
+--   staff_job_titles
+--   role_capability_presets
+--   rbac_roles
+--   rbac_capabilities
+--   rbac_desktop_tabs
+--   rbac_telegram_notifications
+--   rbac_access_groups
+--   rbac_legacy_role_sets
+--   guest_reviews
+--   guest_review_invites
+--   wholesale_rate_plans
+--   wholesale_rate_nights
+--   wholesale_rate_bookings
+--   exchange_rates
 -- ---------------------------------------------------------------------------
 
+SELECT 'LANGKAH 0: tabel yang sudah ada' AS migration_step;
+SELECT 'staff_job_titles' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'staff_job_titles') > 0, 1, 0) AS already_exists;
+SELECT 'role_capability_presets' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'role_capability_presets') > 0, 1, 0) AS already_exists;
+SELECT 'rbac_roles' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_roles') > 0, 1, 0) AS already_exists;
+SELECT 'rbac_capabilities' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_capabilities') > 0, 1, 0) AS already_exists;
+SELECT 'rbac_desktop_tabs' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_desktop_tabs') > 0, 1, 0) AS already_exists;
+SELECT 'rbac_telegram_notifications' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_telegram_notifications') > 0, 1, 0) AS already_exists;
+SELECT 'rbac_access_groups' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_access_groups') > 0, 1, 0) AS already_exists;
+SELECT 'rbac_legacy_role_sets' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'rbac_legacy_role_sets') > 0, 1, 0) AS already_exists;
+SELECT 'guest_reviews' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guest_reviews') > 0, 1, 0) AS already_exists;
+SELECT 'guest_review_invites' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'guest_review_invites') > 0, 1, 0) AS already_exists;
+SELECT 'wholesale_rate_plans' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wholesale_rate_plans') > 0, 1, 0) AS already_exists;
+SELECT 'wholesale_rate_nights' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wholesale_rate_nights') > 0, 1, 0) AS already_exists;
+SELECT 'wholesale_rate_bookings' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wholesale_rate_bookings') > 0, 1, 0) AS already_exists;
+SELECT 'exchange_rates' AS table_name, IF((SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'exchange_rates') > 0, 1, 0) AS already_exists;
 
--- ===== sumber: migrations/migrations/20261019_STAFF_JOB_TITLES.sql =====
+
+-- ===== sumber: migrations/20261019_STAFF_JOB_TITLES.sql =====
 -- TAMASYA R19: jabatan dinamis (tambah/rename/hapus jabatan dari UI).
 -- Jalankan terhadap DB properti SETELAH backup terverifikasi; jangan pada DB HQ bersama.
 -- Idempoten: aman dijalankan berulang.
@@ -71,7 +112,8 @@ DEALLOCATE PREPARE staff_job_title_stmt;
 -- sudah diurus migrasi role_capability_presets; untuk jabatan dinamis, route 052
 -- menyisipkan baris paket saat jabatan dibuat (INSERT IGNORE, tidak menimpa).
 
--- ===== sumber: migrations/migrations/20261019_ROLE_CAPABILITY_PRESETS.sql =====
+
+-- ===== sumber: migrations/20261019_ROLE_CAPABILITY_PRESETS.sql =====
 -- TAMASYA Fase 2: paket jabatan (role capability presets).
 -- Jalankan terhadap DB properti SETELAH backup terverifikasi; jangan pada DB HQ bersama.
 -- Idempoten: aman dijalankan berulang.
@@ -106,7 +148,8 @@ INSERT IGNORE INTO `role_capability_presets` (`role`,`permissions`) VALUES
 ('tukang_kebun', '{"desktopTabs":{"dashboard":false,"rooms":false,"finance":false,"savings":true,"report":false,"operations":true,"website":false,"support":false,"telegram":true,"staff":false,"config":false,"db_config":false,"inventory":false,"leaves":true,"attendance":true},"telegramNotifications":{"bookings":false,"finance":false,"inventory":false,"operations":false,"hr":false,"system":false},"capabilities":{"approve_sensitive_actions":false,"manage_sessions":false,"resolve_sync_conflict":false,"manage_tax_rules":false,"manage_backup":false,"view_audit_log":false,"reconcile_payments":false,"correct_booking_audit":false,"view_guest_identity":false,"manage_room_access":false,"sell_room_access":false,"manage_stay_access":false,"receive_payment_access":false,"perform_night_audit":false,"perform_housekeeping":false,"resolve_night_audit":false,"manage_operational_settings":false,"override_key_checkout":false,"manage_public_website":false}}'),
 ('lain_lain', '{"desktopTabs":{"dashboard":false,"rooms":false,"finance":false,"savings":true,"report":false,"operations":true,"website":false,"support":false,"telegram":true,"staff":false,"config":false,"db_config":false,"inventory":false,"leaves":true,"attendance":true},"telegramNotifications":{"bookings":false,"finance":false,"inventory":false,"operations":false,"hr":false,"system":false},"capabilities":{"approve_sensitive_actions":false,"manage_sessions":false,"resolve_sync_conflict":false,"manage_tax_rules":false,"manage_backup":false,"view_audit_log":false,"reconcile_payments":false,"correct_booking_audit":false,"view_guest_identity":false,"manage_room_access":false,"sell_room_access":false,"manage_stay_access":false,"receive_payment_access":false,"perform_night_audit":false,"perform_housekeeping":false,"resolve_night_audit":false,"manage_operational_settings":false,"override_key_checkout":false,"manage_public_website":false}}');
 
--- ===== sumber: migrations/migrations/20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql =====
+
+-- ===== sumber: migrations/20261019_ROLE_CAPABILITY_PRESETS_FASE3.sql =====
 -- TAMASYA Fase 3 "Kelola Jabatan": tiga capability baru untuk 095 laporan kanonik
 -- (view_reports), 017/018 kotak masuk publik (view_support_inbox), dan 096 master
 -- fasilitas (manage_facilities). Baris paket yang sudah ada ditambahi kunci baru
@@ -119,7 +162,8 @@ UPDATE `role_capability_presets` SET `permissions`=JSON_MERGE_PATCH(`permissions
 UPDATE `role_capability_presets` SET `permissions`=JSON_MERGE_PATCH(`permissions`,'{"capabilities":{"view_reports":false,"view_support_inbox":true,"manage_facilities":false}}') WHERE `role` = 'receptionist' AND JSON_EXTRACT(`permissions`,'$.capabilities.view_reports') IS NULL;
 UPDATE `role_capability_presets` SET `permissions`=JSON_MERGE_PATCH(`permissions`,'{"capabilities":{"view_reports":false,"view_support_inbox":false,"manage_facilities":false}}') WHERE `role` IN ('cleaning_service','keamanan','koki','tukang_kebun','lain_lain') AND JSON_EXTRACT(`permissions`,'$.capabilities.view_reports') IS NULL;
 
--- ===== sumber: migrations/migrations/20261020_DAILY_SUMMARY_CAPABILITY.sql =====
+
+-- ===== sumber: migrations/20261020_DAILY_SUMMARY_CAPABILITY.sql =====
 -- TAMASYA Sprint A #1: daftarkan capability `daily_summary` yang sudah dipakai
 -- route 090 (`operations-center` command `daily-summary`). Nilai default mengikuti
 -- fallback route saat ini: admin, manager, dan receptionist terbuka; role lain
@@ -138,7 +182,8 @@ SET `permissions`=JSON_MERGE_PATCH(`permissions`,'{"capabilities":{"daily_summar
 WHERE `role` IN ('finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain')
   AND JSON_EXTRACT(`permissions`,'$.capabilities.daily_summary') IS NULL;
 
--- ===== sumber: migrations/migrations/20261021_DYNAMIC_RBAC.sql =====
+
+-- ===== sumber: migrations/20261021_DYNAMIC_RBAC.sql =====
 -- TAMASYA Dynamic RBAC
 -- Registry role/capability/tab/notifikasi dan access group untuk enforcement.
 -- Idempoten: CREATE TABLE IF NOT EXISTS + INSERT IGNORE. Data runtime dibaca
@@ -364,3 +409,316 @@ INSERT IGNORE INTO `rbac_legacy_role_sets` (`role_set`,`group_key`) VALUES
 ('admin,keamanan,manager,receptionist','security_front_desk'),
 ('admin,finance,owner','admin_finance_owner'),
 ('admin,finance','admin_finance');
+
+
+-- ===== sumber: migrations/20261021_LEGACY_ROLE_SETS_COMPLETE.sql =====
+-- TAMASYA: lengkapi peta role statis -> access group.
+--
+-- requireRoles() sudah menyelesaikan daftar role statis lewat access group
+-- (rbac_legacy_role_sets -> rbac_access_groups -> rbac_access_group_roles).
+-- Tiga daftar role yang dipakai di route TIDAK punya peta, sehingga 51 call site
+-- masih Closure Role statis dan tidak bisa dikelola dari panel Kelola Izin.
+--
+-- Setiap daftar di bawah dipetakan ke access group yanganggotanya PERSIS SAMA
+-- dengan daftar role statis, jadi perilaku route tidak berubah sama sekali;
+-- yang berubah hanya route tersebut menjadi dapat dikelola dari UI.
+--
+-- Idempoten: INSERT IGNORE, aman dijalankan berulang.
+--
+-- 1) "admin" -> grup Admin yang sudah ada.
+-- 2) Sembilan role (termasuk Keuangan) -> grup "all_staff" yang sudah ada.
+-- 3) Delapan role (tanpa Keuangan) -> grup baru, karena "all_staff" memuat
+--    Keuangan dan memakainya akan menambah akses bagi Keuangan.
+INSERT IGNORE INTO `rbac_legacy_role_sets` (`role_set`,`group_key`) VALUES
+  ('admin','admin_only'),
+  ('admin,cleaning_service,finance,keamanan,koki,lain_lain,manager,receptionist,tukang_kebun','all_staff');
+
+INSERT IGNORE INTO `rbac_access_groups` (`group_key`,`label`,`is_system`) VALUES
+  ('all_staff_no_finance','Seluruh staf operasional tanpa Keuangan',1);
+
+INSERT IGNORE INTO `rbac_access_group_roles` (`group_key`,`role_key`) VALUES
+  ('all_staff_no_finance','admin'),
+  ('all_staff_no_finance','cleaning_service'),
+  ('all_staff_no_finance','keamanan'),
+  ('all_staff_no_finance','koki'),
+  ('all_staff_no_finance','lain_lain'),
+  ('all_staff_no_finance','manager'),
+  ('all_staff_no_finance','receptionist'),
+  ('all_staff_no_finance','tukang_kebun');
+
+INSERT IGNORE INTO `rbac_legacy_role_sets` (`role_set`,`group_key`) VALUES
+  ('admin,cleaning_service,keamanan,koki,lain_lain,manager,receptionist,tukang_kebun','all_staff_no_finance');
+
+
+-- ===== sumber: migrations/20261021_TRANSACTION_CURRENCY.sql =====
+-- TAMASYA: fondasi multi-mata uang.
+--
+-- Rilis ini menambah dukungan mata uang per property. Yang dilakukan di sini
+-- adalah fondasi DATA, bukan konversi:
+--   - transactions menandai mata uang nominal, kurs, dan (sudah ada) baseAmount.
+--   - exchange_rates menyimpan histori kurs untuk masa depan.
+--   - Baris yang sudah ada diberi mata uang property saat ini (IDR bila
+--     property belum mengatur), sehingga tidak ada data yang berubah nilai.
+--
+-- Semuanya idempoten dan tidak menghapus data.
+--
+-- PENTING: menambah kolom ini TIDAK membuat aplikasi menjumlahkan mata uang
+-- berbeda. Penjumlahan lintas mata uang tetap dilarang dan dijaga oleh
+-- tamasyaTransactionCurrencyGuard() pada sisi baca.
+
+SET @schema := DATABASE();
+
+-- 1) Kolom mata uang pada tabel transaksi.
+SET @tx_currency := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = 'transactions' AND COLUMN_NAME = 'currency'
+);
+SET @sql := IF(@tx_currency = 0,
+  'ALTER TABLE `transactions` ADD COLUMN `currency` varchar(10) NOT NULL DEFAULT ''IDR'' AFTER `amount`',
+  'SELECT ''transactions.currency already installed'' AS migration_status');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @tx_rate := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = 'transactions' AND COLUMN_NAME = 'exchangeRate'
+);
+SET @sql := IF(@tx_rate = 0,
+  'ALTER TABLE `transactions` ADD COLUMN `exchangeRate` decimal(18,8) NOT NULL DEFAULT 1 AFTER `currency`',
+  'SELECT ''transactions.exchangeRate already installed'' AS migration_status');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @tx_base := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = 'transactions' AND COLUMN_NAME = 'baseAmount'
+);
+SET @sql := IF(@tx_base = 0,
+  'ALTER TABLE `transactions` ADD COLUMN `baseAmount` decimal(18,2) DEFAULT NULL AFTER `exchangeRate`',
+  'SELECT ''transactions.baseAmount already installed'' AS migration_status');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+-- 2) Tabel histori kurs.
+CREATE TABLE IF NOT EXISTS `exchange_rates` (
+  `id` varchar(64) NOT NULL,
+  `base_currency` varchar(10) NOT NULL,
+  `quote_currency` varchar(10) NOT NULL,
+  `rate` decimal(18,8) NOT NULL,
+  `rate_date` date NOT NULL,
+  `source` varchar(50) NOT NULL DEFAULT 'manual',
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_exchange_rate_day` (`base_currency`,`quote_currency`,`rate_date`),
+  KEY `idx_exchange_rate_pair` (`base_currency`,`quote_currency`,`rate_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- 3) Backfill: baris lama memakai mata uang property aktif.
+-- Satu database = satu property (tabel staff tidak punya kolom property_id),
+-- jadi mata uang property aktif dipakai untuk seluruh baris.
+UPDATE `transactions` t
+LEFT JOIN (SELECT MAX(`currency`) AS `currency` FROM `property_settings`) p ON 1 = 1
+SET t.`currency` = COALESCE(p.`currency`, 'IDR')
+WHERE t.`currency` IS NULL OR t.`currency` = '';
+
+-- 4) baseAmount SENGAJA tidak diisi. Nilai NULL adalah tanda pajak belum
+--    diketahui (taxSnapshotStatus unresolved) dan pembeda itu dipakai laporan
+--    kanonik serta jurnal suspense 2199.
+
+
+-- ===== sumber: migrations/20261021_TRANSACTION_PROPERTY_AMOUNT.sql =====
+-- TAMASYA: nilai transaksi dalam mata uang property.
+--
+-- Transaksi boleh dicatat dalam mata uang lain (misalnya USD pada property
+-- yang menagih IDR). Nominal aslinya tetap disimpan pada `amount` bersama
+-- `currency` dan `exchangeRate`, dan hasil konversinya disimpan pada kolom
+-- baru `propertyAmount` supaya laporan dapat menjumlahkan seluruh transaksi
+-- dalam satu angka mata uang property.
+--
+-- Kolom `baseAmount` tidak dipakai untuk ini: pada skema kanonik `baseAmount`
+-- yang NULL berarti "pajak belum diketahui", bukan "belum dikonversi".
+--
+-- Idempoten dan tidak mengubah data lama: baris lama dibiarkan NULL, dan
+-- pembacanya memperlakukan NULL sebagai "belum ada nilai konversi".
+
+SET @schema := DATABASE();
+
+SET @tx_property_amount := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = 'transactions' AND COLUMN_NAME = 'propertyAmount'
+);
+SET @sql := IF(@tx_property_amount = 0,
+  'ALTER TABLE `transactions` ADD COLUMN `propertyAmount` decimal(15,2) DEFAULT NULL AFTER `exchangeRate`',
+  'SELECT ''transactions.propertyAmount already installed'' AS migration_status');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+
+-- ===== sumber: migrations/20261021_GUEST_REVIEWS.sql =====
+-- TAMASYA: ulasan/review tamu.
+--
+-- Alur: staf membuat undangan ulasan (token acak) untuk kamar yang sudah
+-- checkout; tamu membuka tautan dan memberi rating + komentar; staf melihat,
+-- membalas, dan memoderasi (tampilkan/sembunyikan).
+--
+-- Semua idempoten dan tidak menghapus data.
+
+CREATE TABLE IF NOT EXISTS `guest_reviews` (
+  `id` varchar(64) NOT NULL,
+  `property_id` varchar(80) NOT NULL,
+  `booking_id` varchar(64) NOT NULL,
+  `token` varchar(80) DEFAULT NULL,
+  `room_number` varchar(40) DEFAULT NULL,
+  `guest_name` varchar(150) DEFAULT NULL,
+  `rating` tinyint(1) DEFAULT NULL,
+  `comment` text DEFAULT NULL,
+  `reply` text DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'invited',
+  `published` tinyint(1) NOT NULL DEFAULT 0,
+  `invited_by` varchar(50) DEFAULT NULL,
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `responded_at` datetime DEFAULT NULL,
+  `published_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_guest_review_token` (`token`),
+  KEY `idx_guest_review_booking` (`booking_id`),
+  KEY `idx_guest_review_status` (`property_id`,`status`),
+  KEY `idx_guest_review_rating` (`property_id`,`published`,`rating`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Tautan undangan yang sudah dipakai tidak boleh dipakai ulang.
+CREATE TABLE IF NOT EXISTS `guest_review_invites` (
+  `id` varchar(64) NOT NULL,
+  `property_id` varchar(80) NOT NULL,
+  `booking_id` varchar(64) NOT NULL,
+  `token` varchar(80) NOT NULL,
+  `room_number` varchar(40) DEFAULT NULL,
+  `guest_name` varchar(150) DEFAULT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'pending',
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `expires_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_guest_review_invite_token` (`token`),
+  KEY `idx_guest_review_invite_booking` (`booking_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+-- ===== sumber: migrations/20261021_WHOLESALE_RATES.sql =====
+-- TAMASYA: tarif wholesale / kontrak (B2B).
+--
+-- Hoteloften menjual kamar ke perusahaan dan channel dengan harga kontrak
+-- yang berbeda dari tarif rack. Paket ini menyimpan tarif per tanggal, Looked
+-- berlaku pada rentang tanggal tertentu, dan dipakai saat reservasi dibuat.
+--
+-- Semua idempoten dan tidak menghapus data: paket yang dinonaktifkan tetap
+-- tersimpan sebagai riwayat.
+
+CREATE TABLE IF NOT EXISTS `wholesale_rate_plans` (
+  `id` varchar(64) NOT NULL,
+  `property_id` varchar(80) NOT NULL,
+  `code` varchar(40) NOT NULL,
+  `name` varchar(150) NOT NULL,
+  `company_name` varchar(150) DEFAULT NULL,
+  `room_type` varchar(80) DEFAULT NULL,
+  `currency` varchar(10) NOT NULL DEFAULT 'IDR',
+  `valid_from` date NOT NULL,
+  `valid_to` date NOT NULL,
+  `min_nights` tinyint(3) NOT NULL DEFAULT 1,
+  `max_nights` tinyint(3) NOT NULL DEFAULT 30,
+  `cut_off_days` tinyint(3) NOT NULL DEFAULT 0,
+  `include_tax` tinyint(1) NOT NULL DEFAULT 1,
+  `breakfast_included` tinyint(1) NOT NULL DEFAULT 0,
+  `status` varchar(20) NOT NULL DEFAULT 'active',
+  `notes` text DEFAULT NULL,
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_wholesale_plan_code` (`property_id`,`code`),
+  KEY `idx_wholesale_plan_window` (`property_id`,`status`,`valid_from`,`valid_to`),
+  KEY `idx_wholesale_plan_company` (`property_id`,`company_name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+CREATE TABLE IF NOT EXISTS `wholesale_rate_nights` (
+  `plan_id` varchar(64) NOT NULL,
+  `stay_date` date NOT NULL,
+  `price` decimal(15,2) NOT NULL,
+  `min_available` int(11) NOT NULL DEFAULT 0,
+  `closed` tinyint(1) NOT NULL DEFAULT 0,
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`plan_id`,`stay_date`),
+  KEY `idx_wholesale_night_date` (`stay_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- Paket yang dipakai sebuah reservasi agar tarif kontrak tidak berubah diam-diam.
+CREATE TABLE IF NOT EXISTS `wholesale_rate_bookings` (
+  `id` varchar(64) NOT NULL,
+  `property_id` varchar(80) NOT NULL,
+  `booking_id` varchar(64) NOT NULL,
+  `plan_id` varchar(64) NOT NULL,
+  `stay_from` date NOT NULL,
+  `stay_to` date NOT NULL,
+  `nightly_price` decimal(15,2) NOT NULL,
+  `nights` tinyint(3) NOT NULL,
+  `total` decimal(15,2) NOT NULL,
+  `currency` varchar(10) NOT NULL DEFAULT 'IDR',
+  `created_by` varchar(50) DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_wholesale_booking` (`property_id`,`booking_id`),
+  KEY `idx_wholesale_booking_plan` (`plan_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+
+-- ===== sumber: migrations/20261021_WHOLESALE_RATE_LOCK.sql =====
+-- TAMASYA: kunci tarif kontrak pada reservasi (wholesale).
+--
+-- Paket tarif kontrak (wholesale_rate_plans + wholesale_rate_nights) sudah
+-- ada. Yang ditambahkan di sini adalah pencatatan tarif yang benar-benar
+-- dipakai sebuah reservasi:
+--
+--   - plan_code dan company_name: paket dan perusahaan pemilik kontrak, supaya
+--     kunci tarif terbaca tanpa perlu melihat paketnya.
+--   - nightly_breakdown: harga per tanggal yang dikunci. Nilai inilah yang
+--     membuat perubahan paket di kemudian hari tidak mengubah reservasi lama.
+--
+-- Idempoten: kolom yang sudah ada tidak disentuh, tidak ada data yang dihapus.
+
+SET @schema := DATABASE();
+
+SET @wrb_code := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = 'wholesale_rate_bookings' AND COLUMN_NAME = 'plan_code'
+);
+SET @sql := IF(@wrb_code = 0,
+  'ALTER TABLE `wholesale_rate_bookings` ADD COLUMN `plan_code` varchar(40) DEFAULT NULL AFTER `plan_id`',
+  'SELECT ''wholesale_rate_bookings.plan_code already installed'' AS migration_status');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @wrb_company := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = 'wholesale_rate_bookings' AND COLUMN_NAME = 'company_name'
+);
+SET @sql := IF(@wrb_company = 0,
+  'ALTER TABLE `wholesale_rate_bookings` ADD COLUMN `company_name` varchar(150) DEFAULT NULL AFTER `plan_code`',
+  'SELECT ''wholesale_rate_bookings.company_name already installed'' AS migration_status');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+SET @wrb_breakdown := (
+  SELECT COUNT(*) FROM information_schema.COLUMNS
+  WHERE TABLE_SCHEMA = @schema AND TABLE_NAME = 'wholesale_rate_bookings' AND COLUMN_NAME = 'nightly_breakdown'
+);
+SET @sql := IF(@wrb_breakdown = 0,
+  'ALTER TABLE `wholesale_rate_bookings` ADD COLUMN `nightly_breakdown` text DEFAULT NULL AFTER `nights`',
+  'SELECT ''wholesale_rate_bookings.nightly_breakdown already installed'' AS migration_status');
+PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
+
+
+-- ---------------------------------------------------------------------------
+-- LANGKAH TERAKHIR: verifikasi
+-- ---------------------------------------------------------------------------
+SELECT 'LANGKAH TERAKHIR: verifikasi impor' AS migration_step;
+SELECT COUNT(*) AS tabel_rbac FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN ('staff_job_titles','role_capability_presets','rbac_roles','rbac_capabilities','rbac_desktop_tabs','rbac_telegram_notifications','rbac_access_groups','rbac_legacy_role_sets','guest_reviews','guest_review_invites','wholesale_rate_plans','wholesale_rate_nights','wholesale_rate_bookings','exchange_rates');
+SELECT IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'transactions' AND COLUMN_NAME = 'propertyAmount') > 0, 1, 0) AS transactions_property_amount;
+SELECT IF((SELECT COUNT(*) FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'wholesale_rate_bookings' AND COLUMN_NAME = 'nightly_breakdown') > 0, 1, 0) AS wholesale_nightly_breakdown;
+-- Selesai. Kembali ke deploy/DEPLOY-ID.md untuk langkah berikutnya.
