@@ -141,6 +141,9 @@ eager → **tanya dulu**).
     `wholesale-rate-bookings` (rekonsiliasi).
   - Uji: `tests/wholesale-rates-regression.php` (20) + `tests/wholesale-contract-rate-mysql-uat.php`
     (19 statis + 22 fungsional di MariaDB 10.11 → 41 cek).
+  - Grup/kamar banyak: `api/modules/front_office/043_multi_room_reservations.php` meneruskan paket
+    kontrak ke tiap kamar; paket dihitung ulang per kamar, jadi tipe kamar yang tidak cocok
+    ditolak server.
   - UI: `assets/wholesale-contract-addon.js` (add-on, dimuat sesuai rute `rooms`/`reservations`
     lewat `assets/runtime-addon-loader.js`, **tidak** eager dan **tidak** di-precache SW):
     panel "Tarif kontrak" (buat/nonaktifkan paket, cari harga inap, daftar reservasi kontrak)

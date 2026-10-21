@@ -185,6 +185,11 @@ function tamasyaMultiRoomCreate(PDO $pdo,array $actor,array $input,string $chann
             if($mode!=='individual')tamasyaEnterpriseRequireReady($pdo,'folio');
             $payload=['guestName'=>trim((string)($r['guestName']??''))?:$name,'guestPhone'=>$meta['phone']??'','guestEmail'=>$meta['email']??'','bookingSource'=>$meta['bookingSource']??'Direct','checkIn'=>$r['checkIn']??$from,'checkOut'=>$r['checkOut']??$to,'roomNumber'=>$r['roomNumber'],'totalAmount'=>$r['totalAmount']??0,'paymentStatus'=>'unpaid','lifecycleIntent'=>$input['lifecycleIntent']??'reserve','broadcast'=>false];
             foreach(['downPaymentAmount','downPaymentMethod','downPaymentBankAccountId','downPaymentDate','securityDepositRequired','securityDepositRequiredAmount','securityDepositReceivedAmount','securityDepositPaymentMethod','securityDepositBankAccountId','securityDepositDate'] as $key)if(isset($r[$key]))$payload[$key]=$r[$key];
+            // Tarif kontrak untuk grup diteruskan ke tiap kamar. Paket dihitung
+            // ulang per kamar, jadi tipe kamar yang berbeda dari paket akan
+            // ditolak server, bukan menerima harga yang tidak berlaku.
+            $groupPlanId=trim((string)($r['wholesalePlanId']??($input['wholesalePlanId']??'')));
+            if($groupPlanId!==''){$payload['wholesalePlanId']=$groupPlanId;$payload['wholesaleCompanyName']=trim((string)($r['wholesaleCompanyName']??($input['wholesaleCompanyName']??($input['companyName']??''))));}
             $boundsFrom=min($boundsFrom,(string)$payload['checkIn']);$boundsTo=max($boundsTo,(string)$payload['checkOut']);
             $childOp='mr_child_'.substr(hash('sha256',$op.'|'.$r['roomNumber']),0,60);
             $child=createCanonicalBookingWorkflow($pdo,$actor,$payload,$channel,$childOp,true);$results[]=$child;
