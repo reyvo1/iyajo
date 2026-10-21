@@ -7,7 +7,7 @@ tamu, paket izin jabatan terpusat di HQ, serta tarif wholesale/kontrak B2B.
 
 | Paket | `tamasya-production-20261021-r15.zip` |
 |---|---|
-| SHA-256 paket | `3920091c828f54b4c08ccfad4d5f376f4d014b074fd7e9419ea1e0ef706a6871` |
+| SHA-256 paket | `f7e2a8f2e002f8312a40b6d938024f1e28ffb55012fadbd45d9368fa37e5cbdd` |
 | Isi | 377 berkas + `DEPLOY-SHA256SUMS.txt` |
 
 ## 1. Isi paket
