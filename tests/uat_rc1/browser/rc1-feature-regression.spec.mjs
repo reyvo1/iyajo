@@ -61,10 +61,15 @@ async function openDomainItem(page,domain,route){
 /** Bukti layar saat assertion gagal: apa yang benar-benar ada di halaman. */
 async function pageEvidence(page){
   try{
-    const text=(await page.locator('body').innerText({timeout:5000})).replace(/\s+/g,' ').slice(0,400);
-    const ids=await page.evaluate(()=>[...document.querySelectorAll('[id]')].map(e=>e.id).filter(id=>/tamasya|audit|governance|wholesale|panel/i.test(id)).slice(0,25));
-    return {text,ids};
-  }catch(_){return {text:'(tidak terbaca)',ids:[]};}
+    const text=(await page.locator('body').innerText({timeout:5000})).replace(/\s+/g,' ').slice(0,1200);
+    const info=await page.evaluate(()=>({
+      url:location.href,
+      visibleRoutes:[...document.querySelectorAll('[data-route]')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0;}).map(e=>e.getAttribute('data-route')),
+      openMenus:[...document.querySelectorAll('[role="menu"]')].map(m=>m.getAttribute('aria-label')||'?'),
+      headings:[...document.querySelectorAll('h1,h2,h3')].filter(e=>{const r=e.getBoundingClientRect();return r.width>0&&r.height>0;}).map(e=>(e.textContent||'').trim().slice(0,40)).slice(0,12)
+    }));
+    return {text,info};
+  }catch(_){return {text:'(tidak terbaca)'};}
 }
 
 async function waitLoaded(page){
