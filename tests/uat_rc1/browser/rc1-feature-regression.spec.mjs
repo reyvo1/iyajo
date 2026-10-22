@@ -150,8 +150,9 @@ test('HQ console: opens without a script error and lists the role packages',asyn
 });
 
 test('Front desk: the contract rate panel opens, is centred, and reads the real list',async({page,request},info)=>{
-  const authHeaders={Authorization:`Bearer ${session.token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()};
   const seen=[];
+  const session=await installAuth(page,request);
+  const authHeaders={Authorization:`Bearer ${session.token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()};
   const requested=[];
   page.on('request',request=>{try{requested.push(new URL(request.url()).pathname);}catch(_){}});
   page.on('response',response=>{
@@ -161,7 +162,6 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(String(error)));
 
-  const session=await installAuth(page,request);
   await page.goto('/index.html');
   await waitLoaded(page);
   for(let attempt=0;attempt<3;attempt++){
@@ -225,8 +225,9 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
 });
 
 test('Governance tabs: audit, inspector, reviews and health all answer',async({page,request},info)=>{
-  const authHeaders={Authorization:`Bearer ${session.token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()};
   const seen=[];
+  const session=await installAuth(page,request);
+  const authHeaders={Authorization:`Bearer ${session.token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()};
   page.on('response',response=>{
     const url=response.url();
     for(const action of ['audit-logs','permission-inspector','guest-reviews','system-health']){
@@ -236,7 +237,6 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(String(error)));
 
-  const session=await installAuth(page,request);
   await page.goto('/index.html');
   await waitLoaded(page);
   // Navigasi lewat menu domain, sama seperti jalur yang dipakai uji lama.
