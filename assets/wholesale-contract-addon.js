@@ -300,7 +300,7 @@
     plansBox.textContent = 'Memuat…';
     const [plans, locked] = await Promise.all([
       api('wholesale-rates'),
-      api('wholesale-rates', { method: 'POST', command: 'wholesale-rate-bookings' }).catch(() => ({ rows: [] })),
+      api('wholesale-rates', { method: 'POST', body: { command: 'wholesale-rate-bookings' } }).catch(() => ({ rows: [] })),
     ]);
     const rows = Array.isArray(plans.rows) ? plans.rows : [];
     if (!rows.length) {
@@ -342,7 +342,7 @@
       companyName: field(panel, 'q-company').value,
     };
     result.textContent = 'Mencari…';
-    const data = await api('wholesale-rates', { method: 'POST', command: 'wholesale-rate-lookup', body: { command: 'wholesale-rate-lookup', ...criteria } });
+    const data = await api('wholesale-rates', { method: 'POST', body: { command: 'wholesale-rate-lookup', ...criteria } });
     const applicable = Array.isArray(data.applicable) ? data.applicable : [];
     const others = Array.isArray(data.candidates) ? data.candidates.filter((row) => !row.applicable) : [];
     if (!applicable.length) {
@@ -374,7 +374,7 @@
       companyName: field(panel, 'q-company').value,
       planId,
     };
-    const data = await api('wholesale-rates', { method: 'POST', command: 'wholesale-rate-lookup', body: { command: 'wholesale-rate-lookup', ...criteria } });
+    const data = await api('wholesale-rates', { method: 'POST', body: { command: 'wholesale-rate-lookup', ...criteria } });
     const quote = data.quote;
     if (!quote || !quote.applicable) {
       notify(`Paket tidak bisa dipakai: ${quote?.reason || 'tidak berlaku'}`);
@@ -418,14 +418,14 @@
       currency: field(panel, 'p-currency').value.trim() || 'IDR',
       nights,
     };
-    await api('wholesale-rates', { method: 'POST', command: 'wholesale-rate-save', body });
+    await api('wholesale-rates', { method: 'POST', body });
     notify('Paket tarif kontrak disimpan.');
     await refreshPanel();
   };
 
   const togglePlan = async (planId, status) => {
     const next = status === 'active' ? 'inactive' : 'active';
-    await api('wholesale-rates', { method: 'POST', command: 'wholesale-rate-status', body: { command: 'wholesale-rate-status', planId, status: next } });
+    await api('wholesale-rates', { method: 'POST', body: { command: 'wholesale-rate-status', planId, status: next } });
     notify(`Paket ${next === 'active' ? 'diaktifkan' : 'dinonaktifkan'}.`);
     await refreshPanel();
   };

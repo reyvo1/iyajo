@@ -135,19 +135,12 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   await page.goto('/index.html');
   await waitLoaded(page);
   const frontOffice=page.locator('#domain-frontoffice');
-  let roomsReached=false;
-  try{
-    await frontOffice.waitFor({state:'visible',timeout:15000});
-    await frontOffice.scrollIntoViewIfNeeded();
-    if((await frontOffice.getAttribute('aria-expanded'))!=='true')await frontOffice.click();
-    const roomsItem=page.locator('[role="menu"] [data-route="rooms"]');
-    await expect(roomsItem).toBeVisible({timeout:15000});
-    await roomsItem.click();
-    roomsReached=true;
-  }catch(_){}
-  if(!roomsReached){
-    await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'rooms'}})));
-  }
+  await frontOffice.scrollIntoViewIfNeeded();
+  if((await frontOffice.getAttribute('aria-expanded'))!=='true')await frontOffice.click();
+  await expect(frontOffice).toHaveAttribute('aria-expanded','true',{timeout:15000});
+  const roomsItem=page.locator('[role="menu"] [data-route="rooms"]');
+  await expect(roomsItem).toBeVisible({timeout:15000});
+  await roomsItem.click();
 
   // Add-on dimuat sesuai rute, jadi tunggu skripnya dimuat dulu, lalu tombolnya.
   await expect.poll(()=>requested.some(x=>x.endsWith('/assets/wholesale-contract-addon.js')),{timeout:20000}).toBe(true);
@@ -215,19 +208,12 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   await waitLoaded(page);
   // Navigasi lewat menu domain, sama seperti jalur yang dipakai uji lama.
   const hr=page.locator('#domain-hr');
-  let staffReached=false;
-  try{
-    await hr.waitFor({state:'visible',timeout:15000});
-    await hr.scrollIntoViewIfNeeded();
-    if((await hr.getAttribute('aria-expanded'))!=='true')await hr.click();
-    const staffItem=page.locator('[role="menu"] [data-route="staff"]');
-    await expect(staffItem).toBeVisible({timeout:15000});
-    await staffItem.click();
-    staffReached=true;
-  }catch(_){}
-  if(!staffReached){
-    await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'staff'}})));
-  }
+  await hr.scrollIntoViewIfNeeded();
+  if((await hr.getAttribute('aria-expanded'))!=='true')await hr.click();
+  await expect(hr).toHaveAttribute('aria-expanded','true',{timeout:15000});
+  const staffItem=page.locator('[role="menu"] [data-route="staff"]');
+  await expect(staffItem).toBeVisible({timeout:15000});
+  await staffItem.click();
   await page.waitForTimeout(3000);
   // Panel audit tertutup sampai operator membukanya; tab-tabnya muncul setelah itu.
   // Panel audit harus berada di bagian atas tab, bukan tenggelam di bawah
