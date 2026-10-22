@@ -23,25 +23,26 @@ function writeEvidence(name,info,data){
 
 async function installAuth(page,request){
   const r=await request.post(`${BASE}/api.php?action=login`,{
-    headers:{Origin:BASE,'X-Device-ID':'uat-browser-feature','Content-Type':'application/json'},
-    data:{username,password,offlineSessionScopeId:'offline_browser_feature'}
+    headers:{Origin:BASE,'X-Device-ID':'uat-browser-rc1','Content-Type':'application/json'},
+    data:{username,password,offlineSessionScopeId:'offline_browser_rc1'}
   });
   expect(r.status()).toBe(200);
-  const body=await r.json();
-  const token=body?.data?.token||body?.token;
-  expect(token).toBeTruthy();
-  await page.addInitScript((value)=>{
-    try{
-      sessionStorage.setItem('hotel_session_token',value);
-      sessionStorage.setItem('hotel_logged_in','true');
-      sessionStorage.setItem('hotel_staff_role','admin');
-      sessionStorage.setItem('hotel_staff_id','uat-admin');
-      // Device id harus sama dengan saat login; kalau tidak, permintaan dari
-      // aplikasi ditolak 401 dan layarnya kosong.
-      localStorage.setItem('hotel_device_id','uat-browser-feature');
-    }catch(_){}
-  },token);
-  return token;
+  const s=await r.json();
+  expect(s.success).toBe(true);expect(s.token).toBeTruthy();
+  expect(s.hotelScopeId).toBeTruthy();expect(s.offlineSessionScopeId).toBeTruthy();
+  await page.addInitScript(({token,base,role,permissions,staffId,hotelScopeId,offlineSessionScopeId})=>{
+    sessionStorage.setItem('hotel_logged_in','true');
+    sessionStorage.setItem('hotel_session_token',token);
+    sessionStorage.setItem('hotel_staff_role',role||'admin');
+    sessionStorage.setItem('hotel_role',role||'admin');
+    sessionStorage.setItem('hotel_staff_id',staffId||'');
+    sessionStorage.setItem('hotel_permissions',JSON.stringify(permissions||{}));
+    sessionStorage.setItem('hotel_offline_hotel_scope',String(hotelScopeId||'').trim().toLowerCase());
+    sessionStorage.setItem('hotel_offline_session_scope',String(offlineSessionScopeId||'').trim().toLowerCase());
+    sessionStorage.setItem('tamasya_active_api_url',base+'/api.php');
+    localStorage.setItem('hotel_device_id','uat-browser-rc1');
+  },{token:s.token,base:BASE,role:s.role,permissions:s.permissions,staffId:s.staffId,hotelScopeId:s.hotelScopeId,offlineSessionScopeId:s.offlineSessionScopeId});
+  return s;
 }
 
 async function waitLoaded(page){
@@ -58,7 +59,8 @@ test('Growth Suite: contract quote and daily rate are written, not only read',as
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(String(error)));
 
-  const token=await installAuth(page,request);
+  const session=await installAuth(page,request);
+  const token=session.token;
   await page.goto('/growth-suite.html');
   await waitLoaded(page);
 
