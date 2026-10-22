@@ -583,7 +583,7 @@ test('Public review page: served, and an invalid token is refused',async({page,r
   const bad=await request.post(`${BASE}/api.php?action=public-review&token=token-yang-salah`,{headers:{Origin:BASE}});
   const badBody=await bad.json().catch(()=>null);
   expect(badBody&&badBody.success===false,'an invalid review token must be refused').toBe(true);
-  writeEvidence('public-review',info,{pass:true,status:response.status()});
+  writeEvidence('public-review',info,{pass:true,refusedStatus:bad.status()});
 });
 
 test('POS page: the money helper is always present and the page has no script error',async({page,request},info)=>{
