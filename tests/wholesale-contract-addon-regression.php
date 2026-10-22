@@ -46,7 +46,8 @@ $check(str_contains($addon, "tamasya_active_api_url"), 'Add-on memakai basis API
 $check(str_contains($addon, 'wholesale-rate-lookup'), 'Add-on memakai endpoint kuotasi tarif kontrak');
 $check(str_contains($addon, 'wholesale-rate-save'), 'Add-on memakai endpoint simpan paket kontrak');
 $check(str_contains($addon, 'wholesale-rate-bookings'), 'Add-on memakai endpoint daftar reservasi kontrak');
-$check(str_contains($addon, "method: 'POST', command: 'wholesale-rate-bookings'"), 'Daftar reservasi kontrak diambil dengan POST (server hanya melayani perintah ini di jalur tulis)');
+$check(str_contains($addon, "method: 'POST', body: { command: 'wholesale-rate-bookings' }"), 'Daftar reservasi kontrak diambil dengan POST dan perintahnya ada di body (server hanya melayani perintah ini di jalur tulis)');
+$check(!str_contains($addon, "method: 'POST', command:"), 'Perintah tidak pernah dikirim tanpa body (server akan membacanya sebagai permintaan biasa)');
 $check(str_contains($addon, 'WHOLESALE_SCHEMA_MISSING'), 'Add-on mengenali kondisi skema tarif belum ada');
 $check(str_contains($addon, 'IMPORT-RBAC-PHPMYADMIN.sql'), 'Add-on memberi instruksi impor, bukan pesan teknis');
 $check(str_contains($addon, 'sessionStorage.setItem(SELECTION_KEY'), 'Paket terpilih disimpan di sesi, bukan di memori halaman');
