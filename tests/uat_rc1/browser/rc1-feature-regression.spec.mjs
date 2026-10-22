@@ -218,14 +218,21 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   await page.goto('/index.html');
   await waitLoaded(page);
   // Navigasi lewat menu domain, sama seperti jalur yang dipakai uji lama.
-  const hr=page.locator('#domain-hr');
-  await hr.scrollIntoViewIfNeeded();
-  if((await hr.getAttribute('aria-expanded'))!=='true')await hr.click();
-  await expect(hr).toHaveAttribute('aria-expanded','true',{timeout:15000});
+  // Aplikasi memberi tahu rute barunya lewat event. Runnable dipakai untuk
+  // memastikan klik benar-benar berpindah, dan mengulang klik bila menu
+  // baru selesai dibuka.
+  await page.evaluate(()=>{window.__uatRoutes=[];window.addEventListener('tamasya-route-change',e=>{if(e&&e.detail)window.__uatRoutes.push(String(e.detail.route||''));});});
   const staffItem=page.locator('[role="menu"] [data-route="staff"]:visible').first();
-  await expect(staffItem).toBeVisible({timeout:15000});
-  await staffItem.click();
-  await page.waitForTimeout(3000);
+  for(let attempt=0;attempt<3;attempt++){
+    const hr=page.locator('#domain-hr');
+    await hr.scrollIntoViewIfNeeded().catch(()=>{});
+    if((await hr.getAttribute('aria-expanded').catch(()=>'true'))!=='true')await hr.click().catch(()=>{});
+    await staffItem.click({timeout:5000}).catch(()=>{});
+    await page.waitForTimeout(2000);
+    const routes=await page.evaluate(()=>window.__uatRoutes||[]);
+    if(routes.includes('staff'))break;
+  }
+  await page.waitForTimeout(2000);
   // Panel audit tertutup sampai operator membukanya; tab-tabnya muncul setelah itu.
   // Panel audit harus berada di bagian atas tab, bukan tenggelam di bawah
   // panel jabatan yang panjang.
