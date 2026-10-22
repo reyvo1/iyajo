@@ -150,7 +150,7 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   await frontOffice.scrollIntoViewIfNeeded();
   if((await frontOffice.getAttribute('aria-expanded'))!=='true')await frontOffice.click();
   await expect(frontOffice).toHaveAttribute('aria-expanded','true',{timeout:15000});
-  const roomsItem=page.locator('[role="menu"] [data-route="rooms"]');
+  const roomsItem=page.locator('[role="menu"] [data-route="rooms"]:visible').first();
   await expect(roomsItem).toBeVisible({timeout:15000});
   await roomsItem.click();
 
@@ -222,7 +222,7 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   await hr.scrollIntoViewIfNeeded();
   if((await hr.getAttribute('aria-expanded'))!=='true')await hr.click();
   await expect(hr).toHaveAttribute('aria-expanded','true',{timeout:15000});
-  const staffItem=page.locator('[role="menu"] [data-route="staff"]');
+  const staffItem=page.locator('[role="menu"] [data-route="staff"]:visible').first();
   await expect(staffItem).toBeVisible({timeout:15000});
   await staffItem.click();
   await page.waitForTimeout(3000);
