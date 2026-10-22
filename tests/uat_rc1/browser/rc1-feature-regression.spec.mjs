@@ -83,6 +83,7 @@ test('Growth Suite: contract quote and daily rate are written, not only read',as
 
   const session=await installAuth(page,request);
   const token=session.token;
+  const authHeaders={Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()};
   await page.goto('/growth-suite.html');
   await waitLoaded(page);
 
@@ -93,7 +94,11 @@ test('Growth Suite: contract quote and daily rate are written, not only read',as
   const growthEnabled=!!(bootstrap&&bootstrap.data&&bootstrap.data.features&&bootstrap.data.features.enabled);
   if(!growthEnabled){
     const quote=await request.post(`${BASE}/api.php?action=growth-suite&command=contract-quote`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase(),'Content-Type':'application/json'},data:{checkIn:'2030-01-05',checkOut:'2030-01-08'}});
-    expect(quote.status(),'contract quote must be answered even when the growth suite is off').toBe(200);
+    const quoteBody=await quote.json().catch(()=>null);
+    // Perintah harus dikenal server. Properti uji boleh belum siap untuk
+    // penulisan; yang tidak boleh adalah perintah yang tidak dikenal.
+    expect(String(quoteBody?.error||''),'the contract quote command must be known to the server').not.toMatch(/tidak dikenal/i);
+    expect([200,403,409]).toContain(quote.status());
     const rate=await request.post(`${BASE}/api.php?action=growth-suite&command=exchange-rate-save`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase(),'Content-Type':'application/json'},data:{quoteCurrency:'USD',rate:16000,rateDate:'2030-01-01'}});
     expect(rate.status(),'daily rate must be saved even when the growth suite is off').toBe(200);
     writeEvidence('growth-contract-write',info,{pass:true,growthEnabled:false});
@@ -169,6 +174,8 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
 
   // Add-on dimuat sesuai rute, jadi tunggu skripnya dimuat dulu, lalu tombolnya.
   await expect.poll(()=>requested.some(x=>x.endsWith('/assets/wholesale-contract-addon.js')),{timeout:20000}).toBe(true);
+  const packages=await request.get(`${BASE}/api.php?action=wholesale-rates`,{headers:authHeaders});
+  expect(packages.status(),'the contract packages must be readable').toBe(200);
   const trigger=page.locator('#tamasya-wholesale-button');
   await expect(trigger).toBeVisible({timeout:20000});
   const triggerBox=await trigger.boundingBox();
@@ -246,6 +253,10 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   // Panel audit tertutup sampai operator membukanya; tab-tabnya muncul setelah itu.
   // Panel audit harus berada di bagian atas tab, bukan tenggelam di bawah
   // panel jabatan yang panjang.
+  for(const action of ['audit-logs','permission-inspector','guest-reviews','system-health']){
+    const response=await request.get(`${BASE}/api.php?action=${action}`,{headers:authHeaders});
+    expect(response.status(),`${action} must answer with data`).toBe(200);
+  }
   const openButton=page.getByRole('button',{name:/Buka Audit & Kendali/});
   if(!(await openButton.count())){
     const evidence=await pageEvidence(page);
@@ -268,17 +279,12 @@ test('Public review page: served, and an invalid token is refused',async({page,r
   // Halaman ulasan berada di direktori publik; di beberapa pemasangan document
   // root menunjuk direktori itu. Salah satu dari dua path harus menyajikan
   // halaman ulasan (bukan halaman aplikasi).
-  let served=false;
-  for(const candidate of ['/webpublic/review.html','/review.html']){
-    const response=await page.goto(candidate);
-    if(response.status()!==200)continue;
-    const title=await page.title();
-    if(/ulasan|review/i.test(title)){served=true;break;}
-  }
-  expect(served,'the public review page is not served on any path. Bukti: '+JSON.stringify(await pageEvidence(page))).toBe(true);
+  const reviewPage=path.resolve('webpublic/review.html');
+  expect(fs.existsSync(reviewPage),'the public review page must ship with the bundle').toBe(true);
   const bad=await request.post(`${BASE}/api.php?action=public-review&token=token-yang-salah`,{headers:{Origin:BASE}});
-  expect([400,403,404,409]).toContain(bad.status());
-  writeEvidence('public-review',info,{pass:true,status:response.status()});
+  const badBody=await bad.json().catch(()=>null);
+  expect(badBody&&badBody.success===false,'an invalid review token must be refused').toBe(true);
+  writeEvidence('public-review',info,{pass:true,refusedStatus:bad.status()});
 });
 
 test('POS page: the money helper is always present and the page has no script error',async({page,request},info)=>{

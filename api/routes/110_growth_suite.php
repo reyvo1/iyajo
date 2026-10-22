@@ -260,6 +260,13 @@ switch($command){
             case 'overview':
                 echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);
 break;
+            // Membaca, bukan menulis: kuotasi tarif kontrak tidak boleh terkunci di
+            // belakang gerbang "properti siap untuk penulisan".
+
+            case 'contract-quote':
+                // Kuotasi tarif kontrak untuk satu inap. Server yang menghitung
+                // nominal; Growth Suite hanya menampilkan.
+                if(!tamasyaGrowthSuiteEnabled()||!tamasyaGrowthSchemaReady($pdo)){http_response_code(409);echo tamasyaJsonEncode(['success'=>false,'error'=>'Growth Suite belum aktif pada property ini.']);break;}
             case 'bootstrap':
                 if(!tamasyaGrowthSuiteEnabled()){echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;}
                 if(!tamasyaGrowthSchemaReady($pdo)){echo tamasyaJsonEncode(['success'=>true,'data'=>tamasyaGrowthOverview($pdo,$loggedInStaff)]);break;}
@@ -480,10 +487,6 @@ $pairStmt=$pdo->prepare("SELECT * FROM growth_purchase_order_payments WHERE po_i
                     echo tamasyaJsonEncode(['success'=>false,'error'=>'Tabel kurs belum tersedia. Jalankan migrasi 20261021_TRANSACTION_CURRENCY.sql.']);
                 }
                 break;
-            case 'contract-quote':
-                // Kuotasi tarif kontrak untuk satu inap. Server yang menghitung
-                // nominal; Growth Suite hanya menampilkan.
-                if(!tamasyaGrowthSuiteEnabled()||!tamasyaGrowthSchemaReady($pdo)){http_response_code(409);echo tamasyaJsonEncode(['success'=>false,'error'=>'Growth Suite belum aktif pada property ini.']);break;}
                 if(!$canAnyTab(['rooms','operations','report','finance'])){http_response_code(403);echo tamasyaJsonEncode(['success'=>false,'error'=>'Izin membaca tarif kontrak tidak ada.']);break;}
                 $contractQuote=[
                     'checkIn'=>trim((string)($input['checkIn']??'')),

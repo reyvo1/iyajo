@@ -50,10 +50,11 @@ $check(str_contains($server, "case 'contract-quote':"), 'Server Growth Suite pun
 $postGate = strpos($server, "if(\$method!=='POST')");
 $quoteCase = strpos($server, "case 'contract-quote':");
 $rateCase = strpos($server, "case 'exchange-rate-save':");
+$writerGate = strpos($server, 'tamasyaGrowthRequireWriter');
 $getGate = strpos($server, "if(\$method==='GET')");
-$check($postGate !== false && $quoteCase > $postGate, 'Aksi kuotasi kontrak berada di cabang POST (UI mengirim POST)');
-$check($postGate !== false && $rateCase > $postGate, 'Aksi simpan kurs berada di cabang POST (UI mengirim POST)');
-$check($getGate === false || $quoteCase < $getGate || $quoteCase > $postGate, 'Aksi kuotasi kontrak tidak tertinggal di cabang GET');
+$check($getGate !== false && $quoteCase > $getGate && $quoteCase < $postGate, 'Aksi kuotasi kontrak adalah operasi baca, di cabang baca');
+$check($writerGate !== false && $quoteCase < $writerGate, 'Kuotasi kontrak tidak dikunci di belakang gerbang properti siap menulis');
+$check($postGate !== false && $rateCase > $postGate && $writerGate !== false && $rateCase > $writerGate, 'Aksi simpan kurs adalah operasi tulis, di cabang tulis');
 $check(str_contains($server, 'tamasyaWholesaleContractRateQuote('), 'Kuotasi memakai helper tarif kontrak yang sama dengan server');
 $check(str_contains($server, 'catch(Throwable $wholesaleSchemaMissing)'), 'Skema kontrak yang belum ada tidak menggagalkan Growth Suite');
 

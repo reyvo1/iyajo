@@ -94,7 +94,7 @@ window.TamasyaCurrencyDisplay=window.TamasyaCurrencyDisplay||{formatNumber:funct
     if(!criteria.checkIn||!criteria.checkOut){if(box)box.innerHTML='<p class="muted">Pilih tanggal inap lebih dulu.</p>';return;}
     if(box)box.innerHTML='<p class="muted">Menghitung…</p>';
     try{
-      const data=await api('contract-quote',{method:'POST',body:criteria});
+      const data=await api('contract-quote',{query:criteria});
       const rows=data.applicable||[];
       if(!rows.length){
         const rejected=(data.candidates||[]).filter(c=>!c.applicable).map(c=>`<div class="muted">${esc(c.planCode)}: ${esc(c.reason)}</div>`).join('');
