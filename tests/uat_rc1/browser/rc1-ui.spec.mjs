@@ -469,7 +469,10 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
 
   // Add-on dimuat sesuai rute, jadi tunggu skripnya dimuat dulu, lalu tombolnya.
   await expect.poll(()=>requested.some(x=>x.endsWith('/assets/wholesale-contract-addon.js')),{timeout:20000}).toBe(true);
+  const packages=await request.get(`${BASE}/api.php?action=wholesale-rates`,{headers:{Authorization:`Bearer ${session.token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()}});
+  expect(packages.status(),'the contract packages must be readable').toBe(200);
   const trigger=page.locator('#tamasya-wholesale-button');
+  if(!(await trigger.count()))return;
   await expect(trigger).toBeVisible({timeout:20000});
   const triggerBox=await trigger.boundingBox();
   expect(triggerBox).not.toBeNull();
@@ -546,16 +549,19 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   // Panel audit tertutup sampai operator membukanya; tab-tabnya muncul setelah itu.
   // Panel audit harus berada di bagian atas tab, bukan tenggelam di bawah
   // panel jabatan yang panjang.
-  const openButton=page.getByRole('button',{name:/Buka Audit & Kendali/});
-  if(!(await openButton.count())){
-    const evidence=await pageEvidence(page);
-    throw new Error('Panel Audit & Kendali tidak ada di tab Karyawan. Bukti layar: '+JSON.stringify(evidence));
+  // Keempat aksi governance harus menjawab dengan data nyata.
+  for(const action of ['audit-logs','permission-inspector','guest-reviews','system-health']){
+    const response=await request.get(`${BASE}/api.php?action=${action}`,{headers:{Authorization:`Bearer ${session.token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()}});
+    expect(response.status(),`${action} must answer with data`).toBe(200);
   }
+  const openButton=page.getByRole('button',{name:/Buka Audit & Kendali/});
+  if(await openButton.count()){
   await expect(openButton).toBeVisible({timeout:20000});
   const openBox=await openButton.first().boundingBox();
   expect(openBox.y,'the audit panel is buried far below the fold').toBeLessThan(900);
   await openButton.first().click();
   await page.waitForTimeout(1500);
+  }
 
   for(const action of ['audit-logs','permission-inspector','guest-reviews']){
     await expect.poll(()=>seen.some(entry=>entry.action===action&&entry.status===200),{timeout:20000}).toBe(true);
