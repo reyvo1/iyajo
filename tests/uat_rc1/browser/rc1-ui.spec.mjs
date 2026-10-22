@@ -455,7 +455,7 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(String(error)));
 
-  await installAuth(page,request);
+  const session=await installAuth(page,request);
   await page.goto('/index.html');
   await waitLoaded(page);
   for(let attempt=0;attempt<3;attempt++){
@@ -530,7 +530,7 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   const pageErrors=[];
   page.on('pageerror',error=>pageErrors.push(String(error)));
 
-  await installAuth(page,request);
+  const session=await installAuth(page,request);
   await page.goto('/index.html');
   await waitLoaded(page);
   // Navigasi lewat menu domain, sama seperti jalur yang dipakai uji lama.
