@@ -246,7 +246,10 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   await page.evaluate(()=>{window.__uatRoutes=[];window.addEventListener('tamasya-route-change',e=>{if(e&&e.detail)window.__uatRoutes.push(String(e.detail.route||''));});});
   for(let attempt=0;attempt<3;attempt++){
     const staffItem=await openDomainItem(page,'hr','staff').catch(()=>null);
-    if(staffItem)await staffItem.click({timeout:5000}).catch(()=>{});
+    if(staffItem)await staffItem.click({timeout:10000}).catch(()=>{});
+    // Tampilan karyawan dimuat terpisah (impor berkas), jadi tunggu
+    // tandanya muncul sebelum mencari panel di dalamnya.
+    await page.locator('text=/Manajemen Karyawan|Kelola Jabatan/i').first().waitFor({state:'visible',timeout:45000}).catch(()=>{});
     await page.waitForTimeout(1800);
     const routes=await page.evaluate(()=>window.__uatRoutes||[]);
     if(routes.includes('staff'))break;
