@@ -267,6 +267,16 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
     const response=await request.get(`${BASE}/api.php?action=${action}`,{headers:authHeaders});
     expect(response.status(),`${action} must answer with data`).toBe(200);
   }
+  // Berkas yang benar-benar dilayani server, dibandingkan dengan berkas di
+  // repositori. Kalau berbeda, fitur yang diedit tidak ada yang memakainya.
+  const served=await page.evaluate(async()=>{
+    try{
+      const res=await fetch('./chunks/staff.js');
+      const text=await res.text();
+      return {status:res.status,len:text.length,hasPanel:text.includes('TamasyaGovernancePanel'),panelFirst:text.indexOf('TamasyaGovernancePanel')>text.indexOf('QleBridge'),hasLabel:text.includes('pakai base role bawaan sistem')};
+    }catch(_){return {error:true};}
+  });
+  console.log('STAFF CHUNK YANG DILAYANI:', JSON.stringify(served));
   const openButton=page.getByRole('button',{name:/Buka Audit & Kendali/});
   if(!(await openButton.count())){
     const evidence=await pageEvidence(page);
