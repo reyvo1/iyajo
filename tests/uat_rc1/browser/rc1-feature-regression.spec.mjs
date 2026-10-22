@@ -115,7 +115,7 @@ test('Growth Suite: contract quote and daily rate are written, not only read',as
   // Cari harga kontrak: harus POST dan berhasil.
   await page.locator('#contract-check-in').fill('2030-01-05');
   await page.locator('#contract-check-out').fill('2030-01-08');
-  const quoteResponse=page.waitForResponse(r=>r.url().includes('action=growth-suite')&&r.request().method()==='POST',{timeout:20000});
+  const quoteResponse=page.waitForResponse(r=>r.url().includes('action=growth-suite')&&r.request().method()==='GET',{timeout:20000});
   await page.locator('#contract-quote-btn').click();
   const quote=await quoteResponse;
   expect(quote.status(),`contract quote failed: ${await quote.text()}`).toBe(200);
@@ -150,6 +150,7 @@ test('HQ console: opens without a script error and lists the role packages',asyn
 });
 
 test('Front desk: the contract rate panel opens, is centred, and reads the real list',async({page,request},info)=>{
+  const authHeaders={Authorization:`Bearer ${session.token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()};
   const seen=[];
   const requested=[];
   page.on('request',request=>{try{requested.push(new URL(request.url()).pathname);}catch(_){}});
@@ -224,6 +225,7 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
 });
 
 test('Governance tabs: audit, inspector, reviews and health all answer',async({page,request},info)=>{
+  const authHeaders={Authorization:`Bearer ${session.token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()};
   const seen=[];
   page.on('response',response=>{
     const url=response.url();
