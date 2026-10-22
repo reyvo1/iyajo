@@ -271,29 +271,37 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   // repositori. Kalau berbeda, fitur yang diedit tidak ada yang memakainya.
   const served=await page.evaluate(async()=>{
     try{
-      const res=await fetch('./chunks/staff.js');
+      const res=await fetch('/assets/chunks/staff.js',{cache:'no-store'});
       const text=await res.text();
-      return {status:res.status,len:text.length,hasPanel:text.includes('TamasyaGovernancePanel'),panelFirst:text.indexOf('TamasyaGovernancePanel')>text.indexOf('QleBridge'),hasLabel:text.includes('pakai base role bawaan sistem')};
+      const bridge=text.indexOf('function QleBridge');const panel=text.indexOf('t.jsx(TamasyaGovernancePanel,{})');const legacy=text.indexOf('t.jsx(Qle,',bridge);return {status:res.status,len:text.length,hasPanel:text.includes('TamasyaGovernancePanel'),panelFirst:bridge>=0&&panel>bridge&&legacy>panel,hasLabel:text.includes('pakai base role bawaan sistem')};
     }catch(_){return {error:true};}
   });
   console.log('STAFF CHUNK YANG DILAYANI:', JSON.stringify(served));
-  const environmentServesTheRealFile=served.hasPanel===true;
-  if(!environmentServesTheRealFile)console.log('CATATAN: berkas staff yang dilayani lingkungan uji bukan berkas repositori, pemeriksaan panel antarmuka dilewati. Berkas:', JSON.stringify(served));
+  expect(served.status,'the staff chunk must be served by the test environment').toBe(200);
+  expect(served.hasPanel,'the served staff chunk must load the governance panel').toBe(true);
+  expect(served.panelFirst,'the governance panel must be mounted before the legacy Qle view').toBe(true);
+  expect(served.hasLabel,'the served staff chunk must be the repository file').toBe(true);
   const openButton=page.getByRole('button',{name:/Buka Audit & Kendali/});
-  if(environmentServesTheRealFile){
-    if(!(await openButton.count())){
-      const evidence=await pageEvidence(page);
-      throw new Error('Panel Audit & Kendali tidak ada di tab Karyawan. Bukti layar: '+JSON.stringify(evidence));
-    }
-    await expect(openButton).toBeVisible({timeout:20000});
-    const openBox=await openButton.first().boundingBox();
-    expect(openBox.y,'the audit panel is buried far below the fold').toBeLessThan(900);
-    await openButton.first().click();
-    await page.waitForTimeout(1500);
+  if(!(await openButton.count())){
+    const evidence=await pageEvidence(page);
+    throw new Error('Panel Audit & Kendali tidak ada di tab Karyawan. Bukti layar: '+JSON.stringify(evidence));
   }
+  await expect(openButton).toBeVisible({timeout:20000});
+  const openBox=await openButton.first().boundingBox();
+  expect(openBox.y,'the audit panel is buried far below the fold').toBeLessThan(900);
+  await openButton.first().click();
 
-  for(const action of ['audit-logs','permission-inspector','guest-reviews']){
-    await expect.poll(()=>seen.some(entry=>entry.action===action&&entry.status===200),{timeout:20000}).toBe(true);
+  const tabs=[
+    {action:'audit-logs',label:'Log Audit'},
+    {action:'permission-inspector',label:'Inspektur Izin'},
+    {action:'guest-reviews',label:'Ulasan'},
+    {action:'system-health',label:'Kesehatan'}
+  ];
+  for(const tab of tabs){
+    const button=page.getByRole('button',{name:tab.label,exact:true});
+    await expect(button,'governance tab '+tab.label+' must be visible').toBeVisible({timeout:20000});
+    await button.click();
+    await expect.poll(()=>seen.some(entry=>entry.action===tab.action&&entry.status===200),{timeout:20000}).toBe(true);
   }
   expect(pageErrors,`governance page error: ${pageErrors.join(' | ')}`).toEqual([]);
   writeEvidence('governance-tabs',info,{pass:true,seen});

@@ -1,8 +1,10 @@
 /*! TAMASYA governance panel: audit log viewer + permission inspector.
  *  Ditulis tangan (bukan minified) supaya mudah diaudit dan dirawat.
  *  Panel ini read-only: tidak ada aksi tulis, Owner pun hanya bisa membaca. */
-import {f,t} from "../app-core.js?v=20261021-core1";
+import {f} from "../app-core.js?v=20261021-core1";
 import {Vi} from "./app-shared.js?v=20261021-r21";
+
+const t={jsx:f.createElement,jsxs:f.createElement,Fragment:f.Fragment};
 
 const PAGE_SIZE=25;
 
