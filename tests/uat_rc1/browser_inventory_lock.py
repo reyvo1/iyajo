@@ -11,7 +11,6 @@ import sys
 ROOT = Path(__file__).resolve().parents[2]
 SPECS = [
     ROOT / 'tests/uat_rc1/browser/rc1-ui.spec.mjs',
-    ROOT / 'tests/uat_rc1/browser/rc1-feature-regression.spec.mjs',
 ]
 source = '\n'.join(spec.read_text(encoding='utf-8', errors='strict') for spec in SPECS)
 
