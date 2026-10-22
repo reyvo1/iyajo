@@ -46,6 +46,18 @@ async function installAuth(page,request){
 }
 
 
+/** Membuka grup domain lalu mengembalikan item menu yang terlihat di dalamnya. */
+async function openDomainItem(page,domain,route){
+  const opener=page.locator(`#domain-${domain}`);
+  await opener.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(60);
+  if((await opener.getAttribute('aria-expanded'))!=='true')await opener.click();
+  await expect(opener).toHaveAttribute('aria-expanded','true',{timeout:15000});
+  const menu=page.locator('[role="menu"][aria-label]:visible');
+  await expect(menu).toHaveCount(1);
+  return menu.locator(`[role="menuitem"][data-route="${route}"]:visible`).first();
+}
+
 /** Bukti layar saat assertion gagal: apa yang benar-benar ada di halaman. */
 async function pageEvidence(page){
   try{
@@ -146,13 +158,14 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   await installAuth(page,request);
   await page.goto('/index.html');
   await waitLoaded(page);
-  const frontOffice=page.locator('#domain-frontoffice');
-  await frontOffice.scrollIntoViewIfNeeded();
-  if((await frontOffice.getAttribute('aria-expanded'))!=='true')await frontOffice.click();
-  await expect(frontOffice).toHaveAttribute('aria-expanded','true',{timeout:15000});
-  const roomsItem=page.locator('[role="menu"] [data-route="rooms"]');
-  await expect(roomsItem).toBeVisible({timeout:15000});
-  await roomsItem.click();
+  for(let attempt=0;attempt<3;attempt++){
+    const roomsItem=await openDomainItem(page,'frontoffice','rooms').catch(()=>null);
+    if(roomsItem)await roomsItem.click({timeout:5000}).catch(()=>{});
+    await page.waitForTimeout(1800);
+    const routes=await page.evaluate(()=>window.__uatRoutes||[]);
+    if(routes.includes('rooms'))break;
+  }
+  await page.waitForTimeout(1500);
 
   // Add-on dimuat sesuai rute, jadi tunggu skripnya dimuat dulu, lalu tombolnya.
   await expect.poll(()=>requested.some(x=>x.endsWith('/assets/wholesale-contract-addon.js')),{timeout:20000}).toBe(true);
@@ -222,13 +235,10 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   // memastikan klik benar-benar berpindah, dan mengulang klik bila menu
   // baru selesai dibuka.
   await page.evaluate(()=>{window.__uatRoutes=[];window.addEventListener('tamasya-route-change',e=>{if(e&&e.detail)window.__uatRoutes.push(String(e.detail.route||''));});});
-  const staffItem=page.locator('[role="menu"] [data-route="staff"]');
   for(let attempt=0;attempt<3;attempt++){
-    const hr=page.locator('#domain-hr');
-    await hr.scrollIntoViewIfNeeded().catch(()=>{});
-    if((await hr.getAttribute('aria-expanded').catch(()=>'true'))!=='true')await hr.click().catch(()=>{});
-    await staffItem.first().click({timeout:5000}).catch(()=>{});
-    await page.waitForTimeout(2000);
+    const staffItem=await openDomainItem(page,'hr','staff').catch(()=>null);
+    if(staffItem)await staffItem.click({timeout:5000}).catch(()=>{});
+    await page.waitForTimeout(1800);
     const routes=await page.evaluate(()=>window.__uatRoutes||[]);
     if(routes.includes('staff'))break;
   }
