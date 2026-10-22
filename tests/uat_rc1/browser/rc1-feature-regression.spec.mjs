@@ -67,12 +67,12 @@ test('Growth Suite: contract quote and daily rate are written, not only read',as
   // Growth Suite bisa dinonaktifkan di lingkungan pengujian. Bila aktif, alur
   // antarmuka diuji dengan klik; bila tidak, jalur server diuji langsung
   // (permintaan tetap harus menerima, bukan menerima 422).
-  const bootstrap=await (await request.get(`${BASE}/api.php?action=growth-suite&command=bootstrap`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-feature'}})).json().catch(()=>null);
+  const bootstrap=await (await request.get(`${BASE}/api.php?action=growth-suite&command=bootstrap`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase()}})).json().catch(()=>null);
   const growthEnabled=!!(bootstrap&&bootstrap.data&&bootstrap.data.features&&bootstrap.data.features.enabled);
   if(!growthEnabled){
-    const quote=await request.post(`${BASE}/api.php?action=growth-suite&command=contract-quote`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-feature','Content-Type':'application/json'},data:{checkIn:'2030-01-05',checkOut:'2030-01-08'}});
+    const quote=await request.post(`${BASE}/api.php?action=growth-suite&command=contract-quote`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase(),'Content-Type':'application/json'},data:{checkIn:'2030-01-05',checkOut:'2030-01-08'}});
     expect(quote.status(),'contract quote must be answered even when the growth suite is off').toBe(200);
-    const rate=await request.post(`${BASE}/api.php?action=growth-suite&command=exchange-rate-save`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-feature','Content-Type':'application/json'},data:{quoteCurrency:'USD',rate:16000,rateDate:'2030-01-01'}});
+    const rate=await request.post(`${BASE}/api.php?action=growth-suite&command=exchange-rate-save`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-rc1','X-Tamasya-Hotel-Scope':String(session.hotelScopeId||'').trim().toLowerCase(),'X-Tamasya-Session-Scope':String(session.offlineSessionScopeId||'').trim().toLowerCase(),'Content-Type':'application/json'},data:{quoteCurrency:'USD',rate:16000,rateDate:'2030-01-01'}});
     expect(rate.status(),'daily rate must be saved even when the growth suite is off').toBe(200);
     writeEvidence('growth-contract-write',info,{pass:true,growthEnabled:false});
     return;

@@ -49,6 +49,12 @@
       'X-Device-ID': localStorage.getItem('hotel_device_id') || 'wholesale-contract-addon',
       'X-App-Version': 'V137-WHOLESALE-CONTRACT',
     };
+    // Scope hotel dan sesi harus ikut, seperti add-on lain. Tanpa itu server
+    // menolak permintaan despite token yang benar.
+    const hotelScope = String(sessionStorage.getItem('hotel_offline_hotel_scope') || '').trim().toLowerCase();
+    const sessionScope = String(sessionStorage.getItem('hotel_offline_session_scope') || '').trim().toLowerCase();
+    if (hotelScope) headers['X-Tamasya-Hotel-Scope'] = hotelScope;
+    if (sessionScope) headers['X-Tamasya-Session-Scope'] = sessionScope;
     const scope = sessionStorage.getItem('hotel_offline_hotel_scope');
     if (scope) headers['X-Tamasya-Hotel-Scope'] = scope;
     const init = { method, headers, credentials: 'same-origin', cache: 'no-store' };
