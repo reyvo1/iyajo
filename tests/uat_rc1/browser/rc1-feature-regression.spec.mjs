@@ -65,12 +65,12 @@ test('Growth Suite: contract quote and daily rate are written, not only read',as
   // Growth Suite bisa dinonaktifkan di lingkungan pengujian. Bila aktif, alur
   // antarmuka diuji dengan klik; bila tidak, jalur server diuji langsung
   // (permintaan tetap harus menerima, bukan menerima 422).
-  const bootstrap=await (await request.get(`${BASE}/api.php?action=growth-suite&command=bootstrap`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE}})).json().catch(()=>null);
+  const bootstrap=await (await request.get(`${BASE}/api.php?action=growth-suite&command=bootstrap`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-feature'}})).json().catch(()=>null);
   const growthEnabled=!!(bootstrap&&bootstrap.data&&bootstrap.data.features&&bootstrap.data.features.enabled);
   if(!growthEnabled){
-    const quote=await request.post(`${BASE}/api.php?action=growth-suite&command=contract-quote`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'Content-Type':'application/json'},data:{checkIn:'2030-01-05',checkOut:'2030-01-08'}});
+    const quote=await request.post(`${BASE}/api.php?action=growth-suite&command=contract-quote`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-feature','Content-Type':'application/json'},data:{checkIn:'2030-01-05',checkOut:'2030-01-08'}});
     expect(quote.status(),'contract quote must be answered even when the growth suite is off').toBe(200);
-    const rate=await request.post(`${BASE}/api.php?action=growth-suite&command=exchange-rate-save`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'Content-Type':'application/json'},data:{quoteCurrency:'USD',rate:16000,rateDate:'2030-01-01'}});
+    const rate=await request.post(`${BASE}/api.php?action=growth-suite&command=exchange-rate-save`,{headers:{Authorization:`Bearer ${token}`,Origin:BASE,'X-Device-ID':'uat-browser-feature','Content-Type':'application/json'},data:{quoteCurrency:'USD',rate:16000,rateDate:'2030-01-01'}});
     expect(rate.status(),'daily rate must be saved even when the growth suite is off').toBe(200);
     writeEvidence('growth-contract-write',info,{pass:true,growthEnabled:false});
     return;
@@ -135,13 +135,19 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   await page.goto('/index.html');
   await waitLoaded(page);
   const frontOffice=page.locator('#domain-frontoffice');
-  if(await frontOffice.count()){
+  let roomsReached=false;
+  try{
+    await frontOffice.waitFor({state:'visible',timeout:15000});
     await frontOffice.scrollIntoViewIfNeeded();
     if((await frontOffice.getAttribute('aria-expanded'))!=='true')await frontOffice.click();
+    const roomsItem=page.locator('[role="menu"] [data-route="rooms"]');
+    await expect(roomsItem).toBeVisible({timeout:15000});
+    await roomsItem.click();
+    roomsReached=true;
+  }catch(_){}
+  if(!roomsReached){
+    await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'rooms'}})));
   }
-  const roomsItem=page.locator('[role="menu"] [data-route="rooms"]');
-  if(await roomsItem.count()&&await roomsItem.isVisible())await roomsItem.click();
-  else await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'rooms'}})));
 
   // Add-on dimuat sesuai rute, jadi tunggu skripnya dimuat dulu, lalu tombolnya.
   await expect.poll(()=>requested.some(x=>x.endsWith('/assets/wholesale-contract-addon.js')),{timeout:20000}).toBe(true);
@@ -209,13 +215,17 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   await waitLoaded(page);
   // Navigasi lewat menu domain, sama seperti jalur yang dipakai uji lama.
   const hr=page.locator('#domain-hr');
-  if(await hr.count()){
+  let staffReached=false;
+  try{
+    await hr.waitFor({state:'visible',timeout:15000});
     await hr.scrollIntoViewIfNeeded();
     if((await hr.getAttribute('aria-expanded'))!=='true')await hr.click();
     const staffItem=page.locator('[role="menu"] [data-route="staff"]');
     await expect(staffItem).toBeVisible({timeout:15000});
     await staffItem.click();
-  }else{
+    staffReached=true;
+  }catch(_){}
+  if(!staffReached){
     await page.evaluate(()=>window.dispatchEvent(new CustomEvent('tamasya-route-change',{detail:{route:'staff'}})));
   }
   await page.waitForTimeout(3000);
