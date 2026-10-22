@@ -45,6 +45,16 @@ async function installAuth(page,request){
   return s;
 }
 
+
+/** Bukti layar saat assertion gagal: apa yang benar-benar ada di halaman. */
+async function pageEvidence(page){
+  try{
+    const text=(await page.locator('body').innerText({timeout:5000})).replace(/\s+/g,' ').slice(0,400);
+    const ids=await page.evaluate(()=>[...document.querySelectorAll('[id]')].map(e=>e.id).filter(id=>/tamasya|audit|governance|wholesale|panel/i.test(id)).slice(0,25));
+    return {text,ids};
+  }catch(_){return {text:'(tidak terbaca)',ids:[]};}
+}
+
 async function waitLoaded(page){
   const loading=page.locator('#loading');
   if(await loading.count())await loading.waitFor({state:'hidden',timeout:15000}).catch(()=>{});
@@ -185,8 +195,7 @@ test('Front desk: the contract rate panel opens, is centred, and reads the real 
   // Daftar paket dan daftar reservasi kontrak: keduanya harus answered 200.
   await expect.poll(()=>seen.length,{timeout:20000}).toBeGreaterThan(0);
   for(const entry of seen)expect(entry.status,`wholesale-rates answered ${entry.status}`).toBe(200);
-  const bookingCall=seen.find(entry=>entry.method==='POST');
-  expect(bookingCall,'reservation list must be requested with a write').toBeTruthy();
+  await expect.poll(()=>seen.some(entry=>entry.method==='POST'),{timeout:20000}).toBe(true);
 
   await page.locator('#tamasya-wholesale-panel [data-act="close"]').click();
   await expect(modal).toBeHidden();
@@ -221,6 +230,10 @@ test('Governance tabs: audit, inspector, reviews and health all answer',async({p
   // Panel audit harus berada di bagian atas tab, bukan tenggelam di bawah
   // panel jabatan yang panjang.
   const openButton=page.getByRole('button',{name:/Buka Audit & Kendali/});
+  if(!(await openButton.count())){
+    const evidence=await pageEvidence(page);
+    throw new Error('Panel Audit & Kendali tidak ada di tab Karyawan. Bukti layar: '+JSON.stringify(evidence));
+  }
   await expect(openButton).toBeVisible({timeout:20000});
   const openBox=await openButton.first().boundingBox();
   expect(openBox.y,'the audit panel is buried far below the fold').toBeLessThan(900);
@@ -245,7 +258,7 @@ test('Public review page: served, and an invalid token is refused',async({page,r
     const title=await page.title();
     if(/ulasan|review/i.test(title)){served=true;break;}
   }
-  expect(served,'the public review page is not served on any path').toBe(true);
+  expect(served,'the public review page is not served on any path. Bukti: '+JSON.stringify(await pageEvidence(page))).toBe(true);
   const bad=await request.post(`${BASE}/api.php?action=public-review&token=token-yang-salah`,{headers:{Origin:BASE}});
   expect([400,403,404,409]).toContain(bad.status());
   writeEvidence('public-review',info,{pass:true,status:response.status()});
