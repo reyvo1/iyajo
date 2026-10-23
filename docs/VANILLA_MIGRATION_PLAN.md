@@ -48,3 +48,9 @@ Pilot kelima:
 - feature flag propertySetupSpaEnabled
 - module dock card propertySetupSpa
 - service worker cache ditambahkan
+
+Pilot keenam:
+- multi-property-foundation-spa.html
+- feature flag multiPropertyFoundationSpaEnabled
+- module dock card multiPropertyFoundationSpa
+- service worker cache ditambahkan
