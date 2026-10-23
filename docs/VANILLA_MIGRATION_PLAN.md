@@ -18,3 +18,9 @@ Checklist per halaman:
 - Tambah UAT scenario assertions.
 - Hijau di CI + UAT + browser sebelum hapus yang lama.
 - Update release manifest checksum.
+
+Pilot saat ini:
+- growth-suite-spa.html (redirect ke growth-suite.html jika flag off)
+- feature flag growthSuiteSpaEnabled
+- module dock card growthSpa (showWhenLocked: false)
+- service worker cache ditambahkan
