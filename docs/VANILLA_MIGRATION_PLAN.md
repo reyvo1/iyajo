@@ -30,3 +30,9 @@ Pilot kedua:
 - feature flag enterpriseSuiteSpaEnabled
 - module dock card enterpriseSpa
 - service worker cache ditambahkan
+
+Pilot ketiga:
+- pos-spa.html
+- feature flag posSpaEnabled
+- module dock card posSpa
+- service worker cache ditambahkan
