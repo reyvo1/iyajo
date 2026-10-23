@@ -86,6 +86,7 @@ jobs:
           php tests/r164-outbox-finalization-counters-regression.php
           php tests/r164-legacy-identity-import-safety-regression.php
           php tests/r164-hybrid-lease-transport-regression.php
+          php tests/r164-canonical-report-center-xss-regression.php
           php tests/r164-neutral-webhook-durable-history-regression.php
           php tests/r164-neutral-private-conversation-regression.php
           php tests/r164-cron-trusted-proxy-regression.php
