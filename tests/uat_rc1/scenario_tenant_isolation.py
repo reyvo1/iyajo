@@ -38,13 +38,14 @@ try:
     t2 = login(P2, "tenantiso-p2")
     # Cross-property hotel-data must not expose the other property's data.
     for label, base, foreign_token in [("P1 token on P2", P2, t1), ("P2 token on P1", P1, t2)]:
-        req = urllib.request.Request(base + "/api.php?action=hotel-data", headers={"Authorization": "Bearer " + foreign_token, "X-Device-ID": "tenantiso-foreign"})
-        try:
-            resp = urllib.request.urlopen(req, timeout=30)
-            body = resp.read().decode()
-            check(label + " returns non-200 or empty", False, {"status": resp.status, "body": body[:300]})
-        except urllib.error.HTTPError as e:
-            check(label + " rejected", e.code in (401, 403, 404), {"status": e.code})
+        for path in ["/api.php?action=hotel-data", "/api.php?action=multi-property&command=snapshot-v2"]:
+            req = urllib.request.Request(base + path, headers={"Authorization": "Bearer " + foreign_token, "X-Device-ID": "tenantiso-foreign"})
+            try:
+                resp = urllib.request.urlopen(req, timeout=30)
+                body = resp.read().decode()
+                check(label + " " + path + " returns non-200 or empty", False, {"status": resp.status, "body": body[:300]})
+            except urllib.error.HTTPError as e:
+                check(label + " " + path + " rejected", e.code in (401, 403, 404), {"status": e.code})
 except Exception as e:
     check("tenant isolation scenario bootstrap", False, str(e))
 save()
