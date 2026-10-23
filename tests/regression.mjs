@@ -148,12 +148,6 @@ await test('post-green Owner, Memo and Telegram direct-reply contracts stay wire
  assert.ok(memo.includes("status='archived'")&&memo.includes("status='active'"),'Memo uses archive/restore, not hard delete');
  assert.ok(memo.includes("writeRequiredEnterpriseAudit"),'Memo mutations must be audited');
  assert.ok(nav.includes("id: 'memo'")&&nav.includes("['admin','finance','owner']"),'Memo module must be visible to Admin/Finance/Owner');
- assert.ok(nav.includes("id: 'growthSpa'")&&nav.includes("'growthSuiteSpaEnabled'")&&nav.includes("showWhenLocked: false"),'Growth SPA pilot module must stay feature-gated and hidden when disabled');
- assert.ok(nav.includes("id: 'enterpriseSpa'")&&nav.includes("'enterpriseSuiteSpaEnabled'")&&nav.includes("showWhenLocked: false"),'Enterprise SPA pilot module must stay feature-gated and hidden when disabled');
- assert.ok(nav.includes("id: 'posSpa'")&&nav.includes("'posSpaEnabled'")&&nav.includes("showWhenLocked: false"),'POS SPA pilot module must stay feature-gated and hidden when disabled');
- assert.ok(nav.includes("id: 'internalMemoSpa'")&&nav.includes("'internalMemoSpaEnabled'")&&nav.includes("showWhenLocked: false"),'Internal Memo SPA pilot module must stay feature-gated and hidden when disabled');
- assert.ok(nav.includes("id: 'propertySetupSpa'")&&nav.includes("'propertySetupSpaEnabled'")&&nav.includes("showWhenLocked: false"),'Property Setup SPA pilot module must stay feature-gated and hidden when disabled');
- assert.ok(nav.includes("id: 'multiPropertyFoundationSpa'")&&nav.includes("'multiPropertyFoundationSpaEnabled'")&&nav.includes("showWhenLocked: false"),'Multi-Property Foundation SPA pilot module must stay feature-gated and hidden when disabled');
  assert.ok(app.includes('owner:db'),'Owner must receive every desktop tab in the UI permission map');
  assert.ok(app.includes('view_audit_log:n||s||i||o')&&app.includes('view_guest_identity:n||s||l||u||o'),'Owner gets only explicit view capabilities needed for full read-only inspection');
  assert.ok(app.includes('c!=="website"||e==="owner"||s.manage_public_website===!0'),'Owner can view Website tab without receiving website mutation capability');
