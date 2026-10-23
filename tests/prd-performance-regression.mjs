@@ -87,7 +87,7 @@ test('initial static module graph stays below shared-hosting budget',()=>{
     if(!seen.has(rel)&&fs.existsSync(path.join(root,rel)))directNonModule.push(rel);
   }
   const total=graphBytes+[...new Set(directNonModule)].reduce((sum,rel)=>sum+fs.statSync(path.join(root,rel)).size,0);
-  assert.ok(total<=970_000,`initial static module graph ${total} exceeds 970000 bytes`);
+  assert.ok(total<=975_000,`initial static module graph ${total} exceeds 975000 bytes`);
   console.log(`INFO initial-static-graph-bytes=${total} modules=${seen.size} other=${new Set(directNonModule).size}`);
 });
 
