@@ -135,3 +135,5 @@ done
 curl --cacert "$CA_CERT" -fsS -H "Authorization: Bearer $VIEWER" "$HQ_TLS/api.php?action=overview" >/dev/null
 
 EFC_HQ_PROPERTY1_URL="$P1_URL" EFC_HQ_PROPERTY2_URL="$P2_URL" EFC_HQ_URL="$HQ_TLS" EFC_HQ_VIEWER_TOKEN="$VIEWER" EFC_HQ_PROPERTY1_ID="$P1_ID" EFC_HQ_PROPERTY2_ID="$P2_ID" TAMASYA_COMPANY_ID="$COMPANY" python3 "$ROOT/tests/uat_rc1/scenario_hq_multi_property_complete.py"
+
+EFC_HQ_PROPERTY1_URL="$P1_URL" EFC_HQ_PROPERTY2_URL="$P2_URL" APP_BOOTSTRAP_ADMIN_USERNAME="$ADMIN" APP_BOOTSTRAP_ADMIN_PASSWORD="$PASSWORD" python3 "$ROOT/tests/uat_rc1/scenario_tenant_isolation.py"
