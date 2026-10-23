@@ -22,7 +22,6 @@ const ASSETS_TO_CACHE = [
   "./internal-memo-legacy.html",
   "./internal-memo-spa.html",
   "./growth-suite.html",
-  "./growth-suite-legacy.html",
   "./growth-suite-spa.html",
   "./enterprise-suite.html",
   "./enterprise-suite-legacy.html",
