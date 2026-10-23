@@ -30,6 +30,7 @@ const ASSETS_TO_CACHE = [
   "./multi-property-foundation.html",
   "./multi-property-foundation-spa.html",
   "./property-setup.html",
+  "./property-setup-legacy.html",
   "./property-setup-spa.html",
   "./assets/notification-settings-addon.js?v=20260814-perf-config1",
   "./assets/api-operation-guard.js?v=20260914-r4-3-operation-retry",
