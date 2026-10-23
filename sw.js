@@ -25,6 +25,7 @@ const ASSETS_TO_CACHE = [
   "./enterprise-suite-spa.html",
   "./multi-property-foundation.html",
   "./property-setup.html",
+  "./property-setup-spa.html",
   "./assets/notification-settings-addon.js?v=20260814-perf-config1",
   "./assets/api-operation-guard.js?v=20260914-r4-3-operation-retry",
   "./assets/canonical-business-policy.js?v=20261021-r21",

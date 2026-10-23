@@ -67,6 +67,20 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
     requiredFeatures: Object.freeze(['internalMemoSpaEnabled']),
     showWhenLocked: false
   }),
+  propertySetupSpa: Object.freeze({
+    id: 'propertySetupSpa',
+    elementId: 'tamasya-property-setup-spa-menu',
+    href: './property-setup-spa.html',
+    kind: 'property-setup',
+    icon: '🧪',
+    title: 'Property Setup SPA (pilot)',
+    subtitle: 'Pilot migration behind feature flag',
+    aria: 'Buka Property Setup SPA pilot',
+    roles: Object.freeze(['admin','owner']),
+    requiredAnyTabs: Object.freeze(['config','db_config']),
+    requiredFeatures: Object.freeze(['propertySetupSpaEnabled']),
+    showWhenLocked: false
+  }),
   memo: Object.freeze({
     id: 'memo',
     elementId: 'tamasya-memo-menu',
@@ -166,7 +180,7 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
   })
 });
 
-const TAMASYA_MODULE_ORDER = Object.freeze(['pos','posSpa','memo','internalMemoSpa','growth','growthSpa','enterpriseSpa','enterprise']);
+const TAMASYA_MODULE_ORDER = Object.freeze(['pos','posSpa','propertySetupSpa','memo','internalMemoSpa','growth','growthSpa','enterpriseSpa','enterprise']);
 
 function tamasyaVisibleDomainMembers(group, allowedTabs, role) {
   const allowed = Array.isArray(allowedTabs) ? allowedTabs : [];
