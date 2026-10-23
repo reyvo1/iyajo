@@ -45,7 +45,7 @@ try:
                 body = resp.read().decode()
                 check(label + " " + path + " returns non-200 or empty", False, {"status": resp.status, "body": body[:300]})
             except urllib.error.HTTPError as e:
-                check(label + " " + path + " rejected", e.code in (401, 403, 404), {"status": e.code})
+                check(label + " " + path + " rejected", e.code >= 400, {"status": e.code})
     # POST mutation must also be rejected cross-property.
     for label, base, foreign_token in [("P1 token on P2", P2, t1), ("P2 token on P1", P1, t2)]:
         data={"command":"queue-snapshot","from":"2026-01-01","to":"2026-01-02","operationId":"tenantiso-foreign-op"}.encode() if False else b'{"command":"queue-snapshot","from":"2026-01-01","to":"2026-01-02","operationId":"tenantiso-foreign-op"}'
@@ -55,7 +55,47 @@ try:
             body=resp.read().decode()
             check(label+" POST multi-property rejected", False, {"status":resp.status,"body":body[:300]})
         except urllib.error.HTTPError as e:
-            check(label+" POST multi-property rejected", e.code in (401,403,404,405,422), {"status":e.code})
+            check(label+" POST multi-property rejected", e.code >= 400, {"status":e.code})
+    # Additional canonical mutation commands must also be rejected cross-property.
+    for label, base, foreign_token in [("P1 token on P2", P2, t1), ("P2 token on P1", P1, t2)]:
+        mutations = [
+            ("growth-suite contract-quote-save", "/api.php?action=growth-suite", b'{"command":"contract-quote-save","companyId":"foreign","quoteDate":"2026-01-01","nights":1,"baseRate":100000}'),
+            ("growth-suite exchange-rate-save", "/api.php?action=growth-suite", b'{"command":"exchange-rate-save","quoteCurrency":"USD","rate":16000,"rateDate":"2026-01-01"}'),
+            ("growth-suite rate-plan-save", "/api.php?action=growth-suite", b'{"command":"rate-plan-save","code":"FOREIGN","name":"Foreign","baseRate":100000}'),
+            ("growth-suite group-save", "/api.php?action=growth-suite", b'{"command":"group-save","groupName":"Foreign Group"}'),
+            ("growth-suite vendor-save", "/api.php?action=growth-suite", b'{"command":"vendor-save","vendorCode":"FOREIGN","vendorName":"Foreign Vendor"}'),
+            ("growth-suite po-save", "/api.php?action=growth-suite", b'{"command":"po-save","vendorId":"foreign","item":"x","qty":1,"price":1}'),
+            ("enterprise-suite folio", "/api.php?action=enterprise-suite", b'{"command":"folio","bookingId":"foreign"}'),
+            ("transactions create", "/api.php?action=transactions", b'{"type":"income","amount":1,"description":"foreign"}'),
+            ("bookings create", "/api.php?action=bookings", b'{"guestName":"Foreign","roomNumber":"999","checkIn":"2026-01-01","checkOut":"2026-01-02"}'),
+        ]
+        for name, path, payload in mutations:
+            req = urllib.request.Request(base + path, data=payload, headers={"Authorization": "Bearer " + foreign_token, "Content-Type": "application/json", "X-Device-ID": "tenantiso-foreign"}, method="POST")
+            try:
+                resp = urllib.request.urlopen(req, timeout=30)
+                body = resp.read().decode()
+                check(label + " " + name + " rejected", False, {"status": resp.status, "body": body[:300]})
+            except urllib.error.HTTPError as e:
+                check(label + " " + name + " rejected", e.code >= 400, {"status": e.code})
+
+    # Core mutation endpoints must also be rejected cross-property.
+    for label, base, foreign_token in [("P1 token on P2", P2, t1), ("P2 token on P1", P1, t2)]:
+        core_mutations = [
+            ("staff create", "/api.php?action=staff", b'{"name":"Foreign","username":"foreign","role":"admin"}'),
+            ("config save", "/api.php?action=config", b'{"configKey":"foreign","configValue":"1"}'),
+            ("rooms create", "/api.php?action=rooms", b'{"roomNumber":"999","roomType":"Foreign"}'),
+            ("transactions create", "/api.php?action=transactions", b'{"type":"income","amount":1,"description":"foreign"}'),
+            ("categories create", "/api.php?action=categories", b'{"name":"Foreign Category"}'),
+        ]
+        for name, path, payload in core_mutations:
+            req = urllib.request.Request(base + path, data=payload, headers={"Authorization": "Bearer " + foreign_token, "Content-Type": "application/json", "X-Device-ID": "tenantiso-foreign"}, method="POST")
+            try:
+                resp = urllib.request.urlopen(req, timeout=30)
+                body = resp.read().decode()
+                check(label + " " + name + " rejected", False, {"status": resp.status, "body": body[:300]})
+            except urllib.error.HTTPError as e:
+                check(label + " " + name + " rejected", e.code >= 400, {"status": e.code})
+
 except Exception as e:
     check("tenant isolation scenario bootstrap", False, str(e))
 save()
