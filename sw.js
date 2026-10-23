@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
   "./growth-suite.html",
   "./growth-suite-spa.html",
   "./enterprise-suite.html",
+  "./enterprise-suite-spa.html",
   "./multi-property-foundation.html",
   "./property-setup.html",
   "./assets/notification-settings-addon.js?v=20260814-perf-config1",

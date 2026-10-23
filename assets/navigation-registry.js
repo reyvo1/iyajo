@@ -107,6 +107,20 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
     requiredFeatures: Object.freeze(['growthSuiteEnabled','growthSuiteSpaEnabled']),
     showWhenLocked: false
   }),
+  enterpriseSpa: Object.freeze({
+    id: 'enterpriseSpa',
+    elementId: 'tamasya-enterprise-spa-menu',
+    href: './enterprise-suite-spa.html',
+    kind: 'enterprise',
+    icon: '🧪',
+    title: 'Enterprise Suite SPA (pilot)',
+    subtitle: 'Pilot migration behind feature flag',
+    aria: 'Buka Enterprise Suite SPA pilot',
+    roles: Object.freeze(['admin','finance','owner']),
+    requiredAnyTabs: Object.freeze(['rooms','finance','report','operations','inventory','config']),
+    requiredFeatures: Object.freeze(['growthSuiteEnabled','enterpriseCompletionEnabled','enterpriseSuiteSpaEnabled']),
+    showWhenLocked: false
+  }),
   enterprise: Object.freeze({
     id: 'enterprise',
     elementId: 'tamasya-enterprise-menu',
@@ -125,7 +139,7 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
   })
 });
 
-const TAMASYA_MODULE_ORDER = Object.freeze(['pos','memo','growth','growthSpa','enterprise']);
+const TAMASYA_MODULE_ORDER = Object.freeze(['pos','memo','growth','growthSpa','enterpriseSpa','enterprise']);
 
 function tamasyaVisibleDomainMembers(group, allowedTabs, role) {
   const allowed = Array.isArray(allowedTabs) ? allowedTabs : [];
