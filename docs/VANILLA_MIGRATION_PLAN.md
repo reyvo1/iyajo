@@ -36,3 +36,9 @@ Pilot ketiga:
 - feature flag posSpaEnabled
 - module dock card posSpa
 - service worker cache ditambahkan
+
+Pilot keempat:
+- internal-memo-spa.html
+- feature flag internalMemoSpaEnabled
+- module dock card internalMemoSpa
+- service worker cache ditambahkan
