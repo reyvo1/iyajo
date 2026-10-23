@@ -24,3 +24,9 @@ Pilot saat ini:
 - feature flag growthSuiteSpaEnabled
 - module dock card growthSpa (showWhenLocked: false)
 - service worker cache ditambahkan
+
+Pilot kedua:
+- enterprise-suite-spa.html
+- feature flag enterpriseSuiteSpaEnabled
+- module dock card enterpriseSpa
+- service worker cache ditambahkan
