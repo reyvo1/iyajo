@@ -28,6 +28,7 @@ const ASSETS_TO_CACHE = [
   "./enterprise-suite-legacy.html",
   "./enterprise-suite-spa.html",
   "./multi-property-foundation.html",
+  "./multi-property-foundation-legacy.html",
   "./multi-property-foundation-spa.html",
   "./property-setup.html",
   "./property-setup-legacy.html",
