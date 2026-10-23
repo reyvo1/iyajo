@@ -93,6 +93,20 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
     lockedLabel: 'Terkunci',
     lockedReason: 'Belum diaktifkan untuk staging ini'
   }),
+  growthSpa: Object.freeze({
+    id: 'growthSpa',
+    elementId: 'tamasya-growth-spa-menu',
+    href: './growth-suite-spa.html',
+    kind: 'growth',
+    icon: '🧪',
+    title: 'Growth Suite SPA (pilot)',
+    subtitle: 'Pilot migration behind feature flag',
+    aria: 'Buka Growth Suite SPA pilot',
+    roles: Object.freeze(['admin','finance','owner']),
+    requiredAnyTabs: Object.freeze(['rooms','finance','report','operations','inventory']),
+    requiredFeatures: Object.freeze(['growthSuiteEnabled','growthSuiteSpaEnabled']),
+    showWhenLocked: false
+  }),
   enterprise: Object.freeze({
     id: 'enterprise',
     elementId: 'tamasya-enterprise-menu',
@@ -111,7 +125,7 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
   })
 });
 
-const TAMASYA_MODULE_ORDER = Object.freeze(['pos','memo','growth','enterprise']);
+const TAMASYA_MODULE_ORDER = Object.freeze(['pos','memo','growth','growthSpa','enterprise']);
 
 function tamasyaVisibleDomainMembers(group, allowedTabs, role) {
   const allowed = Array.isArray(allowedTabs) ? allowedTabs : [];
