@@ -46,6 +46,16 @@ try:
                 check(label + " " + path + " returns non-200 or empty", False, {"status": resp.status, "body": body[:300]})
             except urllib.error.HTTPError as e:
                 check(label + " " + path + " rejected", e.code in (401, 403, 404), {"status": e.code})
+    # POST mutation must also be rejected cross-property.
+    for label, base, foreign_token in [("P1 token on P2", P2, t1), ("P2 token on P1", P1, t2)]:
+        data={"command":"queue-snapshot","from":"2026-01-01","to":"2026-01-02","operationId":"tenantiso-foreign-op"}.encode() if False else b'{"command":"queue-snapshot","from":"2026-01-01","to":"2026-01-02","operationId":"tenantiso-foreign-op"}'
+        req=urllib.request.Request(base+"/api.php?action=multi-property", data=data, headers={"Authorization":"Bearer "+foreign_token,"Content-Type":"application/json","X-Device-ID":"tenantiso-foreign"}, method="POST")
+        try:
+            resp=urllib.request.urlopen(req, timeout=30)
+            body=resp.read().decode()
+            check(label+" POST multi-property rejected", False, {"status":resp.status,"body":body[:300]})
+        except urllib.error.HTTPError as e:
+            check(label+" POST multi-property rejected", e.code in (401,403,404,405,422), {"status":e.code})
 except Exception as e:
     check("tenant isolation scenario bootstrap", False, str(e))
 save()
