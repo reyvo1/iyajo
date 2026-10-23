@@ -162,6 +162,20 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
     requiredFeatures: Object.freeze(['growthSuiteEnabled','enterpriseCompletionEnabled','enterpriseSuiteSpaEnabled']),
     showWhenLocked: false
   }),
+  multiPropertyFoundationSpa: Object.freeze({
+    id: 'multiPropertyFoundationSpa',
+    elementId: 'tamasya-multi-property-foundation-spa-menu',
+    href: './multi-property-foundation-spa.html',
+    kind: 'multi-property',
+    icon: '🧪',
+    title: 'Multi-Property Foundation SPA (pilot)',
+    subtitle: 'Pilot migration behind feature flag',
+    aria: 'Buka Multi-Property Foundation SPA pilot',
+    roles: Object.freeze(['admin','owner']),
+    requiredAnyTabs: Object.freeze(['config']),
+    requiredFeatures: Object.freeze(['multiPropertyFoundationEnabled','multiPropertyFoundationSpaEnabled']),
+    showWhenLocked: false
+  }),
   enterprise: Object.freeze({
     id: 'enterprise',
     elementId: 'tamasya-enterprise-menu',
@@ -180,7 +194,7 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
   })
 });
 
-const TAMASYA_MODULE_ORDER = Object.freeze(['pos','posSpa','propertySetupSpa','memo','internalMemoSpa','growth','growthSpa','enterpriseSpa','enterprise']);
+const TAMASYA_MODULE_ORDER = Object.freeze(['pos','posSpa','propertySetupSpa','memo','internalMemoSpa','growth','growthSpa','multiPropertyFoundationSpa','enterpriseSpa','enterprise']);
 
 function tamasyaVisibleDomainMembers(group, allowedTabs, role) {
   const allowed = Array.isArray(allowedTabs) ? allowedTabs : [];
