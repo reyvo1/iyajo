@@ -16,7 +16,6 @@ const ASSETS_TO_CACHE = [
   "./icon.svg",
   "./manifest.json",
   "./pos.html",
-  "./pos-legacy.html",
   "./pos-spa.html",
   "./internal-memo.html",
   "./internal-memo-legacy.html",
