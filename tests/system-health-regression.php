@@ -25,6 +25,7 @@ $route = $read('api/routes/086_system_health.php');
 $router = $read('api/router.php');
 $manifest = json_decode($read('api/MODULARIZATION_MANIFEST.json'), true);
 $api = $read('api.php');
+$healthUi = $read('assets/system-health-addon.js');
 
 $healthCheck(str_contains($router, "require __DIR__ . '/routes/086_system_health.php';"), 'Router memuat route system-health');
 $healthCheck(in_array('086_system_health.php', (array)($manifest['routeModules'] ?? []), true), 'Manifest mendaftarkan route system-health');
@@ -57,5 +58,10 @@ $healthCheck(str_contains($route, "'rolesWithoutPreset'"), 'Daftar role tanpa pr
 // Campuran mata uang harus terlihat.
 $healthCheck(str_contains($route, 'mixedCurrencies'), 'Pencampuran mata uang dimunculkan sebagai peringatan');
 $healthCheck(str_contains($api, "'system-health'=>['staff','config','db_config']"), 'Endpoint mengikuti tab staff/config/db_config');
+
+$healthCheck(str_contains($healthUi, 'op.plans?.data?.data?.rows'), 'Ringkasan paket membaca payload API yang benar');
+$healthCheck(str_contains($healthUi, 'op.rates?.data?.data?.rows'), 'Ringkasan kurs membaca payload API yang benar');
+$healthCheck(str_contains($healthUi, 'Number(r.published||0)!==1'), 'Ulasan menunggu moderasi dihitung dari published, bukan status');
+$healthCheck(!str_contains($healthUi, 'op.plans?.json'), 'Panel tidak lagi membaca bentuk respons lama');
 
 echo 'System health: ' . $checks . " passed; 0 failed.\n";

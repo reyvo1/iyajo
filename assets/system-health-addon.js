@@ -35,7 +35,7 @@
       .tsh-head{position:sticky;top:0;z-index:2;display:flex;justify-content:space-between;gap:12px;align-items:center;padding:16px 18px;background:rgba(2,6,23,.96);border-bottom:1px solid rgba(148,163,184,.18)}
       .tsh-head h2{margin:0;font-size:18px}.tsh-head p{margin:4px 0 0;color:#94a3b8;font-size:12px}.tsh-actions{display:flex;gap:8px}.tsh-btn{border:1px solid rgba(148,163,184,.25);background:#0f172a;color:#e2e8f0;border-radius:10px;padding:8px 11px;font-weight:700;font-size:12px;cursor:pointer}.tsh-btn:hover{background:#1e293b}
       .tsh-body{padding:16px 18px 22px}.tsh-section{margin:0 0 18px}.tsh-section h3{font-size:13px;margin:0 0 9px;color:#bae6fd}.tsh-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}.tsh-card{min-height:66px;border:1px solid rgba(148,163,184,.16);background:#0f172a;border-radius:12px;padding:10px}.tsh-card span{display:block;color:#94a3b8;font-size:10px;text-transform:uppercase;letter-spacing:.04em}.tsh-card strong{display:block;margin-top:6px;font-size:13px;word-break:break-word}.tsh-good{border-color:rgba(52,211,153,.32);background:rgba(6,78,59,.22)}.tsh-warn{border-color:rgba(251,191,36,.32);background:rgba(120,53,15,.20)}.tsh-bad{border-color:rgba(251,113,133,.35);background:rgba(136,19,55,.20)}
-      .tsh-error{padding:10px 12px;border-radius:10px;background:rgba(136,19,55,.22);border:1px solid rgba(251,113,133,.3);color:#fecdd3;font-size:12px;margin-bottom:12px}.tsh-note{font-size:11px;color:#94a3b8;line-height:1.55}.tsh-launch{display:inline-flex!important;align-items:center;gap:6px;text-decoration:none!important}.tsh-list{display:grid;gap:7px}.tsh-issue{padding:9px 11px;border:1px solid rgba(148,163,184,.16);background:#0f172a;border-radius:10px;font-size:11px;line-height:1.5}.tsh-issue strong{font-size:12px}.tsh-issue code{color:#bae6fd;word-break:break-all}.tsh-issue small{display:block;color:#94a3b8;margin-top:2px}
+      .tsh-error{padding:10px 12px;border-radius:10px;background:rgba(136,19,55,.22);border:1px solid rgba(251,113,133,.3);color:#fecdd3;font-size:12px;margin-bottom:12px}.tsh-note{font-size:11px;color:#94a3b8;line-height:1.55}.tsh-launch{display:inline-flex!important;align-items:center;gap:6px;text-decoration:none!important}.tsh-list{display:grid;gap:7px}.tsh-issue{padding:9px 11px;border:1px solid rgba(148,163,184,.16);background:#0f172a;border-radius:10px;font-size:11px;line-height:1.5}.tsh-issue strong{font-size:12px}.tsh-issue code{color:#bae6fd;word-break:break-all}.tsh-item{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid rgba(148,163,184,.16);background:#0f172a;border-radius:10px;font-size:12px}.tsh-item span{color:#94a3b8}.tsh-item b{color:#e2e8f0;font-weight:700}.tsh-issue small{display:block;color:#94a3b8;margin-top:2px}
       @media(max-width:640px){#${ID}{padding:6px}.tsh-panel{width:100%;max-height:97vh;border-radius:14px}.tsh-head{align-items:flex-start}.tsh-actions{flex-direction:column}.tsh-body{padding:12px}.tsh-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
     `;
     document.head.appendChild(s);
@@ -68,9 +68,9 @@
   }
   function operationsHtml(op){
     if(!op)return '<section class="tsh-section"><h3>Ringkasan Operasi</h3><p class="tsh-note">Data operasi tidak dapat dibaca.</p></section>';
-    const planRows=Array.isArray(op.plans?.json?.data?.rows)?op.plans.json.data.rows:[];
-    const rateRows=Array.isArray(op.rates?.json?.data?.rows)?op.rates.json.data.rows:[];
-    const pending=Array.isArray(op.reviews?.json?.data?.rows)?op.reviews.json.data.rows.filter(r=>String(r.status||'pending')==='pending').length:0;
+    const planRows=Array.isArray(op.plans?.data?.data?.rows)?op.plans.data.data.rows:[];
+    const rateRows=Array.isArray(op.rates?.data?.data?.rows)?op.rates.data.data.rows:[];
+    const pending=Array.isArray(op.reviews?.data?.data?.rows)?op.reviews.data.data.rows.filter(r=>Number(r.published||0)!==1).length:0;
     const latest={};
     for(const row of rateRows){const q=String(row.quote_currency||'');if(!latest[q]||String(row.rate_date)>String(latest[q].rate_date))latest[q]=row;}
     const rateList=Object.values(latest).map(r=>`<div class="tsh-item"><span>${esc(r.quote_currency)}</span><b>${esc(Number(r.rate).toLocaleString('id-ID'))} / ${esc(r.rate_date)}</b></div>`).join('');
