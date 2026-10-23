@@ -38,7 +38,7 @@ try:
     t2 = login(P2, "tenantiso-p2")
     # Cross-property hotel-data must not expose the other property's data.
     for label, base, foreign_token in [("P1 token on P2", P2, t1), ("P2 token on P1", P1, t2)]:
-        for path in ["/api.php?action=hotel-data", "/api.php?action=multi-property&command=snapshot-v2", "/api.php?action=bookings", "/api.php?action=transactions", "/api.php?action=finance-report"]:
+        for path in ["/api.php?action=hotel-data", "/api.php?action=multi-property&command=snapshot-v2", "/api.php?action=bookings", "/api.php?action=transactions", "/api.php?action=finance-report", "/api.php?action=report", "/api.php?action=staff"]:
             req = urllib.request.Request(base + path, headers={"Authorization": "Bearer " + foreign_token, "X-Device-ID": "tenantiso-foreign"})
             try:
                 resp = urllib.request.urlopen(req, timeout=30)
