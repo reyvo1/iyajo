@@ -42,3 +42,9 @@ Pilot keempat:
 - feature flag internalMemoSpaEnabled
 - module dock card internalMemoSpa
 - service worker cache ditambahkan
+
+Pilot kelima:
+- property-setup-spa.html
+- feature flag propertySetupSpaEnabled
+- module dock card propertySetupSpa
+- service worker cache ditambahkan
