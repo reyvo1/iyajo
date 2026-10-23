@@ -19,6 +19,7 @@ const ASSETS_TO_CACHE = [
   "./pos-legacy.html",
   "./pos-spa.html",
   "./internal-memo.html",
+  "./internal-memo-legacy.html",
   "./internal-memo-spa.html",
   "./growth-suite.html",
   "./growth-suite-legacy.html",
