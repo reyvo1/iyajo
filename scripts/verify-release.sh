@@ -49,6 +49,7 @@ php tests/telegram-charge-payment-regression.php
 php tests/telegram-shift-regression.php
 php tests/finance-regression.php
 php tests/hybrid-regression.php
+php tests/tenant-billing-dummy-regression.php
 node tests/realtime-regression.mjs
 node tests/prd-architecture-regression.mjs
 node tests/prd-performance-regression.mjs

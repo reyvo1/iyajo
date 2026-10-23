@@ -75,6 +75,23 @@ switch ($action) {
             tamasyaResetLoginFailureState($pdo,(string)$user['id']);
             tamasyaClearRateLimitScope($pdo,$loginRateScope);
 
+            // Tenant billing dummy: suspend mengunci login seluruh properti.
+            try {
+                $propStmt=$pdo->query("SELECT property_id FROM property_settings WHERE id='system_default' LIMIT 1");
+                $propId=trim((string)$propStmt->fetchColumn());
+                if($propId!==''){
+                    $tbStmt=$pdo->prepare("SELECT status FROM tenant_billing_accounts WHERE property_id=? LIMIT 1");
+                    $tbStmt->execute([$propId]);
+                    $tbStatus=(string)$tbStmt->fetchColumn();
+                    if($tbStatus==='suspended'){
+                        http_response_code(403);
+                        logActivity($pdo,'login_blocked_tenant_suspended','Login ditolak: tenant suspended',$user['id']??null,$user['name']??null);
+                        echo json_encode(['success'=>false,'error'=>'Tenant suspended']);
+                        break;
+                    }
+                }
+            } catch (Throwable $e) { /* tabel belum ada: abaikan */ }
+
             $is2faActive=(int)($user['two_factor_active']??0)===1;
             $resolvedTelegramChatId=resolveTelegramUserIdForStaff($pdo,$user['id'],$user['telegram_chat_id']??null);
             if($is2faActive&&$resolvedTelegramChatId===''){

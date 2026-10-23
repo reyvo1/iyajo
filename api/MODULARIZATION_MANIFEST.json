@@ -79,7 +79,8 @@
     "110_growth_suite.php",
     "112_enterprise_completion.php",
     "115_multi_property_foundation.php",
-    "118_internal_memos.php"
+    "118_internal_memos.php",
+    "119_tenant_billing.php"
   ],
   "hybridImplementation": "H1",
   "hqEntryPoint": "hq/api.php"

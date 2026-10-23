@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>TAMASYA Tenant Billing (Dummy)</title>
+  <script src="./runtime_config.php?v=20261021-tb"></script>
+  <link rel="stylesheet" href="./assets/internal-memo.css?v=20261021-r21" />
+</head>
+<body>
+<header class="topbar"><div><p class="eyebrow">TAMASYA • SAAS</p><h1>Tenant Billing (Dummy/Simulasi)</h1><p>Penagihan penyewa aplikasi. Mode simulasi, belum terhubung payment provider.</p></div><a class="btn secondary" href="./">← Kembali ke PMS</a></header>
+<main>
+  <section class="panel">
+    <h2>Status Tenant</h2>
+    <div id="tb-status">Memuat...</div>
+    <div class="actions"><button class="btn" id="tb-suspend">Suspend</button><button class="btn secondary" id="tb-reopen">Reopen</button><button class="btn secondary" id="tb-auto">Auto-suspend Overdue</button></div>
+  </section>
+  <section class="panel">
+    <h2>Buat Invoice Dummy</h2>
+    <form id="tb-form" class="form-grid">
+      <label>Jumlah<input id="tb-amount" type="number" value="100000" required /></label>
+      <label>Jatuh Tempo<input id="tb-due" type="date" required /></label>
+      <div class="actions span2"><button class="btn" type="submit">Buat Invoice</button></div>
+    </form>
+  </section>
+  <section class="panel">
+    <h2>Daftar Invoice</h2>
+    <div id="tb-list">Memuat...</div>
+    <button class="btn secondary" id="tb-refresh">Muat Ulang</button>
+  </section>
+</main>
+<div id="toast" class="toast"></div>
+<script defer src="./assets/tenant-billing.js"></script>
+</body>
+</html>

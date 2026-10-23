@@ -1613,6 +1613,30 @@ $isRevisionlessControlMutation=(string)$action==='multi-property'
 $isMutatingRequest = $pdo && !$isLocalOnlyNodeMutation && !$isEphemeralMutation
     && in_array($_SERVER['REQUEST_METHOD'] ?? 'GET', ['POST','PUT','PATCH','DELETE'], true)
     && !in_array($action, $revisionExcludedActions, true);
+
+// Tenant billing dummy: saat tenant suspended, semua mutasi data ditolak
+// (kecuali reopen/status) agar token lama tidak mengubah data hotel.
+$tenantSuspendedForMutation = false;
+$tenantBillingCommand = trim((string)($_GET['command'] ?? $_POST['command'] ?? ($input['command'] ?? '')));
+$tenantBillingAllowedWhileSuspended = ((string)$action === 'tenant-billing'
+    && in_array(strtolower($tenantBillingCommand), ['reopen','status'], true));
+if ($isMutatingRequest && !$tenantBillingAllowedWhileSuspended) {
+    try {
+        $propStmt = $pdo->query("SELECT property_id FROM property_settings WHERE id='system_default' LIMIT 1");
+        $propId = trim((string)$propStmt->fetchColumn());
+        if ($propId !== '') {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS tenant_billing_accounts (property_id VARCHAR(190) NOT NULL PRIMARY KEY,status VARCHAR(20) NOT NULL DEFAULT 'active',plan VARCHAR(50) NOT NULL DEFAULT 'dummy',created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $tb = $pdo->prepare("SELECT status FROM tenant_billing_accounts WHERE property_id=? LIMIT 1");
+            $tb->execute([$propId]);
+            if ((string)$tb->fetchColumn() === 'suspended') { $tenantSuspendedForMutation = true; }
+        }
+    } catch (Throwable $e) { $tenantSuspendedForMutation = false; }
+}
+if ($isMutatingRequest && $tenantSuspendedForMutation) {
+    http_response_code(403);
+    echo json_encode(['success'=>false,'error'=>'Tenant suspended'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    exit;
+}
 $primaryMutationLockHeld = false;
 if ($isMutatingRequest && tamasyaNodeRole() === 'online_primary') {
     $primaryMutationLockHeld = tamasyaAcquirePrimaryMutationLock($pdo, 10);
