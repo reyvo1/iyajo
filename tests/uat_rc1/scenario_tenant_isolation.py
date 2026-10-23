@@ -1,0 +1,51 @@
+#!/usr/bin/env python3
+"""Adversarial tenant isolation skeleton. Requires two running property instances."""
+import json, os, urllib.request, urllib.error
+from pathlib import Path
+
+BASE = Path(__file__).resolve().parent
+LOG = BASE / "logs" / "tenant-isolation-results.json"
+P1 = os.getenv("EFC_HQ_PROPERTY1_URL", "http://127.0.0.1:38190").rstrip("/")
+P2 = os.getenv("EFC_HQ_PROPERTY2_URL", "http://127.0.0.1:38191").rstrip("/")
+ADMIN = os.getenv("APP_BOOTSTRAP_ADMIN_USERNAME", "admin")
+PASSWORD = os.getenv("APP_BOOTSTRAP_ADMIN_PASSWORD", "Tamasya-UAT-RC1-Only!")
+results = []
+
+def save():
+    LOG.parent.mkdir(parents=True, exist_ok=True)
+    LOG.write_text(json.dumps(results, ensure_ascii=False, indent=2), encoding="utf-8")
+
+def check(name, ok, detail=None):
+    results.append({"test": name, "pass": bool(ok), "details": detail})
+    print("PASS" if ok else "FAIL", name, str(detail or "")[:500], flush=True)
+    save()
+
+def login(base, device):
+    import urllib.request, json
+    body = json.dumps({"username": ADMIN, "password": PASSWORD, "offlineSessionScopeId": "offline_" + device}).encode()
+    req = urllib.request.Request(base + "/api.php?action=login", data=body, headers={"Content-Type": "application/json", "X-Device-ID": device}, method="POST")
+    try:
+        resp = urllib.request.urlopen(req, timeout=30)
+    except urllib.error.HTTPError as e:
+        resp = e
+    data = json.loads(resp.read().decode())
+    if resp.status != 200 or not data.get("token"):
+        raise RuntimeError(f"login failed: {resp.status} {data}")
+    return data["token"]
+
+try:
+    t1 = login(P1, "tenantiso-p1")
+    t2 = login(P2, "tenantiso-p2")
+    # Cross-property hotel-data must not expose the other property's data.
+    for label, base, foreign_token in [("P1 token on P2", P2, t1), ("P2 token on P1", P1, t2)]:
+        req = urllib.request.Request(base + "/api.php?action=hotel-data", headers={"Authorization": "Bearer " + foreign_token, "X-Device-ID": "tenantiso-foreign"})
+        try:
+            resp = urllib.request.urlopen(req, timeout=30)
+            body = resp.read().decode()
+            check(label + " returns non-200 or empty", False, {"status": resp.status, "body": body[:300]})
+        except urllib.error.HTTPError as e:
+            check(label + " rejected", e.code in (401, 403, 404), {"status": e.code})
+except Exception as e:
+    check("tenant isolation scenario bootstrap", False, str(e))
+save()
+print("Tenant isolation skeleton complete. Full adversarial coverage requires wiring + two running properties.")

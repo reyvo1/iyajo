@@ -27,3 +27,8 @@ Dibuat untuk melanjutkan pekerjaan lintas sesi chat.
 2. Jalankan source gate lokal.
 3. Tambah dokumentasi hasil.
 4. Commit kecil per modul.
+
+## Tenant isolation skeleton
+- File: tests/uat_rc1/scenario_tenant_isolation.py
+- Status: skeleton only, not wired into workflow yet.
+- Next: wire into two-property HQ run and assert 401/403 on cross-property access.
