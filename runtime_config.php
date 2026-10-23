@@ -52,6 +52,7 @@ $config = [
         'enterpriseSuiteSpaEnabled' => $envFlag('TAMASYA_ENTERPRISE_SUITE_SPA_ENABLED', false),
         'enterpriseSuiteSpaEnabled' => $envFlag('TAMASYA_ENTERPRISE_SUITE_SPA_ENABLED', false),
         'multiPropertyFoundationEnabled' => $envFlag('TAMASYA_MULTI_PROPERTY_FOUNDATION_ENABLED', false),
+        'internalMemoSpaEnabled' => $envFlag('TAMASYA_INTERNAL_MEMO_SPA_ENABLED', false),
         'posSpaEnabled' => $envFlag('TAMASYA_POS_SPA_ENABLED', false),
     ],
     'runtimeConfigVersion' => 3,

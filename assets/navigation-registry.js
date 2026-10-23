@@ -53,6 +53,20 @@ const TAMASYA_DOMAIN_ORDER = Object.freeze(['frontoffice','operations','hr','sys
  * rendered without an href, so an OFF feature flag never becomes UI-only security.
  */
 const TAMASYA_MODULE_DOCK = Object.freeze({
+  internalMemoSpa: Object.freeze({
+    id: 'internalMemoSpa',
+    elementId: 'tamasya-internal-memo-spa-menu',
+    href: './internal-memo-spa.html',
+    kind: 'memo',
+    icon: '🧪',
+    title: 'Memo Internal SPA (pilot)',
+    subtitle: 'Pilot migration behind feature flag',
+    aria: 'Buka Memo Internal SPA pilot',
+    roles: Object.freeze(['admin','finance','owner']),
+    requiredAnyTabs: Object.freeze(['finance','report','staff']),
+    requiredFeatures: Object.freeze(['internalMemoSpaEnabled']),
+    showWhenLocked: false
+  }),
   memo: Object.freeze({
     id: 'memo',
     elementId: 'tamasya-memo-menu',
@@ -152,7 +166,7 @@ const TAMASYA_MODULE_DOCK = Object.freeze({
   })
 });
 
-const TAMASYA_MODULE_ORDER = Object.freeze(['pos','posSpa','memo','growth','growthSpa','enterpriseSpa','enterprise']);
+const TAMASYA_MODULE_ORDER = Object.freeze(['pos','posSpa','memo','internalMemoSpa','growth','growthSpa','enterpriseSpa','enterprise']);
 
 function tamasyaVisibleDomainMembers(group, allowedTabs, role) {
   const allowed = Array.isArray(allowedTabs) ? allowedTabs : [];
