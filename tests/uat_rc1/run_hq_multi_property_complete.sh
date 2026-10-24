@@ -12,6 +12,8 @@ DUMP=/tmp/tamasya-efc-hq-property-seed.sql
 P1_DB=tamasya_rc1_hq_prop1; P2_DB=tamasya_rc1_hq_prop2; HQ_DB=tamasya_rc1_hq
 P1_CFG=/tmp/tamasya-efc-hq-p1-db.php; P2_CFG=/tmp/tamasya-efc-hq-p2-db.php; HQ_CFG=/tmp/tamasya-efc-hq-config.json
 COMPANY=company-rc1-uat; P1_ID=hotel-hq-01; P2_ID=hotel-hq-02
+ADMIN="${APP_BOOTSTRAP_ADMIN_USERNAME:-admin}"
+PASSWORD="${APP_BOOTSTRAP_ADMIN_PASSWORD:?APP_BOOTSTRAP_ADMIN_PASSWORD must be set for tenant isolation UAT}"
 SECRET='efc-hq-property-secret-0123456789abcdef0123456789'
 VIEWER='efc-hq-viewer-token-0123456789abcdef'
 read -r HQ_INTERNAL_PORT HQ_TLS_PORT P1_PORT P2_PORT EPHEMERAL_LOW EPHEMERAL_HIGH < <(python3 - <<'PYPORTS'
