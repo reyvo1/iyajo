@@ -3480,9 +3480,21 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                                 ["text" => "🔹 " . $sub['name'] . " (Pilih)", "callback_data" => "p_exp_sub:" . $catId . ":" . $sub['id']]
                             ];
                         }
-                        
+
+                        if (empty($subs)) {
+                            $quickAmounts = [50000, 100000, 150000, 200000, 350000, 500000, 1000000];
+                            if (stripos($catName, 'gaji') !== false) {
+                                $quickAmounts = [1500000, 1800000, 2000000, 2500000, 3000000];
+                            }
+                            foreach ($quickAmounts as $amount) {
+                                $inlineKeyboard[] = [
+                                    ["text" => "💵 Rp " . tamasyaTelegramFormatAmount($amount), "callback_data" => "p_exp_confirm_direct:" . $catId . "::" . $amount]
+                                ];
+                            }
+                        }
+
                         $inlineKeyboard[] = [
-                            ["text" => "✍️ Nominal Kustom / Keterangan Lain...", "callback_data" => "p_exp_custom:" . $catId]
+                            ["text" => "✍️ Nominal & Foto (Kustom)", "callback_data" => "p_exp_custom:" . $catId]
                         ];
                         $inlineKeyboard[] = [
                             ["text" => "⬅️ Kembali", "callback_data" => "pengeluaran_menu"]
@@ -3556,17 +3568,17 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                     $catName = $catRow ? $catRow['name'] : 'Lain-lain';
                     $subName = $subRow ? $subRow['name'] : 'Umum';
                     
-                    $replyText = "✍ *INPUT NOMINAL KUSTOM* (" . strtoupper($catName) . " - " . strtoupper($subName) . ")\n\n" .
-                                 "Kirim pesan teks manual ke Bot dengan format:\n" .
-                                 "`/pengeluaran_sub {$catId} {$subId} <nominal> <deskripsi>`\n\n" .
-                                 "*Contoh*:\n" .
-                                 "`/pengeluaran_sub {$catId} {$subId} 125000 beli sapu ijuk`";
+                    $ctx = json_encode(['flow'=>'expense_input','catId'=>$catId,'subId'=>$subId,'photoFileId'=>null], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+                    $pdo->prepare("UPDATE staff SET telegram_state='waiting_for_expense_input',telegram_context=? WHERE id=?")->execute([$ctx,$loggedInStaff['id']]);
+                    $loggedInStaff['telegram_state']='waiting_for_expense_input';
+                    $loggedInStaff['telegram_context']=$ctx;
+                    $replyText = "✍ *INPUT PENGELUARAN* (" . strtoupper($catName) . " - " . strtoupper($subName) . ")\n\nKetik nominal pengeluaran sekarang.\nContoh: `125000 beli sapu ijuk`\n\nAnda juga bisa kirim foto nota sebelum atau sesudah mengetik nominal.";
                     $replyMarkup = [
                         "inline_keyboard" => [
-                            [["text" => "⬅️ Kembali", "callback_data" => "p_exp_sub:" . $catId . ":" . $subId]]
+                            [["text" => "❌ Batalkan", "callback_data" => "p_exp_sub:" . $catId . ":" . $subId]]
                         ]
                     ];
-                    $alertText = "Nominal Kustom";
+                    $alertText = "Input Pengeluaran";
                 } elseif (strpos($callbackData, "p_exp_confirm_direct:") === 0) {
                     $parts = explode(":", $callbackData);
                     $catId = $parts[1];
@@ -3581,31 +3593,44 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                         $alertText = "Akses ditolak!";
                     } else {
                         $catRow = $subRow = null;
-                        try {
-                            $pair = requireTelegramFinancialCategoryPair($pdo,(string)$catId,(string)$subId,'expense');
-                            $catRow = ['name'=>$pair['category_name']];
-                            $subRow = ['name'=>$pair['subcategory_name']];
-                        } catch (Throwable $pairError) {
-                            $replyText = "❌ " . clientExceptionMessage('Data pengeluaran ditolak',$pairError);
-                            $alertText = "Data tidak valid";
+                        if ($subId === '') {
+                            $stmtCat = $pdo->prepare("SELECT * FROM categories WHERE id=? AND type='expense' AND is_active=1 LIMIT 1");
+                            $stmtCat->execute([$catId]);
+                            $dbCat = $stmtCat->fetch(PDO::FETCH_ASSOC);
+                            if ($dbCat) {
+                                $catRow = ['name'=>$dbCat['name']];
+                                $subRow = ['name'=>null];
+                            } else {
+                                $replyText = "❌ " . clientExceptionMessage('Data pengeluaran ditolak', new RuntimeException('Kategori pengeluaran tidak ditemukan.'));
+                                $alertText = "Data tidak valid";
+                            }
+                        } else {
+                            try {
+                                $pair = requireTelegramFinancialCategoryPair($pdo,(string)$catId,(string)$subId,'expense');
+                                $catRow = ['name'=>$pair['category_name']];
+                                $subRow = ['name'=>$pair['subcategory_name']];
+                            } catch (Throwable $pairError) {
+                                $replyText = "❌ " . clientExceptionMessage('Data pengeluaran ditolak',$pairError);
+                                $alertText = "Data tidak valid";
+                            }
                         }
-                        
+
                         if ($catRow && $subRow) {
                             $finalCategory = $catRow['name'];
                             $subcat = $subRow['name'];
-                            
+
                             $today = date("Y-m-d");
-                            $desc = "Pengeluaran {$finalCategory} - {$subcat} via Telegram Bot oleh " . $loggedInStaff['name'];
-                            $notifMsg = "Transaksi Keluar oleh {$loggedInStaff['name']} via Telegram Bot: Pengeluaran {$finalCategory} ({$subcat}) senilai Rp " . tamasyaTelegramFormatAmount($amount);
+                            $desc = "Pengeluaran {$finalCategory}" . ($subcat ? " - {$subcat}" : "") . " via Telegram Bot oleh " . $loggedInStaff['name'];
+                            $notifMsg = "Transaksi Keluar oleh {$loggedInStaff['name']} via Telegram Bot: Pengeluaran {$finalCategory}" . ($subcat ? " ({$subcat})" : "") . " senilai Rp " . tamasyaTelegramFormatAmount($amount);
                             createTelegramCashTransaction($pdo, $telegramCallbackOperationId, $loggedInStaff, [
-                                'type'=>'expense','categoryId'=>$catId,'category'=>$finalCategory,'subcategoryId'=>$subId,'subcategory'=>$subcat,'amount'=>$amount,'date'=>$today,
+                                'type'=>'expense','categoryId'=>$catId,'category'=>$finalCategory,'subcategoryId'=>$subId !== '' ? $subId : null,'subcategory'=>$subcat,'amount'=>$amount,'date'=>$today,
                                 'description'=>$desc,'baseAmount'=>$amount,'taxAmount'=>0,'taxRate'=>0
                             ], $notifMsg, 'callback');
-                            
+
                             $replyText = "✅ *SUKSES INPUT PENGELUARAN*!\n\n" .
                                          "Arus kas keluar tersimpan:\n" .
                                          "• Kategori: *{$finalCategory}*\n" .
-                                         "• Subkategori: *{$subcat}*\n" .
+                                         ($subcat ? "• Subkategori: *{$subcat}*\n" : "") .
                                          "• Nominal: *Rp " . tamasyaTelegramFormatAmount($amount) . "*\n" .
                                          "• Petugas: *{$loggedInStaff['name']}*\n\n" .
                                          "Data sinkron ke dasbor utama.";
@@ -3627,17 +3652,17 @@ Tidak ada kamar kosong yang tersedia secara operasional untuk dipindahkan.',
                     $catRow = $stmtCat->fetch();
                     $catName = $catRow ? $catRow['name'] : 'Lain-lain';
                     
-                    $replyText = "✍ *INPUT PENGELUARAN KUSTOM* (" . strtoupper($catName) . ")\n\n" .
-                                 "Kirim pesan teks manual ke Bot dengan format:\n" .
-                                 "`/pengeluaran {$catId} <nominal> <deskripsi>`\n\n" .
-                                 "*Contoh*:\n" .
-                                 "`/pengeluaran {$catId} 150000 token listrik darurat`";
+                    $ctx = json_encode(['flow'=>'expense_input','catId'=>$catId,'subId'=>null,'photoFileId'=>null], JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+                    $pdo->prepare("UPDATE staff SET telegram_state='waiting_for_expense_input',telegram_context=? WHERE id=?")->execute([$ctx,$loggedInStaff['id']]);
+                    $loggedInStaff['telegram_state']='waiting_for_expense_input';
+                    $loggedInStaff['telegram_context']=$ctx;
+                    $replyText = "✍ *INPUT PENGELUARAN* (" . strtoupper($catName) . ")\n\nKetik nominal pengeluaran sekarang.\nContoh: `125000 token listrik`\n\nAnda juga bisa kirim foto nota sebelum atau sesudah mengetik nominal.";
                     $replyMarkup = [
                         "inline_keyboard" => [
-                            [["text" => "⬅️ Kembali", "callback_data" => "p_exp_cat:" . $catId]]
+                            [["text" => "❌ Batalkan", "callback_data" => "p_exp_cat:" . $catId]]
                         ]
                     ];
-                    $alertText = "Input Kustom";
+                    $alertText = "Input Pengeluaran";
                 } elseif ($callbackData === "laporan_kas_refresh") {
                     if (!$loggedInStaff || !in_array($loggedInStaff['role'], ['admin', 'owner', 'manager', 'finance'])) {
                         $replyText = "🔒 Akses Ditolak!";
@@ -4631,6 +4656,8 @@ Demi keamanan database multi-user, command, tombol, binding akun, data tamu, AI,
                     $pendingAllowed = hasCapability($loggedInStaff,'perform_housekeeping',['admin','manager','receptionist','cleaning_service','finance']);
                 } elseif ($pendingState === 'waiting_for_guest_service_completion_note') {
                     $pendingAllowed = in_array($pendingRole,$guestServiceTelegramRoles,true);
+                } elseif ($pendingState === 'waiting_for_expense_input') {
+                    $pendingAllowed = in_array($pendingRole,['admin','manager','finance'],true);
                 } elseif (in_array($pendingState,['waiting_for_vacancy_belongings_detail','waiting_for_vacancy_damage_detail'],true)) {
                     $pendingAllowed = in_array($pendingRole,['admin','manager','receptionist','finance','cleaning_service','keamanan','koki','tukang_kebun','lain_lain'],true);
                 } elseif ($pendingState === 'waiting_for_leave_reject_reason') {
@@ -6356,6 +6383,91 @@ Shift ditutup di database server dengan catatan Anda. Selisih: *{$result['varian
                         $stmtClear->execute([$loggedInStaff['id']]);
                     }
                     $stateProcessed=true;
+                } elseif ($currentState === 'waiting_for_expense_input') {
+                    $ctx=json_decode((string)$currentCtx,true);if(!is_array($ctx))$ctx=[];
+                    $expenseCatId=trim((string)($ctx['catId']??''));
+                    $expenseSubId=trim((string)($ctx['subId']??''));
+                    $expensePhotoFileId=trim((string)($ctx['photoFileId']??''));
+                    $batalMarkup=['inline_keyboard'=>[[['text'=>'❌ Batalkan','callback_data'=>'pengeluaran_menu']]]];
+
+                    if ($command === '/batal' || strtolower($command)==='batal') {
+                        $pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
+                        $loggedInStaff['telegram_state']=null;$loggedInStaff['telegram_context']=null;
+                        $replyText="❌ Input pengeluaran dibatalkan.";
+                        $replyMarkup=$batalMarkup;
+                        $stateProcessed=true;
+                    } elseif (is_array($photoMsg)) {
+                        $largest=end($photoMsg);
+                        $fid=trim((string)($largest['file_id']??''));
+                        if ($fid !== '') {
+                            $ctx['photoFileId']=$fid;
+                            $encoded=json_encode($ctx,JSON_UNESCAPED_UNICODE|JSON_UNESCAPED_SLASHES);
+                            $pdo->prepare("UPDATE staff SET telegram_context=? WHERE id=?")->execute([$encoded,$loggedInStaff['id']]);
+                            $loggedInStaff['telegram_context']=$encoded;
+                            $replyText="📷 *FOTO NOTA DITERIMA*\n\nSekarang ketik nominal pengeluaran.\nContoh: `125000 beli sapu ijuk`";
+                        } else {
+                            $replyText="⚠️ Foto tidak valid. Kirim ulang foto nota atau ketik nominal.";
+                        }
+                        $replyMarkup=$batalMarkup;
+                        $stateProcessed=true;
+                    } else {
+                        if (preg_match('/^(\d[\d\.,]*)\s*(.*)$/u', $command, $expenseMatch)) {
+                            $amount=(float)preg_replace('/[^0-9]/','',(string)$expenseMatch[1]);
+                            $description=trim((string)$expenseMatch[2]);
+                            if ($amount <= 0) {
+                                $replyText="⚠️ Nominal harus berupa angka lebih dari nol.";
+                                $replyMarkup=$batalMarkup;
+                            } else {
+                                try {
+                                    if ($expenseSubId !== '') {
+                                        $pair=requireTelegramFinancialCategoryPair($pdo,$expenseCatId,$expenseSubId,'expense');
+                                        $categoryName=$pair['category_name'];
+                                        $subcategoryName=$pair['subcategory_name'];
+                                    } else {
+                                        $stmtCat=$pdo->prepare("SELECT * FROM categories WHERE id=? AND type='expense' AND is_active=1 LIMIT 1");
+                                        $stmtCat->execute([$expenseCatId]);
+                                        $catRow=$stmtCat->fetch(PDO::FETCH_ASSOC);
+                                        if (!$catRow) throw new RuntimeException('Kategori pengeluaran tidak ditemukan atau sudah tidak aktif.');
+                                        $categoryName=(string)$catRow['name'];
+                                        $subcategoryName=null;
+                                    }
+                                    if ($description === '') $description='Pengeluaran '.$categoryName.' via Telegram';
+                                    $today=date('Y-m-d');
+                                    $finalDesc=$description.' (Telegram Bot oleh '.$loggedInStaff['name'].')';
+                                    $notifMsg='Transaksi Keluar oleh '.$loggedInStaff['name'].' via Telegram Bot: Pengeluaran '.$categoryName.($subcategoryName?' ('.$subcategoryName.')':'').' senilai Rp '.tamasyaTelegramFormatAmount($amount);
+                                    $proofUrl=$expensePhotoFileId !== '' ? 'telegram_file_id:'.$expensePhotoFileId : null;
+                                    $tgTx=createTelegramCashTransaction($pdo,$telegramUpdateOperationId,$loggedInStaff,[
+                                        'type'=>'expense',
+                                        'category'=>$categoryName,
+                                        'categoryId'=>$expenseCatId,
+                                        'subcategory'=>$subcategoryName,
+                                        'subcategoryId'=>$expenseSubId !== '' ? $expenseSubId : null,
+                                        'amount'=>$amount,
+                                        'date'=>$today,
+                                        'description'=>$finalDesc,
+                                        'baseAmount'=>$amount,
+                                        'taxAmount'=>0,
+                                        'taxRate'=>0,
+                                        'proofUrl'=>$proofUrl
+                                    ],$notifMsg,'message');
+                                    $pdo->prepare("UPDATE staff SET telegram_state=NULL,telegram_context=NULL WHERE id=?")->execute([$loggedInStaff['id']]);
+                                    $loggedInStaff['telegram_state']=null;$loggedInStaff['telegram_context']=null;
+                                    $replyText="✅ *SUKSES INPUT PENGELUARAN*!\n\nTransaksi Pengeluaran Disimpan:\n- Kategori: ".$categoryName."\n".($subcategoryName?"- Subkategori: ".$subcategoryName."\n":"")."- Nominal: Rp ".tamasyaTelegramFormatAmount($amount)."\n- Petugas: ".$loggedInStaff['name']."\n- Deskripsi: ".$description." (Telegram Bot)".($proofUrl?"\n- 📷 Foto nota tersimpan":"");
+                                    $replyMarkup=['inline_keyboard'=>[
+                                        [['text'=>'📤 Input Pengeluaran Lainnya','callback_data'=>'pengeluaran_menu']],
+                                        [['text'=>'📊 Cek Laporan Kas','callback_data'=>'laporan_kas_refresh']]
+                                    ]];
+                                } catch (Throwable $expenseInputError) {
+                                    $replyText="❌ ".clientExceptionMessage('Pengeluaran ditolak',$expenseInputError);
+                                    $replyMarkup=$batalMarkup;
+                                }
+                            }
+                        } else {
+                            $replyText="⚠️ Format salah. Ketik nominal (angka) lalu keterangan.\nContoh: `125000 beli sapu ijuk`\n\nAnda juga bisa kirim foto nota sebelum atau sesudah nominal.";
+                            $replyMarkup=$batalMarkup;
+                        }
+                        $stateProcessed=true;
+                    }
                 }
             }
 
