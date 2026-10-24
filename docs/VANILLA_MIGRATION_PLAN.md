@@ -9,7 +9,7 @@ Urutan saran:
 4. internal-memo.html
 5. property-setup.html
 6. multi-property-foundation.html
-7. webpublic/ (tetap terpisah, publik tanpa auth)
+7. webpublic/ (sudah SPA sejak awal; halaman review tetap standalone, publik tanpa auth)
 
 Checklist per halaman:
 - Buat komponen SPA baru.
@@ -54,3 +54,8 @@ Pilot keenam:
 - feature flag multiPropertyFoundationSpaEnabled
 - module dock card multiPropertyFoundationSpa
 - service worker cache ditambahkan
+
+## Webpublic
+- `webpublic/index.html` sudah memuat bundle SPA (`assets/public-core.js`) dan merender ke `#root`.
+- Pilot `webpublic/index-spa.html` yang tidak direferensikan sudah dihapus.
+- `webpublic/review.html` tetap halaman standalone terpisah.
