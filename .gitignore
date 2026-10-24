@@ -29,3 +29,5 @@ uploads/public-site/*
 # Local config files (not for release)
 .database_setup_key.php
 hotel_local_credentials.php
+
+.playwright-mcp/

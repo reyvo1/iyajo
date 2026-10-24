@@ -1,5 +1,0 @@
-- generic [active] [ref=e1]:
-  - generic [ref=e38]:
-    - paragraph [ref=e44]: Memuat Sistem Hotel...
-    - paragraph [ref=e45]: Permintaan server dibatasi 12 detik agar halaman tidak berhenti tanpa batas.
-  - button "Kontrak" [ref=e37] [cursor=pointer]
