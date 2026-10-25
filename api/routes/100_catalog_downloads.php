@@ -175,12 +175,33 @@ switch ($action) {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') { http_response_code(405); echo json_encode(["message"=>"Method Not Allowed"]); break; }
         $categoryId=trim((string)($input['categoryId']??''));
         $systemKey=tamasyaNormalizeCatalogKey($input['systemKey']??$input['roleKey']??'');
-        $def=tamasyaFinanceSemanticRoleDefinition($systemKey);
-        if($categoryId===''||!$def){http_response_code(400);echo json_encode(['success'=>false,'message'=>'categoryId dan semantic role yang valid wajib diisi.']);break;}
+        $unbind = ($systemKey === '');
+        $def = $unbind ? null : tamasyaFinanceSemanticRoleDefinition($systemKey);
+        if($categoryId===''||(!$unbind&&!$def)){http_response_code(400);echo json_encode(['success'=>false,'message'=>'categoryId wajib diisi; systemKey wajib diisi kecuali untuk melepas pemakaian.']);break;}
         try{
             $pdo->beginTransaction();
             $stmt=$pdo->prepare("SELECT * FROM categories WHERE id=? LIMIT 1 FOR UPDATE");$stmt->execute([$categoryId]);$target=$stmt->fetch(PDO::FETCH_ASSOC)?:null;
             if(!$target||(int)($target['is_active']??0)!==1)throw new RuntimeException('Kategori tujuan tidak tersedia/aktif.',409);
+            $currentSystemKey=tamasyaNormalizeCatalogKey($target['system_key']??'');
+            if($unbind){
+                if($currentSystemKey===''){
+                    tamasyaFinancialCommit($pdo);
+                    echo json_encode(['success'=>true,'message'=>'Kategori “'.$target['name'].'” tidak memiliki pemakaian otomatis.','binding'=>['systemKey'=>null,'categoryId'=>$categoryId],'db'=>getRoleScopedHotelData($pdo,$loggedInStaff)]);
+                    break;
+                }
+                if($currentSystemKey==='room_rental'){
+                    $roomCount=(int)$pdo->query('SELECT COUNT(*) FROM rooms')->fetchColumn();
+                    $bookingCount=(int)$pdo->query('SELECT COUNT(*) FROM bookings')->fetchColumn();
+                    if($roomCount>0 || $bookingCount>0)
+                        throw new DomainException('Pelepasan Pendapatan Kamar ditolak karena sudah ada kamar/booking. Lakukan migrasi melalui maintenance dan UAT.');
+                }
+                $beforeBinding=tamasyaFinanceSemanticBinding($pdo,$currentSystemKey,true);
+                $pdo->prepare("UPDATE categories SET system_key=NULL,is_system=0 WHERE id=?")->execute([$categoryId]);
+                writeRequiredEnterpriseAudit($pdo,$loggedInStaff,'Melepas pemakaian otomatis dari kategori','category_semantic',$categoryId,$beforeBinding,['role_key'=>null,'category_id'=>$categoryId,'transaction_type'=>$target['type'],'category_name'=>$target['name']],'web');
+                tamasyaFinancialCommit($pdo);
+                echo json_encode(['success'=>true,'message'=>'Pemakaian otomatis pada kategori “'.$target['name'].'” dilepas. Kategori tetap dapat dipakai sebagai kategori transaksi umum.','binding'=>['systemKey'=>null,'categoryId'=>$categoryId],'db'=>getRoleScopedHotelData($pdo,$loggedInStaff)]);
+                break;
+            }
             if(tamasyaNormalizeCatalogKey($target['type']??'')!==$def['type'])throw new RuntimeException('Fungsi '.$def['label'].' hanya dapat dihubungkan ke kategori '.$def['type'].'.',409);
             $beforeBinding=tamasyaFinanceSemanticBinding($pdo,$systemKey,true);
             $currentSystemKey=tamasyaNormalizeCatalogKey($target['system_key']??'');

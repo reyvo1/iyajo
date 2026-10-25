@@ -288,8 +288,9 @@ const category=categories().find(x=>String(x.id)===String(categoryId)); if(!cate
 const options=bindings().filter(x=>x.type===category.type).map(x=>({value:x.systemKey,label:x.label,description:x.description + (x.categoryId && String(x.categoryId)!==String(categoryId) ? ' Saat ini: '+(x.categoryName||'kategori lain')+'.' : '')}));
 if(!options.length){toast('Tidak ada pemakaian sistem untuk jenis kategori ini.','error');return;}
 const current=bindingForCategory(categoryId);
-const result=await dialog({title:'Atur Pemakaian Kategori',text:'Pilih hanya jika kategori ini memang menjadi tujuan posting otomatis suatu workflow. Kode teknis disimpan oleh sistem dan tidak perlu dihafal.',fields:[{name:'usage',label:'Pemakaian otomatis',type:'choice',value:current?.systemKey||'',options}],actions:[{id:'cancel',label:'Batal'},{id:'ok',label:'Terapkan',primary:true}]});
-const systemKey=result?.values?.usage; if(!systemKey)return;
+const allOptions=[{value:'',label:'Tidak ada pemakaian (lepas)',description:'Kategori ini menjadi kategori transaksi umum. Pemakaian otomatis, jika ada, dilepas dari kategori ini.'}].concat(options);
+const result=await dialog({title:'Atur Pemakaian Kategori',text:'Pilih hanya jika kategori ini memang menjadi tujuan posting otomatis suatu workflow. Kode teknis disimpan oleh sistem dan tidak perlu dihafal.',fields:[{name:'usage',label:'Pemakaian otomatis',type:'choice',value:current?.systemKey||'',options:allOptions}],actions:[{id:'cancel',label:'Batal'},{id:'ok',label:'Terapkan',primary:true}]});
+const systemKey=result?.values?.usage; if(systemKey===undefined||systemKey===null)return;
 await mutate('categories-semantic-bind',{categoryId:category.id,systemKey},'Pemakaian kategori diperbarui.');
 }
 
