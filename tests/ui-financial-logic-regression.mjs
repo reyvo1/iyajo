@@ -101,4 +101,13 @@ check('P&L tab shows per-category breakdown for income and expense',()=>{
  assert.ok(report.includes('Object.keys(A).map'));
  assert.ok(report.includes('Object.keys(Z).map'));
 });
+check('P&L invariants present: St=sum revenue buckets, ut=sum expense, ft=St-ut',()=>{
+ const report=read('assets/chunks/report.js');
+ assert.ok(report.includes('St=Cn+posRevenue+gn+tr'));
+ assert.ok(report.includes('ut=posCogs+js+K+Ze'));
+ assert.ok(report.includes('ft=St-ut'));
+ assert.ok(!report.includes('vs=0,'));
+ assert.ok(!report.includes('Wa=0,ar=0'));
+ assert.ok(!report.includes('ns=f.useMemo(()=>[],[Gt])'));
+});
 console.log(`${passed} passed; 0 failed`);
