@@ -26,7 +26,7 @@ Tujuan: rapikan kode existing agar mudah dipelihara, tanpa ubah perilaku/angka.
 
 ### 3. Booking/Checkout (030)
 - [x] Posting via canonical authority (verified).
-- [ ] Hapus fallback baseAmount fabrication (ganti null).
+- [x] Hapus fallback baseAmount fabrication (refund share + refund tx).
 - [ ] Tes posting deposit/refund.
 
 ### 4. POS minibar (085)

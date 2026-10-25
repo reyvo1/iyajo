@@ -427,8 +427,8 @@ function recordBookingDeposit(PDO $pdo, array $actor, string $bookingId, array $
  */
 function tamasyaRefundShareForBooking(array $income, array $allocations, string $bookingId): array {
     $incomeAmount = max(0.0, round((float)($income['amount'] ?? 0), 2));
-    $incomeBase = max(0.0, round((float)($income['baseAmount'] ?? $incomeAmount), 2));
     $incomeTax = max(0.0, round((float)($income['taxAmount'] ?? 0), 2));
+    $incomeBase = max(0.0, round((float)($income['baseAmount'] ?? max(0.0, $incomeAmount - $incomeTax)), 2));
     $allocatedAmount = 0.0;
     $allocatedBase = 0.0;
     $allocatedTax = 0.0;
@@ -559,7 +559,7 @@ function createBookingRefundTransactions($pdo, array $booking, array $actor, $so
                 'subcategoryId'=>$income['subcategoryId']??null,'subcategorySystemKey'=>$income['subcategorySystemKey']??null,
                 'roomNumber'=>$income['roomNumber']??($booking['roomNumber']??null),'amount'=>$amount,'date'=>date('Y-m-d'),'description'=>$description,
                 'createdBy'=>currentStaffLabel($actor),'bankAccountId'=>$incomeSplitValid?null:($income['bankAccountId']??null),'bookingId'=>$bookingId,
-                'bookingSource'=>$income['bookingSource']??($booking['bookingSource']??'Direct'),'baseAmount'=>max(0.0,(float)($share['baseAmount']??$amount)),
+                'bookingSource'=>$income['bookingSource']??($booking['bookingSource']??'Direct'),'baseAmount'=>max(0.0,(float)($share['baseAmount']??max(0.0,$amount-max(0.0,(float)($share['taxAmount']??0))))),
                 'taxAmount'=>max(0.0,(float)($share['taxAmount']??0)),'taxRate'=>max(0.0,(float)($share['taxRate']??0)),
                 'taxSnapshotStatus'=>'confirmed','taxSource'=>'booking_refund_snapshot',
                 'transactionKind'=>'refund','sourceEntity'=>'booking_refund','sourceEntityId'=>$sourceTxId,'isSystemGenerated'=>1,
