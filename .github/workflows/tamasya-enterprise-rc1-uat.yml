@@ -161,6 +161,7 @@ jobs:
           php tests/telegram-webhook-telemetry-regression.php
           php tests/telegram-leave-identity-regression.php
           php tests/telegram-key-status-contract-regression.php
+          php tests/telegram-expense-input-regression.php
           php tests/finance-regression.php
           php tests/hybrid-regression.php
           node tests/realtime-regression.mjs
@@ -188,6 +189,7 @@ jobs:
           php tests/channel-connector-webhook-regression.php
           php tests/growth-schema-inventory-regression.php
           php tests/facility-management-regression.php
+          php tests/category-semantic-unbind-regression.php
           php tests/money-precision-regression.php
           php tests/database-tls-regression.php
 
