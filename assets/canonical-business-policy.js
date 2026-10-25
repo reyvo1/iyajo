@@ -24,15 +24,20 @@
   function recognizedRevenue(tx) {
     const gross = amount(tx?.amount);
     if (gross <= 0) return 0;
-    const status = lower(tx?.taxSnapshotStatus ?? tx?.tax_snapshot_status ?? 'unresolved');
-    if (status === 'unresolved') return 0;
     const baseRaw = tx?.baseAmount ?? tx?.base_amount;
     const taxRaw = tx?.taxAmount ?? tx?.tax_amount;
     const base = Number(baseRaw);
     const tax = Number(taxRaw);
+    // Parity with server tamasyaRecognizedRevenueAmount(): explicit valid split
+    // takes precedence over taxSnapshotStatus (so unresolved receipts with a
+    // known split still expose their DPP for journal/reconciliation).
     if (Number.isFinite(base) && Number.isFinite(tax) && base >= 0 && tax >= 0 && Math.abs((base + tax) - gross) <= 1) {
       return Math.max(0, Math.round((gross - Math.min(gross, tax)) * 100) / 100);
     }
+    const status = lower(tx?.taxSnapshotStatus ?? tx?.tax_snapshot_status ?? 'unresolved');
+    if (status === 'unresolved') return 0;
+    // Missing tax evidence is fail-closed. Only rows explicitly marked not_applicable
+    // may use gross as base without a tax split.
     if (status === 'not_applicable') return gross;
     return 0;
   }
@@ -93,7 +98,8 @@
       || ['extra', 'service'].includes(kind) || kind.startsWith('extra_') || kind.startsWith('service_')) bucket = 'extra';
     else if (categorySystemKey === 'room_rental'
       || ['booking_payment', 'down_payment', 'settlement', 'refund', 'booking_charge'].includes(kind)
-      || sourceEntity === 'booking') bucket = 'room';
+      || sourceEntity === 'booking'
+      || String(tx?.bookingId ?? tx?.booking_id ?? '').trim() !== '') bucket = 'room';
     else bucket = kind || 'manual';
 
     let incomeDelta = 0;

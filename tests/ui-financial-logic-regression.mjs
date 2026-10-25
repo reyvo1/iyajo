@@ -83,4 +83,22 @@ check('Local operational summary counts dirty rooms separately from available ro
  assert.equal(summary.dirty,1);assert.equal(summary.available,1);assert.equal(summary.booked,1);
  assert.equal(Object.values(summary).reduce((a,b)=>a+b,0),3);
 });
+check('Client recognizedRevenue matches server: valid split takes precedence over unresolved status',()=>{
+ const tx={id:'unresolved-split',type:'income',date:'2026-01-28',amount:110000,baseAmount:100000,taxAmount:10000,taxSnapshotStatus:'unresolved',transactionKind:'booking_payment',categorySystemKey:'room_rental'};
+ assert.equal(Math.round(policy.recognizedRevenue(tx)),100000);
+ assert.equal(policy.transactionSemantics(tx).incomeDelta,0);
+ const tx2={id:'unresolved-nosplit',type:'income',date:'2026-01-28',amount:110000,baseAmount:null,taxAmount:null,taxSnapshotStatus:'unresolved',transactionKind:'manual'};
+ assert.equal(policy.recognizedRevenue(tx2),0);
+});
+check('Client bucket matches server: bookingId presence routes to room',()=>{
+ const tx={id:'bk',type:'income',date:'2026-01-28',amount:110000,baseAmount:100000,taxAmount:10000,taxSnapshotStatus:'confirmed',transactionKind:'manual',categorySystemKey:'',bookingId:'B-123'};
+ assert.equal(policy.transactionSemantics(tx).bucket,'room');
+});
+check('P&L tab shows per-category breakdown for income and expense',()=>{
+ const report=read('assets/chunks/report.js');
+ assert.ok(report.includes('Rincian per kategori (pemasukan)'));
+ assert.ok(report.includes('Rincian per kategori (pengeluaran)'));
+ assert.ok(report.includes('Object.keys(A).map'));
+ assert.ok(report.includes('Object.keys(Z).map'));
+});
 console.log(`${passed} passed; 0 failed`);
