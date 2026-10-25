@@ -162,7 +162,7 @@ function tamasyaPosInsertTransaction(PDO $pdo, array $tx, array $actor): string 
         'subcategory'=>$tx['subcategory']??null,'subcategoryId'=>$tx['subcategoryId']??null,'subcategorySystemKey'=>$tx['subcategorySystemKey']??null,
         'roomNumber'=>$tx['roomNumber']??null,'amount'=>tamasyaPosNumber($tx['amount']),'date'=>$date,'serviceDate'=>$date,
         'description'=>(string)$tx['description'],'createdBy'=>(string)($actor['id']??'staff'),'bankAccountId'=>$tx['bankAccountId']??null,
-        'baseAmount'=>tamasyaPosNumber($tx['baseAmount']??$tx['amount']),'taxAmount'=>tamasyaPosNumber($tx['taxAmount']??0),
+        'baseAmount'=>isset($tx['baseAmount']) && $tx['baseAmount'] !== '' ? tamasyaPosNumber($tx['baseAmount']) : null,'taxAmount'=>tamasyaPosNumber($tx['taxAmount']??0),
         'taxRate'=>tamasyaPosNumber($tx['taxRate']??0,3),'taxSnapshotStatus'=>'confirmed','taxSource'=>(string)($tx['taxSource']??'pos_snapshot'),
         'taxRuleId'=>$tx['taxRuleId']??null,'taxNote'=>$tx['taxNote']??null,'bookingId'=>$tx['bookingId']??null,'bookingSource'=>(string)($tx['bookingSource']??'POS'),
         'transactionKind'=>(string)$tx['transactionKind'],'sourceEntity'=>'pos_sale','sourceEntityId'=>(string)$tx['sourceEntityId'],'isSystemGenerated'=>1,

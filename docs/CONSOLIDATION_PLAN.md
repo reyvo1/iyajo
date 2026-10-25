@@ -30,7 +30,7 @@ Tujuan: rapikan kode existing agar mudah dipelihara, tanpa ubah perilaku/angka.
 - [ ] Tes posting deposit/refund.
 
 ### 4. POS minibar (085)
-- [ ] Fix fallback baseAmount ?? amount.
+- [x] Fix fallback baseAmount (null instead of amount).
 - [ ] Tes POS insert transaction.
 
 ### 5. Staff/RBAC (050 + 017)
