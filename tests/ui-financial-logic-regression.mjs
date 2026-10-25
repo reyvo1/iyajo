@@ -96,8 +96,8 @@ check('Client bucket matches server: bookingId presence routes to room',()=>{
 });
 check('P&L tab shows per-category breakdown for income and expense',()=>{
  const report=read('assets/chunks/report.js');
- assert.ok(report.includes('Rincian per kategori (pemasukan)'));
- assert.ok(report.includes('Rincian per kategori (pengeluaran)'));
+ assert.ok(report.includes('Rincian per kategori (pemasukan, basis KAS)'));
+ assert.ok(report.includes('Rincian per kategori (pengeluaran, basis KAS)'));
  assert.ok(report.includes('Object.keys(A).map'));
  assert.ok(report.includes('Object.keys(Z).map'));
 });
