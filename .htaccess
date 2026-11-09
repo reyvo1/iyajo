@@ -38,6 +38,9 @@ LimitRequestBody 12582912
     # Those files are served only through authenticated API endpoints.
     RewriteRule ^uploads(?:/|$) - [F,L]
 
+    # Operational folders are never public (nginx already denies them).
+    RewriteRule ^(?:deploy|scripts|services)(?:/|$) - [F,L]
+
     # 2. API Route Redirection: Redirects api/something to api.php?action=something relative to the current directory
     RewriteCond %{REQUEST_FILENAME} !-f
     RewriteCond %{REQUEST_FILENAME} !-d
@@ -61,6 +64,9 @@ LimitRequestBody 12582912
 # 3. Prevent browser and server caching for index.html (SPA entry)
 # This forces the browser to always load the latest React bundle after you upload changes
 <IfModule mod_headers.c>
+    <FilesMatch "\.(?:js|mjs|css|json|webmanifest)$">
+        Header set Cache-Control "no-cache"
+    </FilesMatch>
     <FilesMatch "index\.html$">
         Header set Cache-Control "no-cache, no-store, must-revalidate"
         Header set Pragma "no-cache"

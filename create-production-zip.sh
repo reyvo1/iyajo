@@ -71,6 +71,8 @@ rm -f "$STAGING_DIR"/TESTAMASYA-*
 rm -f "$STAGING_DIR"/APPLY-*
 rm -f "$STAGING_DIR"/MIGRATION-*
 rm -f "$STAGING_DIR"/R16_*
+rm -f "$STAGING_DIR"/AUDIT_* "$STAGING_DIR"/TESTAMASYA_* "$STAGING_DIR"/TAMASYA_*
+rm -f "$STAGING_DIR/push-to-github.sh" "$STAGING_DIR/create-production-zip.sh"
 # Arsip dokumentasi lama tidak perlu ikut paket rilis.
 # Arsip dokumentasi lama tidak perlu ikut paket rilis. Dilakukan setelah
 # seluruh berkas disalin, karena docs/ ikut terbawa dari git ls-files.
