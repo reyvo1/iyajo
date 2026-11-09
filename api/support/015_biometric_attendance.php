@@ -214,6 +214,39 @@ function tamasyaBiometricFindActiveStaff(PDO $pdo,string $staffId,bool $forUpdat
     return $row;
 }
 
+/**
+ * Status clock-in (present/late) yang sadar shift. Sebelumnya satu batas global ATTENDANCE_LATE_AFTER (08:30) dipakai
+ * untuk semua staf sehingga staf shift siang/malam SELALU tercatat terlambat. Toleransi = selisih
+ * ATTENDANCE_LATE_AFTER dengan awal shift pagi (default 08:30 - 07:00 = 90 menit), diterapkan ke tiap awal shift
+ * yang dikonfigurasi hotel; datang sampai 120 menit sebelum suatu shift dihitung tepat waktu untuk shift itu.
+ * Untuk jam shift default, hasil bagi staf shift pagi sama dengan aturan lama.
+ */
+function tamasyaAttendanceClockInStatus(PDO $pdo, string $time): string {
+    $lateAfter = trim((string)(getenv('ATTENDANCE_LATE_AFTER') ?: '08:30'));
+    if (!preg_match('/^(\d{2}):(\d{2})$/', $lateAfter, $lm)) return 'present';
+    if (!preg_match('/^(\d{2}):(\d{2})/', $time, $tm)) return 'present';
+    $minute = ((int)$tm[1]) * 60 + (int)$tm[2];
+    $lateAfterMinute = ((int)$lm[1]) * 60 + (int)$lm[2];
+    $legacy = $minute > $lateAfterMinute ? 'late' : 'present';
+    if (!function_exists('getOperationalSettings') || !function_exists('tamasyaShiftBoundariesMinutes')) return $legacy;
+    try {
+        $b = tamasyaShiftBoundariesMinutes((array)getOperationalSettings($pdo));
+    } catch (Throwable $e) {
+        // Pengaturan shift tidak tersedia/rusak: tetap pakai aturan lama, tapi
+        // catat ke log agar regresi perilaku tidak terjadi diam-diam.
+        error_log('[attendance] getOperationalSettings gagal saat menilai status clock-in; memakai aturan lama: ' . $e->getMessage());
+        return $legacy;
+    }
+    $tolerance = max(0, $lateAfterMinute - (int)$b['day_start']);
+    foreach ([(int)$b['day_start'], (int)$b['siang_start'], (int)$b['malam_start']] as $start) {
+        $sinceStart = ($minute - $start + 1440) % 1440;
+        if ($sinceStart <= $tolerance) return 'present';
+        $untilStart = ($start - $minute + 1440) % 1440;
+        if ($untilStart > 0 && $untilStart <= 120) return 'present';
+    }
+    return 'late';
+}
+
 function tamasyaBiometricCanActForStaff(array $actor,string $staffId): bool {
     return in_array((string)($actor['role']??''),['admin','manager'],true) || (string)($actor['id']??'')===$staffId;
 }
@@ -365,9 +398,7 @@ function tamasyaBiometricCreateAttendanceFromDevice(PDO $pdo,array $device,array
         return ['attendanceId'=>$attendanceId,'staffId'=>(string)$staff['id'],'eventType'=>$eventType];
     }
     $attendanceId=generateServerId('att');
-    $status='present';
-    $lateAfter=trim((string)(getenv('ATTENDANCE_LATE_AFTER') ?: '08:30'));
-    if (preg_match('/^\d{2}:\d{2}$/',$lateAfter) && substr($time,0,5)>$lateAfter) $status='late';
+    $status=tamasyaAttendanceClockInStatus($pdo,(string)$time);
     $pdo->prepare("INSERT INTO attendance
         (id,staff_id,staff_name,date,clock_in,clock_out,method,location,status,fingerprint_token,face_data_url,notes,verification_id,device_id,verification_score,evidence_hash,source_event_id,verified_at)
         VALUES (?,?,?,?,?,NULL,?,?,?,?,NULL,?,?,?,?,?,?,?)")

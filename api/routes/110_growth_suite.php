@@ -140,13 +140,16 @@ if ((string)($action ?? '') === 'growth-channel-webhook') {
             }
             $internalRoomType=trim((string)$mapping['internal_room_type']);
             $ratePlanId=trim((string)($mapping['internal_rate_plan_id']??''));
-            $rooms=$webhookFetchAll($pdo,"SELECT number FROM rooms r WHERE r.type=? AND r.status='available' AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.roomNumber=r.number AND b.status IN ('reserved','active') AND b.checkIn<? AND b.checkOut>?) ORDER BY CAST(r.number AS UNSIGNED),r.number LIMIT 1",
-                [$internalRoomType,(string)($payload['checkIn']??'9999-12-31'),(string)($payload['checkOut']??'0000-01-01')]);
             $checkIn=trim((string)($payload['checkIn']??''));
             $checkOut=trim((string)($payload['checkOut']??''));
             $guestName=trim((string)($payload['guestName']??''));
             if($checkIn===''||$checkOut===''||$guestName==='')throw new InvalidArgumentException('checkIn, checkOut dan guestName wajib.');
-            if(!preg_match('/^\d{4}-\d{2}-\d{2}$/',$checkIn)||!preg_match('/^\d{4}-\d{2}-\d{2}$/',$checkOut)||$checkOut<=$checkIn)throw new InvalidArgumentException('Tanggal reservasi tidak valid.');
+            if(!preg_match('/^\d{4}-\d{2}-\d{2}$/', $checkIn)||!preg_match('/^\d{4}-\d{2}-\d{2}$/', $checkOut)||$checkOut<=$checkIn)throw new InvalidArgumentException('Tanggal reservasi tidak valid.');
+            // Bentrok kamar memakai selang setengah-terbuka yang benar: dua inap tabrakan bila
+            // checkInA < checkOutB dan checkOutA > checkInB. Parameter sebelumnya 9999-12-31/0000-01-01
+            // adalah anti-predikat sehingga NOT EXISTS selalu lolos dan kamar terisi bisa dianggap tersedia.
+            $rooms=$webhookFetchAll($pdo,"SELECT number FROM rooms r WHERE r.type=? AND r.status='available' AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.roomNumber=r.number AND b.status IN ('reserved','active') AND b.checkIn<? AND b.checkOut>?) ORDER BY CAST(r.number AS UNSIGNED),r.number LIMIT 1",
+                [$internalRoomType,$checkOut,$checkIn]);
             if(!$rooms)throw new InvalidArgumentException('Tidak ada kamar '+internalRoomType.' yang tersedia untuk tanggal tersebut.');
             $rateAmount=round((float)($payload['amount']??0),2);
             if($ratePlanId!==''){

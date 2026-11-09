@@ -192,6 +192,9 @@ jobs:
           php tests/payment-connector-webhook-regression.php
           php tests/channel-connector-webhook-regression.php
           php tests/growth-schema-inventory-regression.php
+          php tests/channel-connector-room-conflict-regression.php
+          php tests/refund-unresolved-tax-regression.php
+          php tests/attendance-shift-fallback-logging-regression.php
           php tests/facility-management-regression.php
           php tests/category-semantic-unbind-regression.php
           php tests/money-precision-regression.php

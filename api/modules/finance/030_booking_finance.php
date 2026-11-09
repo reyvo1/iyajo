@@ -563,6 +563,10 @@ function createBookingRefundTransactions($pdo, array $booking, array $actor, $so
                 'splitTransferBankAccountId'=>$refundSplitBank
             ]);
             $refundShiftSessionId=resolveOpenShiftSessionId($pdo,$actor,$refundRequiresShift);
+            // tamasyaRefundShareForBooking selalu mengisi baseAmount (turunan amount-pajak), sehingga refund atas
+            // penerimaan yang pajaknya BELUM terselesaikan sebelumnya dicatat 'confirmed' sebagai retur pendapatan,
+            // padahal penerimaan aslinya masih parkir di suspense. Ikuti status sumbernya.
+            $refundSourceTaxUnresolved = strtolower(trim((string)($income['taxSnapshotStatus'] ?? ''))) === 'unresolved';
             tamasyaPostFinancialTransaction($pdo,[
                 'id'=>$refundId,'type'=>'expense','category'=>$share['category']??null?:($income['category']??getRoomRentalCategoryName($pdo)),
                 'categoryId'=>$income['categoryId']??null,'categorySystemKey'=>$income['categorySystemKey']??null,
@@ -570,9 +574,9 @@ function createBookingRefundTransactions($pdo, array $booking, array $actor, $so
                 'subcategoryId'=>$income['subcategoryId']??null,'subcategorySystemKey'=>$income['subcategorySystemKey']??null,
                 'roomNumber'=>$income['roomNumber']??($booking['roomNumber']??null),'amount'=>$amount,'date'=>date('Y-m-d'),'description'=>$description,
                 'createdBy'=>currentStaffLabel($actor),'bankAccountId'=>$incomeSplitValid?null:($income['bankAccountId']??null),'bookingId'=>$bookingId,
-                'bookingSource'=>$income['bookingSource']??($booking['bookingSource']??'Direct'),'baseAmount'=>(array_key_exists('baseAmount',$share) && $share['baseAmount'] !== null && $share['baseAmount'] !== '' ? tamasyaPosNumber($share['baseAmount']) : null),
-                'taxAmount'=>max(0.0,(float)($share['taxAmount']??0)),'taxRate'=>max(0.0,(float)($share['taxRate']??0)),
-                'taxSnapshotStatus'=> (array_key_exists('baseAmount',$share) && $share['baseAmount'] !== null && $share['baseAmount'] !== '') ? 'confirmed' : 'unresolved','taxSource'=>'booking_refund_snapshot',
+                'bookingSource'=>$income['bookingSource']??($booking['bookingSource']??'Direct'),'baseAmount'=>(!$refundSourceTaxUnresolved && array_key_exists('baseAmount',$share) && $share['baseAmount'] !== null && $share['baseAmount'] !== '' ? tamasyaPosNumber($share['baseAmount']) : null),
+                'taxAmount'=>(!$refundSourceTaxUnresolved ? max(0.0,(float)($share['taxAmount']??0)) : 0.0),'taxRate'=>(!$refundSourceTaxUnresolved ? max(0.0,(float)($share['taxRate']??0)) : 0.0),
+                'taxSnapshotStatus'=> (!$refundSourceTaxUnresolved && array_key_exists('baseAmount',$share) && $share['baseAmount'] !== null && $share['baseAmount'] !== '') ? 'confirmed' : 'unresolved','taxSource'=>'booking_refund_snapshot',
                 'transactionKind'=>'refund','sourceEntity'=>'booking_refund','sourceEntityId'=>$sourceTxId,'isSystemGenerated'=>1,
                 'operationId'=>$operationId,'updatedBy'=>$actor['id']??null,'updatedSource'=>$source,'version'=>1,
                 'isSplitPayment'=>$incomeSplitValid?1:0,'splitCashAmount'=>$refundSplitCash,'splitTransferAmount'=>$refundSplitTransfer,
